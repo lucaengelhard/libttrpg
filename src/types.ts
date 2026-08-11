@@ -104,10 +104,27 @@ type Derive = {
   from: string;
 };
 
+type Library = {
+  type: "LIBRARY";
+  content: Node;
+};
+
+type Import = {
+  type: "IMPORT";
+  from: string;
+};
+
 type Empty = typeof EMPTY;
 export const EMPTY = { type: "EMPTY" } as const;
 
-export type Operator = Multiple | Choose | Derive | Optional | Empty;
+export type Operator =
+  | Multiple
+  | Choose
+  | Derive
+  | Optional
+  | Empty
+  | Import
+  | Library;
 export type Value =
   | Class
   | ClassFeat

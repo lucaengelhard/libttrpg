@@ -1,6 +1,9 @@
 {
   "type": "LIBRARY",
-  "content": [
-    { "type": "IMPORT", "from": "./ranger.json" }
-  ]
+  "content": {
+    "type": "MULTIPLE",
+    "values": [
+      { "type": "IMPORT", "from": "./ranger.json" }
+    ]
+  }
 }
