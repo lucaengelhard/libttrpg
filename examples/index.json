@@ -1,0 +1,6 @@
+{
+  "type": "LIBRARY",
+  "content": [
+    { "type": "IMPORT", "from": "./ranger.json" }
+  ]
+}

@@ -131,8 +131,10 @@ type Character = {
   SKILLS: Record<string, Skill>;
   SPELLS: Record<string, any>;
 };
+type Choice = { options: NodeWith<"MULTIPLE">; maxCount: number };
 export type Env = {
   CHARACTER: Character;
   CURRENT_PATH: string;
   STATIC: Record<string, Node>;
+  CHOICES: Record<string, Choice>;
 };
