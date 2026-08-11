@@ -1,0 +1,403 @@
+{
+  "type": "CLASS",
+  "name": "Ranger",
+  "hitDice": 10,
+  "asi": [4, 8, 12, 16, 19],
+  "levels": {
+    "1": {
+      "type": "MULTIPLE",
+      "values": [
+        {
+          "type": "CHOOSE",
+          "count": 1,
+          "from": {
+            "type": "MULTIPLE",
+            "values": [
+              {
+                "type": "CLASS_FEAT",
+                "name": "Deft Explorer",
+                "levels": {
+                  "1": {
+                    "type": "FEAT",
+                    "name": "Canny",
+                    "gives": {
+                      "type": "MULTIPLE",
+                      "values": [
+                        {
+                          "type": "PROFICIENCY",
+                          "expertise": true,
+                          "skill": {
+                            "type": "CHOOSE",
+                            "count": 1,
+                            "from": {
+                              "type": "DERIVE",
+                              "from": "$CHARACTER.SKILLS?PROFICIENT=true"
+                            }
+                          }
+                        },
+                        {
+                          "type": "CHOOSE",
+                          "count": 2,
+                          "from": { "type": "DERIVE", "from": "$LANGUAGES" }
+                        }
+                      ]
+                    }
+                  },
+                  "6": {
+                    "type": "FEAT",
+                    "name": "Roving",
+                    "gives": {
+                      "type": "MULTIPLE",
+                      "values": [
+                        {
+                          "type": "MODIFIER",
+                          "value": 5,
+                          "modifies": "$CHARACTER.WALKING_SPEED"
+                        },
+                        {
+                          "type": "MODIFIER",
+                          "value": {
+                            "type": "DERIVE",
+                            "from": "$CHARACTER.WALKING_SPEED"
+                          },
+                          "set": "$CHARACTER.CLIMBING_SPEED",
+                          "setIf": "!$CHARACTER.CLIMBING_SPEED && $CHARACTER.CLIMBING_SPEED < $CHARACTER.WALKING_SPEED"
+                        },
+                        {
+                          "type": "MODIFIER",
+                          "value": {
+                            "type": "DERIVE",
+                            "from": "$CHARACTER.WALKING_SPEED"
+                          },
+                          "set": "$CHARACTER.SWIMMING_SPEED",
+                          "setIf": "!$CHARACTER.SWIMMING_SPEED && $CHARACTER.SWIMMING_SPEED < $CHARACTER.WALKING_SPEED"
+                        }
+                      ]
+                    }
+                  },
+                  "10": {
+                    "type": "FEAT",
+                    "name": "Tireless",
+                    "gives": {
+                      "type": "MULTIPLE",
+                      "values": [
+                        {
+                          "type": "RESOURCE",
+                          "name": "Tireless",
+                          "uses": {
+                            "type": "DERIVE",
+                            "from": "$CHARACTER.PROFICIENCY_BONUS"
+                          },
+                          "reset": "$LONG_REST"
+                        },
+                        {
+                          "type": "ACTION",
+                          "time": "1 Action",
+                          "effect": {
+                            "type": "MULTIPLE",
+                            "values": [
+                              {
+                                "type": "MODIFIER",
+                                "value": {
+                                  "type": "ROLL",
+                                  "diceType": 8,
+                                  "diceCount": 1,
+                                  "modifier": {
+                                    "type": "DERIVE",
+                                    "from": "$CHARACTER.ABILITIES.WISDOM"
+                                  },
+                                  "minimum": 1
+                                },
+                                "sets": "$CHARACTER.TEMP_HP"
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "CLASS_FEAT",
+          "name": "Proficiencies",
+          "levels": {
+            "1": {
+              "type": "PROFICIENCY",
+              "armor": [
+                "LIGHT",
+                "MEDIUM",
+                "SHIELDS"
+              ],
+              "weapons": ["SIMPLE", "MARTIAL"],
+              "save": {
+                "type": "MULTIPLE",
+                "values": [
+                  {
+                    "type": "DERIVE",
+                    "from": "$CHARACTER.ABILITIES.STRENGTH"
+                  },
+                  {
+                    "type": "DERIVE",
+                    "from": "$CHARACTER.ABILITIES.DEXTERITY"
+                  }
+                ]
+              },
+              "skill": {
+                "type": "CHOOSE",
+                "count": 3,
+                "from": {
+                  "type": "MULTIPLE",
+                  "values": [
+                    {
+                      "type": "DERIVE",
+                      "from": "$CHARACTER.SKILLS?NAME=Animal Handling|Athletics|Insight|Investigation|Nature|Perception|Stealth|Survival"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "CHOOSE",
+          "count": 1,
+          "from": [
+            {
+              "type": "CLASS_FEAT",
+              "name": "Favored Enemy",
+              "levels": {
+                "1": {
+                  "type": "MULTIPLE",
+                  "values": [{
+                    "type": "CHOOSE",
+                    "count": 1,
+                    "chooseAdditionalAtLevel": [6, 14],
+                    "from": {
+                      "type": "MULTIPLE",
+                      "values": [
+                        {
+                          "type": "MULTIPLE",
+                          "values": [
+                            {
+                              "type": "LITERAL",
+                              "value": "Humanoids"
+                            },
+                            {
+                              "type": "CHOOSE",
+                              "count": 2,
+                              "from": {
+                                "type": "MULTIPLE",
+                                "values": {
+                                  "type": "DERIVE",
+                                  "from": "$CREATURES.HUMANOIDS"
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        { "type": "LITERAL", "value": "Aberrations" },
+                        { "type": "LITERAL", "value": "Beasts" },
+                        { "type": "LITERAL", "value": "Celestials" },
+                        { "type": "LITERAL", "value": "Constructs" },
+                        { "type": "LITERAL", "value": "Dragons" },
+                        { "type": "LITERAL", "value": "Fey" },
+                        { "type": "LITERAL", "value": "Fiends" },
+                        { "type": "LITERAL", "value": "Giants" },
+                        { "type": "LITERAL", "value": "Monstrosities" },
+                        { "type": "LITERAL", "value": "Oozes" },
+                        { "type": "LITERAL", "value": "Plants" },
+                        { "type": "LITERAL", "value": "Undead" }
+                      ]
+                    }
+                  }, {
+                    "type": "CHOOSE",
+                    "count": 1,
+                    "from": { "type": "DERIVE", "from": "$LANGUAGES" }
+                  }]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "2": {
+      "type": "MULTIPLE",
+      "values": [
+        {
+          "type": "OPTIONAL",
+          "value": {
+            "type": "CLASS_FEAT",
+            "name": "Additional Ranger Spells",
+            "levels": {
+              "2": {
+                "type": "MODIFIER",
+                "spellList": [
+                  "Entangle",
+                  "Searing smite",
+                  "Aid",
+                  "Enhance ability",
+                  "Gust of wind",
+                  "Magic weapon",
+                  "Summon beast",
+                  "Elemental weapon",
+                  "Meld into stone",
+                  "Revivify",
+                  "Summon fey",
+                  "Dominate beast",
+                  "Summon elemental",
+                  "Greater restoration"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "type": "OPTIONAL",
+          "value": {
+            "type": "CLASS_FEAT",
+            "name": "Spellcasting Focus",
+            "levels": {}
+          }
+        },
+        {
+          "type": "CLASS_FEAT",
+          "name": "Fighting Style",
+          "levels": {
+            "2": {
+              "type": "CHOOSE",
+              "count": 1,
+              "from": { "type": "DERIVE", "from": "$STATIC.FIGHTING_STYLES" }
+            }
+          }
+        },
+        {
+          "type": "CLASS_FEAT",
+          "name": "Spellcasting",
+          "levels": {
+            "2": {
+              "type": "MULTIPLE",
+              "values": [
+                {
+                  "type": "MODIFIER",
+                  "spellList": {
+                    "type": "DERIVE",
+                    "from": "$SPELLS?CLASS=Ranger"
+                  },
+                  "spellcasting": {
+                    "ability": {
+                      "type": "DERIVE",
+                      "from": "$CHARACTER.ABILITIES.WISDOM"
+                    },
+                    "spellTable": {
+                      "type": "DERIVE",
+                      "from": "$STATIC.SPELL_TABLE"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "3": {
+      "type": "MULTIPLE",
+      "values": [{
+        "type": "CHOOSE",
+        "count": 1,
+        "from": {
+          "type": "MULTIPLE",
+          "values": [
+            {
+              "type": "CLASS_FEAT",
+              "name": "Primal Awareness",
+              "levels": {
+                "3": {
+                  "spell": {
+                    "type": "SPELL",
+                    "spell": "Speak with animals",
+                    "castsWithoutSpellSlot": {
+                      "count": 1,
+                      "reset": "$LONG_REST"
+                    }
+                  }
+                },
+                "5": {
+                  "spell": {
+                    "type": "SPELL",
+                    "spell": "Beast sense",
+                    "castsWithoutSpellSlot": {
+                      "count": 1,
+                      "reset": "$LONG_REST"
+                    }
+                  }
+                },
+                "9": {
+                  "spell": {
+                    "type": "SPELL",
+                    "spell": "Speak with plants",
+                    "castsWithoutSpellSlot": {
+                      "count": 1,
+                      "reset": "$LONG_REST"
+                    }
+                  }
+                },
+                "13": {
+                  "spell": {
+                    "type": "SPELL",
+                    "spell": "Locate creature",
+                    "castsWithoutSpellSlot": {
+                      "count": 1,
+                      "reset": "$LONG_REST"
+                    }
+                  }
+                },
+                "17": {
+                  "spell": {
+                    "type": "SPELL",
+                    "spell": "Commune with nature",
+                    "castsWithoutSpellSlot": {
+                      "count": 1,
+                      "reset": "$LONG_REST"
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }, {
+        "type": "CLASS_FEAT",
+        "name": "Ranger Archetype",
+        "levels": {
+          "3": {
+            "type": "CHOOSE",
+            "count": 1,
+            "from": { "type": "DERIVE", "from": "$STATIC.SUBCLASSES" }
+          }
+        }
+      }]
+    },
+    "4": {
+      "type": "OPTIONAL",
+      "value": { "type": "CLASS_FEAT", "name": "Martial Versatility" }
+    },
+    "5": { "type": "CLASS_FEAT", "name": "Extra Attack" }
+  },
+  "STATIC": {
+    "FIGHTING_STYLES": {
+      "type": "MULTIPLE",
+      "values": []
+    },
+    "SPELL_TABLE": {},
+    "SUBCLASSES": {
+      "type": "MULTIPLE",
+      "values": []
+    }
+  }
+}

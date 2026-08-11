@@ -1,0 +1,19 @@
+{
+  "type": "FEAT",
+  "scope": "FEATNAME",
+  "boons": {
+    "type": "MULTIPLE",
+    "values": [
+      {
+        "type": "VALUE",
+        "value": { "type": "DERIVED", "from": "$CHARACTER.STATS.INT + 3" },
+        "name": "MAX"
+      },
+      {
+        "type": "RESOURCE",
+        "name": "POINTS",
+        "max": { "type": "DERIVED", "from": "$FEATNAME.MAX" }
+      }
+    ]
+  }
+}
