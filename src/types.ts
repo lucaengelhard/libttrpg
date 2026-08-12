@@ -140,17 +140,3 @@ export type Node = Operator | Value;
 export type NodeType = Node["type"];
 export type NodeWithout<T extends NodeType> = Exclude<Node, { type: T }>;
 export type NodeWith<T extends NodeType> = Extract<Node, { type: T }>;
-
-type Character = {
-  CLASSES: Record<string, { level: number }>;
-  ABILITIES: Record<string, any>;
-  SKILLS: Record<string, Skill>;
-  SPELLS: Record<string, any>;
-};
-type Choice = { options: NodeWith<"MULTIPLE">; maxCount: number };
-export type Env = {
-  CHARACTER: Character;
-  CURRENT_PATH: string;
-  STATIC: Record<string, Node>;
-  CHOICES: Record<string, Choice>;
-};

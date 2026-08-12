@@ -153,13 +153,8 @@
                 "type": "CHOOSE",
                 "count": 3,
                 "from": {
-                  "type": "MULTIPLE",
-                  "values": [
-                    {
-                      "type": "DERIVE",
-                      "from": "$CHARACTER.SKILLS?NAME=Animal Handling|Athletics|Insight|Investigation|Nature|Perception|Stealth|Survival"
-                    }
-                  ]
+                  "type": "DERIVE",
+                  "from": "$CHARACTER.SKILLS?NAME=Animal Handling|Athletics|Insight|Investigation|Nature|Perception|Stealth|Survival"
                 }
               }
             }

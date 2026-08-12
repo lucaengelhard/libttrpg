@@ -1,7 +1,14 @@
 import * as path from "@std/path";
 import { EMPTY, Node, NodeWith } from "./types.ts";
-import { expect } from "./parse.ts";
-import { getModifier, readData } from "./lib/utils.ts";
+import {
+  expect,
+  getModifier,
+  getProficiencyBonus,
+  NodePath,
+  PATH_IDENTIFIER,
+  PATH_SEPARATOR,
+  readData,
+} from "./lib/utils.ts";
 
 type Library = Awaited<ReturnType<typeof createLibrary>>;
 async function createLibrary(entryPoint: string) {
@@ -60,13 +67,14 @@ async function createLibrary(entryPoint: string) {
   }
 }
 
-type NodePath = string;
 type CTX = {
   classLevel?: number;
   filePath: string;
   apply: boolean;
   path: NodePath;
 };
+
+type CharacterConfig = { onRender?: (char: Character) => void };
 
 type CharacterAbility = NodeWith<"ABILITY"> & {
   modifiers: Map<string, number>;
@@ -78,6 +86,7 @@ type CharacterSkill = NodeWith<"SKILL"> & {
   modifiers: Map<string, number>;
   proficient: boolean;
   expertise: boolean;
+  halfProficient: boolean;
   passiveModifiers: Map<string, number>;
 };
 
@@ -88,6 +97,8 @@ type CharacterChoice = {
   options: Map<string, Node>;
 };
 
+type CharacterValue = { modifiers: Map<string, number>; set?: number };
+
 class Character {
   #library: Library;
   #name?: string;
@@ -95,9 +106,34 @@ class Character {
   #abilities = new Map<string, CharacterAbility>();
   #skills = new Map<string, CharacterSkill>();
   #choices = new Map<NodePath, CharacterChoice>();
-  constructor(library: Library) {
-    this.#library = library;
 
+  #stats: {
+    speed: {
+      walking: CharacterValue;
+      swimming: CharacterValue;
+      flying: CharacterValue;
+    };
+    ac: CharacterValue;
+  } = {
+    speed: {
+      walking: { modifiers: new Map() },
+      swimming: { modifiers: new Map() },
+      flying: { modifiers: new Map() },
+    },
+    ac: { modifiers: new Map() },
+  };
+  #config: CharacterConfig;
+
+  constructor(
+    library: Library,
+    config?: CharacterConfig,
+  ) {
+    this.#library = library;
+    this.#config = config ?? {};
+    this.cleanup();
+  }
+
+  private cleanup() {
     this.#library.content.get("ABILITY")?.forEach((a) => {
       if (!expect(a.node, "ABILITY")) return;
       this.#abilities.set(a.node.name, {
@@ -116,6 +152,7 @@ class Character {
         passiveModifiers: new Map(),
         proficient: false,
         expertise: false,
+        halfProficient: false,
       });
     });
   }
@@ -125,15 +162,16 @@ class Character {
     return this.render();
   }
 
-  public async addClass(className: string) {
+  public addClass(className: string) {
     if (
       this.#classes.has(className) || !this.#library.has("CLASS", className)
     ) return this;
     this.#classes.set(className, 1);
-    return await this.render();
+    return this.render();
   }
 
   private async render() {
+    this.cleanup();
     for (const [className] of this.#classes) {
       const classObj = this.#library.acccess("CLASS", className)!;
       await this.applyNode(classObj.node, {
@@ -142,6 +180,7 @@ class Character {
         path: "",
       });
     }
+    if (this.#config.onRender) this.#config.onRender(this);
     return this;
   }
 
@@ -149,9 +188,11 @@ class Character {
     node: Node,
     ctxInput: CTX,
   ): Promise<Node> {
-    const pathChunk = "name" in node ? `${node.type}@${node.name}` : node.type;
+    const pathChunk = "name" in node
+      ? `${node.type}${PATH_IDENTIFIER}${node.name}`
+      : node.type;
     const newPath = ctxInput.path.length !== 0
-      ? `${ctxInput.path}_/_${pathChunk}`
+      ? `${ctxInput.path}${PATH_SEPARATOR}${pathChunk}`
       : pathChunk;
     const ctx: CTX = { ...ctxInput, path: newPath };
 
@@ -202,8 +243,6 @@ class Character {
           options: new Map(identifiers),
         });
 
-        //console.log(choiceObj.choicesMade);
-
         return {
           type: "MULTIPLE",
           values: choiceObj.choicesMade.values().toArray(),
@@ -223,11 +262,17 @@ class Character {
       }
 
       case "PROFICIENCY": {
-        const skill = await this.applyNode(node.skill, ctx);
-        if (skill.type === "SKILL") {
-          const characterSkill = this.#skills.get(skill.name)!;
+        const res = await this.applyNode(node.skill, ctx);
+
+        const applyProficiency = (input: NodeWith<"SKILL">) => {
+          const characterSkill = this.#skills.get(input.name)!;
           if (node.expertise) characterSkill.expertise = true;
           else characterSkill.proficient = true;
+        };
+
+        if (res.type === "SKILL") applyProficiency(res);
+        else if (res.type === "MULTIPLE") {
+          res.values.forEach((n) => applyProficiency(n));
         }
 
         return EMPTY;
@@ -371,17 +416,30 @@ class Character {
     return EMPTY;
   }
 
-  public async get() {
-    await this.render();
-
+  public get() {
     return {
       name: this.#name,
       classes: this.#classes,
+      proficiencyBonus: getProficiencyBonus(this.calculateLevel()),
       abilities: new Map(
-        this.#abilities.values().map((a) => [a.name, this.calculateAbility(a)]),
+        this.#abilities.values().map((
+          a,
+        ) => [a.name, {
+          score: this.calculateAbility(a),
+          modifier: getModifier(this.calculateAbility(a)),
+          ...this.calculateSave(a),
+        }]),
       ),
       skills: new Map(
-        this.#skills.values().map((s) => [s.name, this.calculateSkill(s)]),
+        this.#skills.values().map((
+          s,
+        ) => [s.name, {
+          value: this.calculateSkill(s),
+          proficient: s.proficient,
+          expertise: s.expertise,
+          halfProficient: s.halfProficient,
+          ...this.calculatePassive(s),
+        }]),
       ),
       choices: new Map(
         this.#choices.entries().map((
@@ -400,25 +458,80 @@ class Character {
   private calculateAbility(ability: CharacterAbility): number {
     return ability.modifiers.values().reduce((alloc, curr) => alloc + curr);
   }
+  private calculateSave(ability: CharacterAbility) {
+    const save = ability.saveModifiers.size >
+        0
+      ? ability.saveModifiers.values().reduce((acc, curr) => acc + curr)
+      : 0;
+
+    const proficiencyBonus = ability.saveProficient
+      ? getProficiencyBonus(this.calculateLevel())
+      : 0;
+
+    return {
+      save: save + getModifier(this.calculateAbility(ability)) +
+        proficiencyBonus,
+      saveProficient: ability.saveProficient,
+    };
+  }
   private calculateSkill(skill: CharacterSkill): number {
     const modifierValue = skill.modifiers.size > 0
       ? skill.modifiers.values().reduce((alloc, curr) => alloc + curr)
       : 0;
 
     const ability = this.#abilities.get(skill.ability)!;
-    return getModifier(this.calculateAbility(ability)) + modifierValue;
+    const proficiencyBonusValue = getProficiencyBonus(this.calculateLevel());
+    const proficiencyBonus = skill.expertise
+      ? proficiencyBonusValue * 2
+      : skill.proficient
+      ? proficiencyBonusValue
+      : skill.halfProficient
+      ? Math.floor(proficiencyBonusValue / 2)
+      : 0;
+    return getModifier(this.calculateAbility(ability)) + modifierValue +
+      proficiencyBonus;
+  }
+  private calculatePassive(skill: CharacterSkill): { passive?: number } {
+    if (!skill.hasPassive) return {};
+
+    const passive = skill.passiveModifiers.size > 0
+      ? skill.passiveModifiers.values().reduce((acc, curr) => acc + curr)
+      : 0;
+
+    return { passive };
+  }
+  private calculateLevel(): number {
+    return this.#classes.size > 0
+      ? this.#classes.values().reduce((acc, curr) => acc + curr)
+      : 0;
+  }
+  private calculateCharVal(value: CharacterValue): number {
+    if (value.set) return value.set;
+    return value.modifiers.size > 0
+      ? value.modifiers.values().reduce((acc, curr) => acc + curr)
+      : 0;
   }
 
-  public makeChoice(identifier: string, name: string) {
+  public makeChoice(identifier: NodePath, name: string) {
     const choiceObj = this.#choices.get(identifier);
 
     if (!choiceObj) return;
     if (choiceObj.choicesMade.size >= choiceObj.max) return;
 
     const choice = choiceObj.options.get(name);
+
     if (!choice) return;
 
     choiceObj.choicesMade.set(name, choice);
+
+    return this.render();
+  }
+
+  public removeChoice(identifier: NodePath, name: string) {
+    const choiceObj = this.#choices.get(identifier);
+    if (!choiceObj || !choiceObj.choicesMade.has(name)) return;
+
+    choiceObj.choicesMade.delete(name);
 
     return this.render();
   }
@@ -426,17 +539,18 @@ class Character {
 
 const lib = await createLibrary("./examples/index.json");
 
-const char = new Character(lib);
-await char.addClass("Test");
-//console.log(await char.get());
-await char.makeChoice(
-  "CLASS@Test_/_MULTIPLE_/_CLASS_FEAT@Second Feat_/_MULTIPLE_/_MODIFIER_/_CHOOSE@Choice",
-  "ACROBATICS",
-);
-console.log(await char.get());
+let count = 0;
+const char = new Character(lib, {
+  onRender(char) {
+    count++;
+    console.log(count);
+  },
+});
+await char.addClass("Ranger");
 
 await char.makeChoice(
-  "CLASS@Test_/_MULTIPLE_/_CLASS_FEAT@Second Feat_/_MULTIPLE_/_MODIFIER_/_CHOOSE@Choice",
-  "MEDICINE",
+  "CLASS@Ranger_/_MULTIPLE_/_CLASS_FEAT@Proficiencies_/_PROFICIENCY_/_CHOOSE",
+  "ANIMAL HANDLING",
 );
-console.log(await char.get());
+
+console.log(char.get());
