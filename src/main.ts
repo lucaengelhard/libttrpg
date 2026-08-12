@@ -135,7 +135,7 @@ class Character {
       if (!expect(a.node, { path: "CLEANUP" }, "ABILITY")) return;
       this.#abilities.set(a.node.name, {
         ...a.node,
-        modifiers: new Map([["__BASE_VALUE__", 0]]),
+        modifiers: new Map(),
         saveModifiers: new Map(),
         saveProficient: false,
       });
