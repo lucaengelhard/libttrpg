@@ -322,7 +322,7 @@
               "levels": {
                 "3": {
                   "type": "SPELL",
-                  "spell": "Speak with animals",
+                  "name": "Speak with animals",
                   "castsWithoutSpellSlot": {
                     "count": 1,
                     "reset": "$LONG_REST"
@@ -330,7 +330,7 @@
                 },
                 "5": {
                   "type": "SPELL",
-                  "spell": "Beast sense",
+                  "name": "Beast sense",
                   "castsWithoutSpellSlot": {
                     "count": 1,
                     "reset": "$LONG_REST"
@@ -338,7 +338,7 @@
                 },
                 "9": {
                   "type": "SPELL",
-                  "spell": "Speak with plants",
+                  "name": "Speak with plants",
                   "castsWithoutSpellSlot": {
                     "count": 1,
                     "reset": "$LONG_REST"
@@ -346,7 +346,7 @@
                 },
                 "13": {
                   "type": "SPELL",
-                  "spell": "Locate creature",
+                  "name": "Locate creature",
                   "castsWithoutSpellSlot": {
                     "count": 1,
                     "reset": "$LONG_REST"
@@ -354,7 +354,7 @@
                 },
                 "17": {
                   "type": "SPELL",
-                  "spell": "Commune with nature",
+                  "name": "Commune with nature",
                   "castsWithoutSpellSlot": {
                     "count": 1,
                     "reset": "$LONG_REST"

@@ -444,6 +444,7 @@ class Character {
       case "ROLL":
       default:
         console.log(node.type);
+        return EMPTY;
     }
   }
 
@@ -460,23 +461,31 @@ class Character {
         }
         break;
       }
-      case "OPTIONAL": {
-        return this.getIdentifier(node.value, ctx);
-      }
-      case "IMPORT": {
-        const data = await readData(ctx.filePath);
 
+      case "IMPORT": {
+        const _data = await readData(ctx.filePath);
+        // TODO
         break;
       }
-      case "DERIVE": {
+      case "DERIVE":
         return this.getIdentifier(this.derive(node.from), ctx);
-      }
       case "PROFICIENCY":
-      case "MODIFIER":
+        return this.getIdentifier(node.skill, ctx);
+
+      case "MODIFIER": {
+        let res: string | undefined = undefined;
+        if (node.modifies) res = await this.getIdentifier(node.modifies, ctx);
+        if (!res && node.set) res = await this.getIdentifier(node.set, ctx);
+        return res;
+      }
       case "ACTION":
-      case "SPELL":
-      case "ROLL":
+        return this.getIdentifier(node.effect, ctx);
       case "LITERAL":
+        return node.value.toString();
+      case "ROLL":
+        return `${node.diceCount}d${node.diceType}` +
+          (node.modifier ? ` + ${node.modifier}` : "") +
+          (node.minimum ? ` (min. ${node.minimum})` : "");
       case "EMPTY":
         return undefined;
     }
@@ -508,7 +517,7 @@ class Character {
       }
     }
 
-    function applyParams([name, node]: [name: string, node: Node]): boolean {
+    function applyParams([name, _node]: [name: string, node: Node]): boolean {
       if (!params) return true;
       const paramsSegments = params.split(";");
       for (const segment of paramsSegments) {
@@ -591,7 +600,7 @@ const lib = await createLibrary("./examples/index.json");
 
 let count = 0;
 const char = new Character(lib, {
-  onRender(char) {
+  onRender(_char) {
     count++;
     //console.log(count);
   },

@@ -22,6 +22,7 @@ type Feat = {
 type Proficiency = {
   type: "PROFICIENCY";
   expertise?: boolean;
+  half?: boolean;
   skill: Node;
 };
 
@@ -54,7 +55,7 @@ type Action = {
 
 type Spell = {
   type: "SPELL";
-  spell: string;
+  name: string;
   castWithoutSpellSlot?: {
     count: number;
     reset: string;
