@@ -1,0 +1,7 @@
+{
+  "type": "MULTIPLE",
+  "values": [
+    { "type": "WEAPONTYPE", "name": "SIMPLE" },
+    { "type": "WEAPONTYPE", "name": "MARTIAL" }
+  ]
+}

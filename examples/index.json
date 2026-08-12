@@ -1,9 +1,8 @@
 {
-  "type": "LIBRARY",
-  "content": {
-    "type": "MULTIPLE",
-    "values": [
-      { "type": "IMPORT", "from": "./classes/ranger/" }
-    ]
-  }
+  "type": "MULTIPLE",
+  "values": [
+    { "type": "IMPORT", "from": "./rules" },
+    { "type": "IMPORT", "from": "./classes/ranger/" },
+    { "type": "IMPORT", "from": "./classes/test/" }
+  ]
 }

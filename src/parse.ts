@@ -93,7 +93,7 @@ function is<T extends NodeType>(
   return types.some((t) => node.type === t);
 }
 
-function expect<N extends NodeType>(
+export function expect<N extends NodeType>(
   node: Node,
   ...types: N[]
 ): node is NodeWith<N> {

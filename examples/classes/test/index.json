@@ -1,0 +1,55 @@
+{
+  "type": "MULTIPLE",
+  "values": [
+    {
+      "type": "CLASS",
+      "name": "Test",
+      "levels": {
+        "1": {
+          "type": "MULTIPLE",
+          "values": [
+            {
+              "type": "CLASS_FEAT",
+              "name": "First feat",
+              "levels": {
+                "1": {
+                  "type": "PROFICIENCY",
+                  "skill": { "type": "DERIVE", "from": "SKILLS.ACROBATICS" }
+                }
+              }
+            },
+            {
+              "type": "CLASS_FEAT",
+              "name": "Second Feat",
+              "levels": {
+                "1": {
+                  "type": "MULTIPLE",
+                  "values": [
+                    {
+                      "type": "MODIFIER",
+                      "value": { "type": "LITERAL", "value": 2 },
+                      "modifies": {
+                        "type": "CHOOSE",
+                        "name": "Choice",
+                        "count": 2,
+                        "from": { "type": "DERIVE", "from": "SKILLS" }
+                      }
+                    },
+                    {
+                      "type": "MODIFIER",
+                      "value": { "type": "LITERAL", "value": 2 },
+                      "modifies": {
+                        "type": "DERIVE",
+                        "from": "SKILLS.PERCEPTION"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -27,16 +27,16 @@ type Proficiency = {
 
 type Modifier = {
   type: "MODIFIER";
-  value?: number | Node;
+  value?: Node;
   modifies?: Node;
   modifyIf?: string;
   set?: Node;
   setIf?: string;
-  spellList?: string[];
+  /*  spellList?: string[];
   spellcasting?: {
     ability: NodeWith<"DERIVE">;
     spellTable: NodeWith<"DERIVE">;
-  };
+  }; */
 };
 
 type Resource = {
@@ -61,13 +61,16 @@ type Spell = {
   };
 };
 
+type Ability = {
+  type: "ABILITY";
+  name: string;
+};
+
 type Skill = {
   type: "SKILL";
   name: string;
-  ability: Node;
+  ability: string;
   hasPassive?: boolean;
-  proficient?: boolean;
-  expertise?: boolean;
 };
 
 type Roll = {
@@ -91,6 +94,7 @@ type Multiple = {
 type Choose = {
   type: "CHOOSE";
   count: number;
+  name: string;
   from: Node;
 };
 
@@ -102,11 +106,6 @@ type Optional = {
 type Derive = {
   type: "DERIVE";
   from: string;
-};
-
-type Library = {
-  type: "LIBRARY";
-  content: Node;
 };
 
 type Import = {
@@ -123,8 +122,7 @@ export type Operator =
   | Derive
   | Optional
   | Empty
-  | Import
-  | Library;
+  | Import;
 export type Value =
   | Class
   | ClassFeat
@@ -134,6 +132,7 @@ export type Value =
   | Resource
   | Action
   | Spell
+  | Ability
   | Skill
   | Roll
   | Literal;
