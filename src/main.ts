@@ -302,8 +302,12 @@ class Character {
           parseInt(level) <= currentLevel
         );
 
-        for (const [_, n] of filtered) {
-          await this.applyNode(n, { ...ctx, classLevel: currentLevel });
+        for (const [level, n] of filtered) {
+          await this.applyNode(n, {
+            ...ctx,
+            classLevel: currentLevel,
+            path: `${ctx.path}#${level}`,
+          });
         }
 
         return EMPTY;
@@ -366,8 +370,8 @@ class Character {
           parseInt(level) <= ctx.classLevel!
         );
 
-        for (const [_, n] of filtered) {
-          await this.applyNode(n, ctx);
+        for (const [level, n] of filtered) {
+          await this.applyNode(n, { ...ctx, path: `${ctx.path}#${level}` });
         }
 
         return EMPTY;
