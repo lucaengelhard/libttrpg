@@ -3,7 +3,7 @@
   "content": {
     "type": "MULTIPLE",
     "values": [
-      { "type": "IMPORT", "from": "./classes/ranger/index.json" }
+      { "type": "IMPORT", "from": "./classes/ranger/" }
     ]
   }
 }

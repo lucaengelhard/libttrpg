@@ -37,7 +37,11 @@ async function createLibrary(entryPoint: string) {
         break;
       }
       case "IMPORT": {
-        const newAbsPath = path.resolve(path.dirname(filePath), node.from);
+        let newAbsPath = path.resolve(path.dirname(filePath), node.from);
+        const info = await Deno.stat(newAbsPath);
+        if (info.isDirectory) {
+          newAbsPath = path.join(newAbsPath, "index.json");
+        }
 
         if (visited.has(newAbsPath)) break;
         visited.add(newAbsPath);
