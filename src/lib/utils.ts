@@ -27,13 +27,18 @@ export async function readData(currentPath: string, importPath: string) {
 export type NodePath = string;
 export const PATH_SEPARATOR = "_/_";
 export const PATH_IDENTIFIER = "@";
+export const PATH_COUNTER = "#";
 export function getNodePathSegments(
   p: NodePath,
-): { value: string; identifier?: string }[] {
+): { value: string; identifier?: string; counter?: number }[] {
   const segments = p.split(PATH_SEPARATOR);
   return segments.map((s) => {
     const [value, identifier] = s.split(PATH_IDENTIFIER);
-    return { value, identifier };
+    if (identifier) {
+      const [name, counter] = identifier.split(PATH_COUNTER);
+      return { value, identifier: name, counter: parseInt(counter) };
+    }
+    return { value };
   });
 }
 

@@ -5,6 +5,7 @@ import {
   getModifier,
   getProficiencyBonus,
   NodePath,
+  PATH_COUNTER,
   PATH_IDENTIFIER,
   PATH_SEPARATOR,
   readData,
@@ -295,7 +296,7 @@ class Character {
           await this.applyNode(n, {
             ...ctx,
             classLevel: currentLevel,
-            path: `${ctx.path}#${level}`,
+            path: `${ctx.path}${PATH_COUNTER}${level}`,
           });
         }
 
@@ -356,7 +357,10 @@ class Character {
         );
 
         for (const [level, n] of filtered) {
-          await this.applyNode(n, { ...ctx, path: `${ctx.path}#${level}` });
+          await this.applyNode(n, {
+            ...ctx,
+            path: `${ctx.path}${PATH_COUNTER}${level}`,
+          });
         }
 
         return EMPTY;
@@ -602,17 +606,8 @@ class Character {
   }
 }
 
-// TODO: RESPECT apply false in every node case!!!! ALSO for choices etc
-
 const lib = await createLibrary("./examples/index.json");
-
-let count = 0;
-const char = new Character(lib, {
-  onRender(_char) {
-    count++;
-    //console.log(count);
-  },
-});
+const char = new Character(lib);
 await char.addClass("Test");
 
 /* await char.makeChoice(
