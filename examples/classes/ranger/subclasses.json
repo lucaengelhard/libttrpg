@@ -1,0 +1,11 @@
+{
+  "type": "MULTIPLE",
+  "values": [
+    {
+      "type": "SUBCLASS",
+      "name": "Beast Master",
+      "for": "Ranger",
+      "levels": {}
+    }
+  ]
+}

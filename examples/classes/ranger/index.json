@@ -1,0 +1,7 @@
+{
+  "type": "MULTIPLE",
+  "values": [
+    { "type": "IMPORT", "from": "./class.json" },
+    { "type": "IMPORT", "from": "./subclasses.json" }
+  ]
+}

@@ -390,10 +390,6 @@
       "type": "MULTIPLE",
       "values": []
     },
-    "SPELL_TABLE": {},
-    "SUBCLASSES": {
-      "type": "MULTIPLE",
-      "values": []
-    }
+    "SPELL_TABLE": {}
   }
 }
