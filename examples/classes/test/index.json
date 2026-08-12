@@ -14,7 +14,10 @@
               "levels": {
                 "1": {
                   "type": "PROFICIENCY",
-                  "skill": { "type": "DERIVE", "from": "SKILLS.ACROBATICS" }
+                  "skill": {
+                    "type": "DERIVE",
+                    "from": "CHARACTER.SKILLS?NAME=ACROBATICS"
+                  }
                 }
               }
             },
@@ -32,7 +35,7 @@
                         "type": "CHOOSE",
                         "name": "Choice",
                         "count": 2,
-                        "from": { "type": "DERIVE", "from": "SKILLS" }
+                        "from": { "type": "DERIVE", "from": "CHARACTER.SKILLS" }
                       }
                     },
                     {
@@ -40,8 +43,12 @@
                       "value": { "type": "LITERAL", "value": 2 },
                       "modifies": {
                         "type": "DERIVE",
-                        "from": "SKILLS.PERCEPTION"
+                        "from": "CHARACTER.SKILLS?NAME=PERCEPTION"
                       }
+                    },
+                    {
+                      "type": "IMPORT",
+                      "from": "./import.json"
                     }
                   ]
                 }

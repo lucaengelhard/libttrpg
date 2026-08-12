@@ -371,7 +371,7 @@
           "3": {
             "type": "CHOOSE",
             "count": 1,
-            "from": { "type": "DERIVE", "from": "$STATIC.SUBCLASSES" }
+            "from": { "type": "DERIVE", "from": "LIBRARY.SUBCLASS?FOR=RANGER" }
           }
         }
       }]

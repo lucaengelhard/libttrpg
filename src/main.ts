@@ -8,18 +8,18 @@ import {
   PATH_IDENTIFIER,
   PATH_SEPARATOR,
   readData,
+  recordGet,
 } from "./lib/utils.ts";
 
 type Library = Awaited<ReturnType<typeof createLibrary>>;
 async function createLibrary(entryPoint: string) {
   const inputPath = path.resolve(entryPoint);
-  const data = await readData(inputPath);
+  const { data } = await readData("", inputPath);
 
   const library = new Map<
     string,
     Map<string, { node: Extract<Node, { name: string }>; filePath: string }>
   >();
-  const visited = new Set<string>();
 
   await traverse(data, inputPath);
 
@@ -45,16 +45,8 @@ async function createLibrary(entryPoint: string) {
 
     switch (node.type) {
       case "IMPORT": {
-        let newAbsPath = path.resolve(path.dirname(filePath), node.from);
-        const info = await Deno.stat(newAbsPath);
-        if (info.isDirectory) {
-          newAbsPath = path.join(newAbsPath, "index.json");
-        }
-
-        if (visited.has(newAbsPath)) break;
-        visited.add(newAbsPath);
-        const imported = await readData(newAbsPath);
-        await traverse(imported, newAbsPath);
+        const { data, newPath } = await readData(filePath, node.from);
+        await traverse(data, newPath);
         break;
       }
       case "MULTIPLE": {
@@ -436,6 +428,11 @@ class Character {
         return EMPTY;
       }
 
+      case "IMPORT": {
+        const { data, newPath } = await readData(ctx.filePath, node.from);
+        return this.applyNode(data, { ...ctx, filePath: newPath });
+      }
+
       case "LITERAL": {
         return node;
       }
@@ -445,7 +442,6 @@ class Character {
       case "FEAT":
       case "RESOURCE":
       case "SKILL":
-      case "IMPORT":
       case "ACTION":
       case "SPELL":
       case "ROLL":
@@ -468,9 +464,8 @@ class Character {
         }
         break;
       }
-
       case "IMPORT": {
-        const _data = await readData(ctx.filePath);
+        //const _data = await readData(ctx.filePath);
         // TODO
         break;
       }
@@ -494,6 +489,7 @@ class Character {
           (node.modifier ? ` + ${node.modifier}` : "") +
           (node.minimum ? ` (min. ${node.minimum})` : "");
       case "EMPTY":
+      default:
         return undefined;
     }
   }
@@ -508,39 +504,49 @@ class Character {
           case "SKILLS": {
             return {
               type: "MULTIPLE",
-              values: this.#skills.entries().filter(applyParams).map((
-                [_, n],
-              ) => n).toArray(),
+              values: this.#skills.values().filter(applyParams).toArray(),
+            };
+          }
+          case "ABILITIES": {
+            return {
+              type: "MULTIPLE",
+              values: this.#abilities.values().filter(applyParams).toArray(),
             };
           }
         }
         return EMPTY;
       }
-      case "SKILLS": {
+      case "LIBRARY": {
         if (pathSegments.length === 2) {
-          return this.#skills.get(pathSegments[1]) ?? EMPTY;
+          const category = this.#library.content.get(pathSegments[1]);
+          if (!category) return EMPTY;
+
+          return {
+            type: "MULTIPLE",
+            values: category.values().filter((value) => applyParams(value.node))
+              .map(
+                (v) => v.node,
+              )
+              .toArray(),
+          };
         }
-        return { type: "MULTIPLE", values: this.#skills.values().toArray() };
       }
     }
 
-    function applyParams([name, _node]: [name: string, node: Node]): boolean {
+    return EMPTY;
+
+    function applyParams(node: Node): boolean {
       if (!params) return true;
       const paramsSegments = params.split(";");
       for (const segment of paramsSegments) {
         const [category, options] = segment.split("=");
         const values = options.split("|").map((s) => s.toUpperCase());
-
-        switch (category.toUpperCase()) {
-          case "NAME": {
-            if (values.includes(name.toUpperCase())) return true;
-          }
-        }
+        const nodeValue = recordGet(node, category)?.toUpperCase();
+        if (!nodeValue) return false;
+        return values.includes(nodeValue);
       }
       return false;
     }
-
-    return EMPTY;
   }
 
   private calculateAbility(ability: CharacterAbility): number {
@@ -612,18 +618,18 @@ const char = new Character(lib, {
     //console.log(count);
   },
 });
-await char.addClass("Ranger");
+await char.addClass("Test");
 
-await char.makeChoice(
+/* await char.makeChoice(
   "CLASS@Ranger_/_MULTIPLE_/_CLASS_FEAT@Proficiencies_/_PROFICIENCY_/_CHOOSE",
   "ANIMAL HANDLING",
 );
 
-await char.setClassLevel("Ranger", 2);
+await char.setClassLevel("Ranger", 10);
 
 await char.setOption(
   "CLASS@Ranger_/_MULTIPLE_/_OPTIONAL@Spellcasting Focus",
   true,
-);
+); */
 
 //console.log(char.get());
