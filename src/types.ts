@@ -99,6 +99,7 @@ type Choose = {
 };
 
 type Optional = {
+  name: string;
   type: "OPTIONAL";
   value: Node;
 };

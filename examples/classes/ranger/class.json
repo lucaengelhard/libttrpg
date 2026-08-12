@@ -231,6 +231,7 @@
       "values": [
         {
           "type": "OPTIONAL",
+          "name": "Additional Ranger Spells",
           "value": {
             "type": "CLASS_FEAT",
             "name": "Additional Ranger Spells",
@@ -259,6 +260,7 @@
         },
         {
           "type": "OPTIONAL",
+          "name": "Spellcasting Focus",
           "value": {
             "type": "CLASS_FEAT",
             "name": "Spellcasting Focus",
@@ -376,6 +378,7 @@
     },
     "4": {
       "type": "OPTIONAL",
+      "name": "Martial Versatility",
       "value": { "type": "CLASS_FEAT", "name": "Martial Versatility" }
     },
     "5": { "type": "CLASS_FEAT", "name": "Extra Attack" }

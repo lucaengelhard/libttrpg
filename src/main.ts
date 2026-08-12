@@ -97,6 +97,12 @@ type CharacterChoice = {
   options: Map<string, Node>;
 };
 
+type CharacterOption = {
+  name: string;
+  checked: boolean;
+  value: Node;
+};
+
 type CharacterValue = { modifiers: Map<string, number>; set?: number };
 
 class Character {
@@ -106,6 +112,7 @@ class Character {
   #abilities = new Map<string, CharacterAbility>();
   #skills = new Map<string, CharacterSkill>();
   #choices = new Map<NodePath, CharacterChoice>();
+  #options = new Map<NodePath, CharacterOption>();
 
   #stats: {
     speed: {
@@ -157,6 +164,50 @@ class Character {
     });
   }
 
+  public get() {
+    return {
+      name: this.#name,
+      classes: this.#classes,
+      proficiencyBonus: getProficiencyBonus(this.calculateLevel()),
+      abilities: new Map(
+        this.#abilities.values().map((
+          a,
+        ) => [a.name, {
+          score: this.calculateAbility(a),
+          modifier: getModifier(this.calculateAbility(a)),
+          ...this.calculateSave(a),
+        }]),
+      ),
+      skills: new Map(
+        this.#skills.values().map((
+          s,
+        ) => [s.name, {
+          value: this.calculateSkill(s),
+          proficient: s.proficient,
+          expertise: s.expertise,
+          halfProficient: s.halfProficient,
+          ...this.calculatePassive(s),
+        }]),
+      ),
+      choices: new Map(
+        this.#choices.entries().map((
+          [identifier, choice],
+        ) => [identifier, {
+          max: choice.max,
+          choicesMade: choice.choicesMade.keys().toArray(),
+          options: choice.options.keys().filter((opt) =>
+            !choice.choicesMade.has(opt)
+          ).toArray(),
+        }]),
+      ),
+      options: new Map(
+        this.#options.entries().map((
+          [identifier, option],
+        ) => [identifier, option.checked]),
+      ),
+    };
+  }
+
   public setName(name: string) {
     this.#name = name;
     return this.render();
@@ -167,6 +218,49 @@ class Character {
       this.#classes.has(className) || !this.#library.has("CLASS", className)
     ) return this;
     this.#classes.set(className, 1);
+    return this.render();
+  }
+
+  public setClassLevel(clsssName: string, level: number) {
+    if (
+      level < 1 || level > 20 || !Number.isInteger(level) ||
+      !this.#classes.has(clsssName)
+    ) {
+      return;
+    }
+
+    this.#classes.set(clsssName, level);
+    return this.render();
+  }
+
+  public makeChoice(identifier: NodePath, name: string) {
+    const choiceObj = this.#choices.get(identifier);
+
+    if (!choiceObj) return;
+    if (choiceObj.choicesMade.size >= choiceObj.max) return;
+
+    const choice = choiceObj.options.get(name);
+
+    if (!choice) return;
+
+    choiceObj.choicesMade.set(name, choice);
+
+    return this.render();
+  }
+
+  public removeChoice(identifier: NodePath, name: string) {
+    const choiceObj = this.#choices.get(identifier);
+    if (!choiceObj || !choiceObj.choicesMade.has(name)) return;
+
+    choiceObj.choicesMade.delete(name);
+
+    return this.render();
+  }
+
+  public setOption(identifier: NodePath, value: boolean) {
+    const option = this.#options.get(identifier);
+    if (!option) return;
+    option.checked = value;
     return this.render();
   }
 
@@ -248,6 +342,22 @@ class Character {
           values: choiceObj.choicesMade.values().toArray(),
         };
       }
+      case "OPTIONAL": {
+        const optionObj = this.#options.getOrInsert(ctx.path, {
+          name: node.name,
+          checked: false,
+          value: await this.applyNode(node.value, {
+            ...ctx,
+            apply: false,
+          }),
+        });
+
+        if (optionObj.checked) {
+          return this.applyNode(node.value, ctx);
+        }
+
+        return EMPTY;
+      }
       case "CLASS_FEAT": {
         if (!node.levels || !ctx.classLevel) return EMPTY;
         const filtered = Object.entries(node.levels).filter(([level]) =>
@@ -272,7 +382,10 @@ class Character {
 
         if (res.type === "SKILL") applyProficiency(res);
         else if (res.type === "MULTIPLE") {
-          res.values.forEach((n) => applyProficiency(n));
+          res.values.forEach((n) => {
+            if (!expect(n, "SKILL")) return;
+            applyProficiency(n);
+          });
         }
 
         return EMPTY;
@@ -315,6 +428,7 @@ class Character {
 
         return EMPTY;
       }
+
       case "LITERAL": {
         return node;
       }
@@ -324,7 +438,6 @@ class Character {
       case "FEAT":
       case "RESOURCE":
       case "SKILL":
-      case "OPTIONAL":
       case "IMPORT":
       case "ACTION":
       case "SPELL":
@@ -350,11 +463,9 @@ class Character {
       case "OPTIONAL": {
         return this.getIdentifier(node.value, ctx);
       }
-      case "CHOOSE": {
-        return this.getIdentifier(node.from, ctx);
-      }
       case "IMPORT": {
         const data = await readData(ctx.filePath);
+
         break;
       }
       case "DERIVE": {
@@ -416,45 +527,6 @@ class Character {
     return EMPTY;
   }
 
-  public get() {
-    return {
-      name: this.#name,
-      classes: this.#classes,
-      proficiencyBonus: getProficiencyBonus(this.calculateLevel()),
-      abilities: new Map(
-        this.#abilities.values().map((
-          a,
-        ) => [a.name, {
-          score: this.calculateAbility(a),
-          modifier: getModifier(this.calculateAbility(a)),
-          ...this.calculateSave(a),
-        }]),
-      ),
-      skills: new Map(
-        this.#skills.values().map((
-          s,
-        ) => [s.name, {
-          value: this.calculateSkill(s),
-          proficient: s.proficient,
-          expertise: s.expertise,
-          halfProficient: s.halfProficient,
-          ...this.calculatePassive(s),
-        }]),
-      ),
-      choices: new Map(
-        this.#choices.entries().map((
-          [identifier, choice],
-        ) => [identifier, {
-          max: choice.max,
-          choicesMade: choice.choicesMade.keys().toArray(),
-          options: choice.options.keys().filter((opt) =>
-            !choice.choicesMade.has(opt)
-          ).toArray(),
-        }]),
-      ),
-    };
-  }
-
   private calculateAbility(ability: CharacterAbility): number {
     return ability.modifiers.values().reduce((alloc, curr) => alloc + curr);
   }
@@ -511,31 +583,9 @@ class Character {
       ? value.modifiers.values().reduce((acc, curr) => acc + curr)
       : 0;
   }
-
-  public makeChoice(identifier: NodePath, name: string) {
-    const choiceObj = this.#choices.get(identifier);
-
-    if (!choiceObj) return;
-    if (choiceObj.choicesMade.size >= choiceObj.max) return;
-
-    const choice = choiceObj.options.get(name);
-
-    if (!choice) return;
-
-    choiceObj.choicesMade.set(name, choice);
-
-    return this.render();
-  }
-
-  public removeChoice(identifier: NodePath, name: string) {
-    const choiceObj = this.#choices.get(identifier);
-    if (!choiceObj || !choiceObj.choicesMade.has(name)) return;
-
-    choiceObj.choicesMade.delete(name);
-
-    return this.render();
-  }
 }
+
+// TODO: RESPECT apply false in every node case!!!! ALSO for choices etc
 
 const lib = await createLibrary("./examples/index.json");
 
@@ -543,7 +593,7 @@ let count = 0;
 const char = new Character(lib, {
   onRender(char) {
     count++;
-    console.log(count);
+    //console.log(count);
   },
 });
 await char.addClass("Ranger");
@@ -553,4 +603,11 @@ await char.makeChoice(
   "ANIMAL HANDLING",
 );
 
-console.log(char.get());
+await char.setClassLevel("Ranger", 2);
+
+await char.setOption(
+  "CLASS@Ranger_/_MULTIPLE_/_OPTIONAL@Spellcasting Focus",
+  true,
+);
+
+//console.log(char.get());
