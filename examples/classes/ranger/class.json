@@ -52,7 +52,7 @@
                         {
                           "type": "MODIFIER",
                           "value": 5,
-                          "modifies": {
+                          "modify": {
                             "type": "DERIVE",
                             "from": "$CHARACTER.WALKING_SPEED"
                           }

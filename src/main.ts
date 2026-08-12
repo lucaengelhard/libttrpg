@@ -67,16 +67,16 @@ type CTX = {
   log?: boolean;
 };
 
+type CharacterValue = { modifiers: Map<string, number>; setValue?: number };
+
 type CharacterConfig = { onRender?: (char: Character) => void };
 
-type CharacterAbility = NodeWith<"ABILITY"> & {
-  modifiers: Map<string, number>;
+type CharacterAbility = NodeWith<"ABILITY"> & CharacterValue & {
   saveProficient: boolean;
   saveModifiers: Map<string, number>;
 };
 
-type CharacterSkill = NodeWith<"SKILL"> & {
-  modifiers: Map<string, number>;
+type CharacterSkill = NodeWith<"SKILL"> & CharacterValue & {
   proficient: boolean;
   expertise: boolean;
   halfProficient: boolean;
@@ -93,10 +93,7 @@ type CharacterChoice = {
 type CharacterOption = {
   name: string;
   checked: boolean;
-  value: Node;
 };
-
-type CharacterValue = { modifiers: Map<string, number>; set?: number };
 
 class Character {
   #library: Library;
@@ -166,8 +163,8 @@ class Character {
         this.#abilities.values().map((
           a,
         ) => [a.name, {
-          score: this.calculateAbility(a),
-          modifier: getModifier(this.calculateAbility(a)),
+          score: this.calculateCharVal(a),
+          modifier: getModifier(this.calculateCharVal(a)),
           ...this.calculateSave(a),
         }]),
       ),
@@ -344,10 +341,6 @@ class Character {
         const optionObj = this.#options.getOrInsert(ctx.path, {
           name: node.name,
           checked: false,
-          value: await this.applyNode(node.value, {
-            ...ctx,
-            apply: false,
-          }),
         });
 
         if (optionObj.checked) {
@@ -368,13 +361,13 @@ class Character {
 
         return EMPTY;
       }
-
       case "PROFICIENCY": {
         const res = await this.applyNode(node.skill, ctx);
 
         const applyProficiency = (input: NodeWith<"SKILL">) => {
           const characterSkill = this.#skills.get(input.name)!;
           if (node.expertise) characterSkill.expertise = true;
+          else if (node.half) characterSkill.halfProficient = true;
           else characterSkill.proficient = true;
         };
 
@@ -392,36 +385,39 @@ class Character {
         return this.derive(node.from);
       }
       case "MODIFIER": {
-        const modifies = node.modifies
-          ? await this.applyNode(node.modifies, { ...ctx, apply: false })
+        const value = await this.applyNode(node.value, {
+          ...ctx,
+          apply: false,
+        });
+
+        if (!expect(value, ctx, "LITERAL") || typeof value.value !== "number") {
+          return EMPTY;
+        }
+
+        const modify = node.modify
+          ? await this.applyNode(node.modify, { ...ctx, apply: false })
           : undefined;
 
-        if (
-          !modifies || !expect(modifies, ctx, "SKILL", "MULTIPLE") ||
-          !node.value
-        ) {
-          return EMPTY;
+        const set = node.set
+          ? await this.applyNode(node.set, { ...ctx, apply: false })
+          : undefined;
+
+        if (modify && expect(modify, ctx, "MULTIPLE")) {
+          modify.values.forEach(
+            (v) => {
+              if (
+                !("modifiers" in v) || !(v.modifiers instanceof Map)
+              ) return;
+              v.modifiers.set(ctx.path, value.value);
+            },
+          );
         }
 
-        const value = node.value.type === "DERIVE"
-          ? this.derive(node.value.from)
-          : node.value;
-
-        if (!expect(value, ctx, "LITERAL")) {
-          return EMPTY;
-        }
-
-        const modifiySkill = (skill: CharacterSkill) => {
-          if (typeof value.value !== "number") return;
-          skill.modifiers.set(ctx.path, value.value);
-        };
-
-        if (modifies.type === "SKILL") {
-          modifiySkill(modifies as CharacterSkill);
-        } else {
-          modifies.values.forEach((s) => {
-            if (!expect(s, ctx, "SKILL")) return;
-            modifiySkill(s as CharacterSkill);
+        if (set && expect(set, ctx, "MULTIPLE")) {
+          // deno-lint-ignore no-explicit-any
+          set.values.forEach((v: any) => {
+            if ("setValue" in v && v.setValue) return;
+            v.setValue = value.value;
           });
         }
 
@@ -476,7 +472,7 @@ class Character {
 
       case "MODIFIER": {
         let res: string | undefined = undefined;
-        if (node.modifies) res = await this.getIdentifier(node.modifies, ctx);
+        if (node.modify) res = await this.getIdentifier(node.modify, ctx);
         if (!res && node.set) res = await this.getIdentifier(node.set, ctx);
         return res;
       }
@@ -538,6 +534,7 @@ class Character {
     function applyParams(node: Node): boolean {
       if (!params) return true;
       const paramsSegments = params.split(";");
+
       for (const segment of paramsSegments) {
         const [category, options] = segment.split("=");
         const values = options.split("|").map((s) => s.toUpperCase());
@@ -549,9 +546,6 @@ class Character {
     }
   }
 
-  private calculateAbility(ability: CharacterAbility): number {
-    return ability.modifiers.values().reduce((alloc, curr) => alloc + curr);
-  }
   private calculateSave(ability: CharacterAbility) {
     const save = ability.saveModifiers.size >
         0
@@ -563,12 +557,13 @@ class Character {
       : 0;
 
     return {
-      save: save + getModifier(this.calculateAbility(ability)) +
+      save: save + getModifier(this.calculateCharVal(ability)) +
         proficiencyBonus,
       saveProficient: ability.saveProficient,
     };
   }
   private calculateSkill(skill: CharacterSkill): number {
+    if (skill.setValue) return getModifier(skill.setValue);
     const modifierValue = skill.modifiers.size > 0
       ? skill.modifiers.values().reduce((alloc, curr) => alloc + curr)
       : 0;
@@ -582,7 +577,7 @@ class Character {
       : skill.halfProficient
       ? Math.floor(proficiencyBonusValue / 2)
       : 0;
-    return getModifier(this.calculateAbility(ability)) + modifierValue +
+    return getModifier(this.calculateCharVal(ability)) + modifierValue +
       proficiencyBonus;
   }
   private calculatePassive(skill: CharacterSkill): { passive?: number } {
@@ -600,7 +595,7 @@ class Character {
       : 0;
   }
   private calculateCharVal(value: CharacterValue): number {
-    if (value.set) return value.set;
+    if (value.setValue) return value.setValue;
     return value.modifiers.size > 0
       ? value.modifiers.values().reduce((acc, curr) => acc + curr)
       : 0;
@@ -632,4 +627,4 @@ await char.setOption(
   true,
 ); */
 
-//console.log(char.get());
+console.log(char.get());

@@ -17,7 +17,8 @@
                   "skill": {
                     "type": "DERIVE",
                     "from": "CHARACTER.SKILLS?NAME=ACROBATICS"
-                  }
+                  },
+                  "half": true
                 }
               }
             },
@@ -31,7 +32,7 @@
                     {
                       "type": "MODIFIER",
                       "value": { "type": "LITERAL", "value": 2 },
-                      "modifies": {
+                      "modify": {
                         "type": "CHOOSE",
                         "name": "Choice",
                         "count": 2,
@@ -41,7 +42,7 @@
                     {
                       "type": "MODIFIER",
                       "value": { "type": "LITERAL", "value": 2 },
-                      "modifies": {
+                      "modify": {
                         "type": "DERIVE",
                         "from": "CHARACTER.SKILLS?NAME=PERCEPTION"
                       }
@@ -52,6 +53,14 @@
                     }
                   ]
                 }
+              }
+            },
+            {
+              "type": "MODIFIER",
+              "value": { "type": "LITERAL", "value": 2 },
+              "set": {
+                "type": "DERIVE",
+                "from": "CHARACTER.ABILITIES?NAME=WISDOM"
               }
             }
           ]

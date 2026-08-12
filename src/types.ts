@@ -28,8 +28,8 @@ type Proficiency = {
 
 type Modifier = {
   type: "MODIFIER";
-  value?: Node;
-  modifies?: Node;
+  value: Node;
+  modify?: Node;
   modifyIf?: string;
   set?: Node;
   setIf?: string;
@@ -84,7 +84,7 @@ type Roll = {
 
 type Literal = {
   type: "LITERAL";
-  value: string | number;
+  value: string | number | boolean;
 };
 
 type Multiple = {
