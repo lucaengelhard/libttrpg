@@ -24,12 +24,13 @@ export function getNodePathSegments(
 
 export function expect<N extends NodeType>(
   node: Node,
+  { path, log = false }: { path: NodePath; log?: boolean },
   ...types: N[]
 ): node is NodeWith<N> {
   const res = is(node, ...types);
-  if (!res) {
+  if (!res && log) {
     const wantedTypes = types.length === 1 ? types[0] : types.join(" | ");
-    console.warn(`Expected: ${wantedTypes}, Got: ${node.type}`);
+    console.warn(`Expected: ${wantedTypes}, Got: ${node.type} at ${path}`);
   }
   return res;
 }

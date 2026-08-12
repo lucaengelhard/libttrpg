@@ -72,6 +72,7 @@ type CTX = {
   filePath: string;
   apply: boolean;
   path: NodePath;
+  log?: boolean;
 };
 
 type CharacterConfig = { onRender?: (char: Character) => void };
@@ -142,7 +143,7 @@ class Character {
 
   private cleanup() {
     this.#library.content.get("ABILITY")?.forEach((a) => {
-      if (!expect(a.node, "ABILITY")) return;
+      if (!expect(a.node, { path: "CLEANUP" }, "ABILITY")) return;
       this.#abilities.set(a.node.name, {
         ...a.node,
         modifiers: new Map([["__BASE_VALUE__", 0]]),
@@ -152,7 +153,7 @@ class Character {
     });
 
     this.#library.content.get("SKILL")?.forEach((s) => {
-      if (!expect(s.node, "SKILL")) return;
+      if (!expect(s.node, { path: "CLEANUP" }, "SKILL")) return;
       this.#skills.set(s.node.name, {
         ...s.node,
         modifiers: new Map(),
@@ -272,6 +273,7 @@ class Character {
         filePath: classObj.filePath,
         apply: true,
         path: "",
+        log: true,
       });
     }
     if (this.#config.onRender) this.#config.onRender(this);
@@ -319,7 +321,7 @@ class Character {
           ? this.derive(node.from.from)
           : node.from;
 
-        if (!expect(options, "MULTIPLE")) return EMPTY;
+        if (!expect(options, ctx, "MULTIPLE")) return EMPTY;
 
         const identifiers = (await Promise.all(
           options.values.map(async (
@@ -383,7 +385,7 @@ class Character {
         if (res.type === "SKILL") applyProficiency(res);
         else if (res.type === "MULTIPLE") {
           res.values.forEach((n) => {
-            if (!expect(n, "SKILL")) return;
+            if (!expect(n, ctx, "SKILL")) return;
             applyProficiency(n);
           });
         }
@@ -399,7 +401,8 @@ class Character {
           : undefined;
 
         if (
-          !modifies || !expect(modifies, "SKILL", "MULTIPLE") || !node.value
+          !modifies || !expect(modifies, ctx, "SKILL", "MULTIPLE") ||
+          !node.value
         ) {
           return EMPTY;
         }
@@ -408,7 +411,7 @@ class Character {
           ? this.derive(node.value.from)
           : node.value;
 
-        if (!expect(value, "LITERAL")) {
+        if (!expect(value, ctx, "LITERAL")) {
           return EMPTY;
         }
 
@@ -421,7 +424,7 @@ class Character {
           modifiySkill(modifies as CharacterSkill);
         } else {
           modifies.values.forEach((s) => {
-            if (!expect(s, "SKILL")) return;
+            if (!expect(s, ctx, "SKILL")) return;
             modifiySkill(s as CharacterSkill);
           });
         }
