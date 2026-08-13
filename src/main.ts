@@ -1,6 +1,6 @@
-import * as path from "@std/path";
 import { EMPTY, Node, NodeWith } from "./types.ts";
 import {
+  caseInsensitiveGet,
   expect,
   getModifier,
   getProficiencyBonus,
@@ -9,56 +9,8 @@ import {
   PATH_IDENTIFIER,
   PATH_SEPARATOR,
   readData,
-  recordGet,
 } from "./lib/utils.ts";
-
-type Library = Awaited<ReturnType<typeof createLibrary>>;
-async function createLibrary(entryPoint: string) {
-  const inputPath = path.resolve(entryPoint);
-  const { data } = await readData("", inputPath);
-
-  const library = new Map<
-    string,
-    Map<string, { node: Extract<Node, { name: string }>; filePath: string }>
-  >();
-
-  await traverse(data, inputPath);
-
-  return {
-    content: library,
-    acccess(category: string, identifier: string) {
-      return library.get(category)?.get(identifier);
-    },
-    has(category: string, identifier: string) {
-      return library.get(category)?.has(identifier) ?? false;
-    },
-  };
-
-  async function traverse(node: Node, filePath: string) {
-    if ("name" in node) {
-      const category = library.getOrInsert(node.type, new Map());
-      if (category.has(node.name)) {
-        throw `Duplicate Identifier in ${node.type}: ${node.name}`;
-      }
-      category.set(node.name, { node, filePath });
-      return;
-    }
-
-    switch (node.type) {
-      case "IMPORT": {
-        const { data, newPath } = await readData(filePath, node.from);
-        await traverse(data, newPath);
-        break;
-      }
-      case "MULTIPLE": {
-        for (const item of node.values) {
-          await traverse(item, filePath);
-        }
-        break;
-      }
-    }
-  }
-}
+import { createLibrary, Library } from "./library.ts";
 
 type CTX = {
   classLevel?: number;
@@ -542,7 +494,7 @@ class Character {
       for (const segment of paramsSegments) {
         const [category, options] = segment.split("=");
         const values = options.split("|").map((s) => s.toUpperCase());
-        const nodeValue = recordGet(node, category)?.toUpperCase();
+        const nodeValue = caseInsensitiveGet(node, category)?.toUpperCase();
         if (!nodeValue) return false;
         return values.includes(nodeValue);
       }
@@ -622,4 +574,4 @@ await char.setOption(
   true,
 ); */
 
-console.log(char.get());
+console.log(lib);

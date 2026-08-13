@@ -70,7 +70,7 @@ type CaseInsensitiveKey<R, K extends string> = {
   [P in keyof R & string]: Lowercase<P> extends Lowercase<K> ? P : never;
 }[keyof R & string];
 
-export function recordGet<
+export function caseInsensitiveGet<
   R extends Record<string, unknown>,
   K extends string,
 >(
