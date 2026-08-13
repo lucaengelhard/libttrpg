@@ -29,21 +29,17 @@ const EMPTY = { type: "EMPTY" } as const;
 type Node = Modifier | Multiple | Dependency | Literal | Empty;
 type NodeWithKey = Node & { key: string };
 
-type Store = {
-  values: CaseInsensitiveMap<
-    string,
-    CaseInsensitiveMap<string, CaseInsensitiveMap<string, NodeWithKey>>
-  >;
-  updated: Set<string>;
-  cache: Map<string, Node>;
-};
+type Store = CaseInsensitiveMap<
+  string,
+  CaseInsensitiveMap<string, CaseInsensitiveMap<string, Node>>
+>;
 
 function iterate(
-  store: Store,
   tree: Node,
   config?: { maxIterations?: number },
 ) {
   const { maxIterations } = config ?? { maxIterations: undefined };
+  const store: Store = new CaseInsensitiveMap();
 
   let previous = parse(store, tree);
   let iterations = 1;
@@ -88,13 +84,6 @@ function parse(
 }
 
 function lookup(store: Store, query: string): Node | undefined {
-  if (
-    store.cache.has(cleanupQuery(query)) &&
-    !store.updated.has(cleanupQuery(query))
-  ) {
-    return store.cache.get(cleanupQuery(query));
-  }
-
   const category = getCategory(store, query);
   if (!category) return;
 
@@ -104,16 +93,13 @@ function lookup(store: Store, query: string): Node | undefined {
   if (entryKey) {
     const entry = category.get(entryKey);
     if (entry && applyParams(entry)) {
-      store.cache.set(entryKey, entry);
       return entry;
     }
   } else {
     const res: Multiple = {
       type: "MULTIPLE",
-      values: category.values().filter(applyParams).toArray(),
+      values: category.values().filter(applyParams).toArray() as NodeWithKey[],
     };
-
-    store.cache.set(query, res);
 
     return res;
   }
@@ -137,7 +123,7 @@ function set(store: Store, query: string, value: Node) {
   const [sectionKey, categoryKey, entryKey] = getSelectorComponents(query);
   if (!entryKey) return;
 
-  const category = store.values
+  const category = store
     .getOrInsert(
       sectionKey,
       new CaseInsensitiveMap(),
@@ -149,7 +135,6 @@ function set(store: Store, query: string, value: Node) {
   const current = category.get(entryKey);
   // TODO: How to resolve conflicting values (e.g. updates in the same cycle, what value has precedence over the other?)
   category.set(entryKey, value);
-  store.updated.add(getSelector(query));
 }
 
 function cleanupQuery(query: string) {
@@ -159,7 +144,7 @@ function cleanupQuery(query: string) {
 function getCategory(store: Store, query: string) {
   const [section, category] = getSelectorComponents(query);
   if (!category) return;
-  return store.values.get(section)?.get(category);
+  return store.get(section)?.get(category);
 }
 
 function getSelectorComponents(query: string) {
@@ -174,29 +159,3 @@ function getSelector(query: string) {
 function getQueryParts(query: string): [string, string] | [string] {
   return cleanupQuery(query).split("?") as [string, string] | [string];
 }
-
-const tree: Node = {
-  type: "MULTIPLE",
-  values: [{
-    key: "depQuery",
-    type: "DEPENDENCY",
-    query: "library.values?value=2",
-  }, {
-    key: "depAccess",
-    type: "DEPENDENCY",
-    query: "library.values.x",
-  }, {
-    key: "mod",
-    type: "MODIFIER",
-    value: { type: "LITERAL", value: 2 },
-    set: "library.values.x",
-  }],
-};
-
-const store: Store = {
-  values: new CaseInsensitiveMap(),
-  cache: new Map(),
-  updated: new Set(),
-};
-
-console.log(iterate(store, tree));
