@@ -1,7 +1,12 @@
 import deepEqual from "deep-equal";
 import * as path from "@std/path";
 import { CaseInsensitiveMap, NodeMap } from "./lib/map.ts";
-import { caseInsensitiveGet, getModifier, readData } from "./lib/utils.ts";
+import {
+  caseInsensitiveGet,
+  getModifier,
+  getProficiencyBonus,
+  readData,
+} from "./lib/utils.ts";
 
 // OPERATORS
 type Import = {
@@ -35,6 +40,7 @@ type Computed = {
   base?: Value;
   overwrite?: Value;
   modifiers: Value[];
+  proficiency?: ProficiencyValue;
 };
 type Value = Literal | Computed;
 
@@ -51,6 +57,7 @@ type Class = {
   type: "CLASS";
   name: string;
   levels: Record<string, Node>;
+  level?: number;
 };
 
 type Subclass = {
@@ -65,6 +72,28 @@ type Feat = {
   name: string;
   levels?: Record<string, Node>;
   gives?: Multiple;
+};
+
+type Proficiency = {
+  type: "PROFICIENCY";
+  save?: Node;
+  skill?: Node;
+  armor?: Node;
+  weapon?: Node;
+};
+
+type Modifier = {
+  type: "MODIFIER";
+  value: Node;
+  modify?: Node;
+  set?: Node;
+  // TODO add conditional setting and modifying
+};
+
+type Action = {
+  type: "ACTION";
+  time: string;
+  effect: Node;
 };
 
 type Ability = { type: "ABILITY"; name: string };
@@ -93,6 +122,9 @@ export type Node =
     | Class
     | Subclass
     | Feat
+    | Proficiency
+    | Modifier
+    | Action
     | Ability
     | Skill
     | Type
@@ -100,6 +132,7 @@ export type Node =
   & { key?: string };
 type NodeWithKey = Node & { key: string };
 type NodeWithName = Node & { name: string };
+type ProficiencyValue = 0.5 | 1 | 2;
 
 type Store = CaseInsensitiveMap<
   string,
@@ -245,6 +278,11 @@ async function createLibrary(entryPoint: string): Promise<Library> {
   return library;
 
   async function resolveImports(node: Node, filePath: string): Promise<Node> {
+    if (!(typeof node === "object" && "type" in node)) {
+      console.log(node);
+      return EMPTY;
+    }
+
     switch (node.type) {
       case "IMPORT": {
         const { data, newPath } = await readData(filePath, node.from);
@@ -267,7 +305,9 @@ async function createLibrary(entryPoint: string): Promise<Library> {
           from: await resolveImports(node.from, filePath) as Multiple,
         };
       }
-
+      case "OPTIONAL": {
+        return { ...node, value: await resolveImports(node.value, filePath) };
+      }
       case "CLASS": {
         return { ...node, levels: await resolveLevels(node.levels, filePath) };
       }
@@ -285,9 +325,42 @@ async function createLibrary(entryPoint: string): Promise<Library> {
             : undefined,
         };
       }
+      case "PROFICIENCY": {
+        const save = node.save
+          ? await resolveImports(node.save, filePath)
+          : undefined;
 
-      case "OPTIONAL": {
-        return { ...node, value: await resolveImports(node.value, filePath) };
+        const skill = node.skill
+          ? await resolveImports(node.skill, filePath)
+          : undefined;
+
+        const armor = node.armor
+          ? await resolveImports(node.armor, filePath)
+          : undefined;
+
+        const weapon = node.weapon
+          ? await resolveImports(node.weapon, filePath)
+          : undefined;
+
+        return { ...node, save, skill, armor, weapon };
+      }
+
+      case "MODIFIER": {
+        const value = await resolveImports(node.value, filePath);
+
+        const modify = node.modify
+          ? await resolveImports(node.modify, filePath)
+          : undefined;
+
+        const set = node.set
+          ? await resolveImports(node.set, filePath)
+          : undefined;
+
+        return { ...node, value, modify, set };
+      }
+
+      case "ACTION": {
+        return { ...node, effect: await resolveImports(node.effect, filePath) };
       }
 
       case "EMPTY":
@@ -444,7 +517,7 @@ class Character {
       .get("character")!
       .getOrInsert("classes", new NodeMap());
 
-    classes.set(className, classValue);
+    classes.set(className, { ...classValue, level: 1 } as Class);
   }
 
   public setName(name: string) {
@@ -466,6 +539,23 @@ class Character {
 
   public get() {
     const character = this.#store.getOrThrow("character");
+    const classes = character
+      .get("classes");
+
+    const classLevels = new CaseInsensitiveMap(
+      classes
+        ?.entries()
+        .map((
+          [name, value],
+        ) => [name, (value.type === "CLASS" ? value.level : 0) ?? 0]),
+    );
+
+    const characterLevel = classLevels.size > 0
+      ? classLevels.values().reduce((acc, curr) => acc + curr)
+      : 0;
+
+    const proficiencyBonus = getProficiencyBonus(characterLevel);
+
     const abilities = new CaseInsensitiveMap(
       character
         .getOrThrow("abilities")
@@ -481,8 +571,11 @@ class Character {
         .map(([name, value]) => {
           const modifier = getModifier(abilities.getOrThrow(name));
           const bonus = resolveValue(value as Value) as number ?? 0;
+          const prof = value.type === "COMPUTED" && value.proficiency
+            ? value.proficiency * proficiencyBonus
+            : 0;
 
-          return [name, modifier + bonus];
+          return [name, modifier + bonus + prof];
         }),
     );
 
@@ -498,8 +591,11 @@ class Character {
 
           const modifier = getModifier(abilities.getOrThrow(skill.ability));
           const bonus = resolveValue(value as Value) as number ?? 0;
+          const prof = value.type === "COMPUTED" && value.proficiency
+            ? value.proficiency * proficiencyBonus
+            : 0;
 
-          return [name, modifier + bonus];
+          return [name, modifier + bonus + prof];
         }),
     );
 
@@ -518,6 +614,8 @@ class Character {
       name: character
         .getOrThrow("info")
         .getNode("name", "LITERAL")?.value,
+      classes: classLevels,
+      proficiencyBonus,
       abilities,
       saves,
       skills,
@@ -528,7 +626,7 @@ class Character {
 
 const lib = await createLibrary("./examples/index.json");
 const char = new Character(lib);
-//char.addClass("ranger");
+char.addClass("ranger");
 
 char.setName("Vaas");
 char.setAbilityBase("strength", 12);
@@ -538,4 +636,4 @@ char.setAbilityBase("intelligence", 13);
 char.setAbilityBase("wisdom", 13);
 char.setAbilityBase("charisma", 8);
 
-console.log(char.get());
+//console.log(char.get());
