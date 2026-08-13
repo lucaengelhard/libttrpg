@@ -2,10 +2,7 @@
   "type": "MULTIPLE",
   "values": [{
     "type": "IMPORT",
-    "from": "./armor.json"
-  }, {
-    "type": "IMPORT",
-    "from": "./weapons.json"
+    "from": "./types.json"
   }, {
     "type": "IMPORT",
     "from": "./abilities.json"

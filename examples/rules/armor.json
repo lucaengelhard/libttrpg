@@ -1,8 +1,0 @@
-{
-  "type": "MULTIPLE",
-  "values": [
-    { "type": "ARMORTYPE", "name": "LIGHT" },
-    { "type": "ARMORTYPE", "name": "MEDIUM" },
-    { "type": "ARMORTYPE", "name": "SHIELDS" }
-  ]
-}

@@ -1,0 +1,10 @@
+{
+  "type": "MULTIPLE",
+  "values": [
+    { "type": "TYPE", "of": "ARMOR", "name": "Light" },
+    { "type": "TYPE", "of": "ARMOR", "name": "Medium" },
+    { "type": "TYPE", "of": "ARMOR", "name": "Shields" },
+    { "type": "TYPE", "of": "WEAPON", "name": "Simple" },
+    { "type": "TYPE", "of": "WEAPON", "name": "Martial" }
+  ]
+}

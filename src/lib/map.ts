@@ -1,18 +1,14 @@
+import { Node } from "../tree.ts";
+
 export class CaseInsensitiveMap<K, V> extends Map<K, V> {
-  constructor(input?: Map<K, V> | [K, V][]) {
-    if (!input) {
-      super();
-      return;
+  constructor(input?: Iterable<readonly [K, V]>) {
+    super();
+
+    if (!input) return;
+
+    for (const [k, v] of input) {
+      this.set(k, v); // reuses your normalization
     }
-
-    const entries = input instanceof Map ? input.entries() : input;
-
-    super(
-      Array.from(entries, ([k, v]) => [
-        typeof k === "string" ? (k.toLowerCase() as K) : k,
-        v,
-      ]),
-    );
   }
 
   private normalize(key: K): K {
@@ -47,5 +43,26 @@ export class CaseInsensitiveMap<K, V> extends Map<K, V> {
 
   override getOrInsertComputed(key: K, callback: (key: K) => V): V {
     return super.getOrInsertComputed(this.normalize(key), callback);
+  }
+
+  public getOrThrow(key: K): V {
+    const res = this.get(key);
+    if (res === undefined) throw `No "${key} in map"`;
+    return res;
+  }
+}
+
+export class NodeMap extends CaseInsensitiveMap<string, Node> {
+  constructor(input?: Map<string, Node> | [string, Node][]) {
+    super(input);
+  }
+
+  public getNode<T extends Node["type"]>(
+    key: string,
+    ...type: T[]
+  ): Extract<Node, { type: T }> | undefined {
+    const node = super.get(key);
+    if (!node || !type.some((t) => t === node.type)) return undefined;
+    return node as Extract<Node, { type: T }>;
   }
 }
