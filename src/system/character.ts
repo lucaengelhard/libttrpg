@@ -44,6 +44,7 @@ export class Character {
           ["passives", new NodeMap(passives as any)],
           ["info", new NodeMap()],
           ["choices", new NodeMap()],
+          ["options", new NodeMap()],
           ["proficiencies", new NodeMap()],
         ]),
       ],
@@ -69,6 +70,25 @@ export class Character {
     return this;
   }
 
+  public setClassLevel(className: string, level: number): this {
+    if (level < 1 || level > 20 || !Number.isInteger(level)) return this;
+
+    const classes = this.#store
+      .getOrThrow("character")
+      .get("classes");
+
+    if (!classes) return this;
+
+    const classValue = classes
+      .getNode(className, "CLASS");
+    if (!classValue) return this;
+
+    classes.set(className, { ...classValue, level });
+
+    this.applyTree();
+    return this;
+  }
+
   public setChoice(identifier: string, key: string): this {
     const choice = this.#store
       .getOrThrow("character")
@@ -80,9 +100,33 @@ export class Character {
     const selected = choice.slectedKeys!;
     const open = choice.openKeys!;
 
-    if (!open.has(key)) return this;
+    if (selected.has(key)) {
+      selected.delete(key);
+      open.add(key);
+      this.applyTree();
+      return this;
+    }
+
+    if (
+      !open.has(key) || selected.size >= (resolveValue(choice.count) as number)
+    ) {
+      return this;
+    }
     selected.add(key);
     open.delete(key);
+    this.applyTree();
+    return this;
+  }
+
+  public setOption(identifier: string, active: boolean): this {
+    const option = this.#store
+      .getOrThrow("character")
+      .getOrThrow("options")
+      .getNode(identifier, "OPTIONAL");
+
+    if (!option) return this;
+
+    option.active = active;
     this.applyTree();
     return this;
   }
@@ -199,6 +243,19 @@ export class Character {
         }),
     );
 
+    const options = new CaseInsensitiveMap(
+      character
+        .getOrThrow("options")
+        .entries()
+        .map(([path, choice]) => {
+          assert(choice, "CHARACTER_GET", "OPTIONAL");
+
+          const name = "name" in choice ? choice.name : choice.key ?? path;
+
+          return [path, { name, active: choice.active ?? false }];
+        }),
+    );
+
     const proficiencies = character
       .getOrThrow("proficiencies");
 
@@ -226,6 +283,25 @@ export class Character {
       .map((v) => (v as Type).name)
       .toArray();
 
+    const spellcasting = character.has("spellcasting")
+      ? new CaseInsensitiveMap(
+        character
+          .getOrThrow("spellcasting")
+          .entries()
+          .map(([className, value]) => {
+            assert(value, "CHARACTER_GET", "SPELLCASTING");
+            assert(value.ability, "CHARACTER_GET", "ABILITY");
+
+            return [className, {
+              ability: value.ability.name,
+              table: value.table,
+            }];
+          }),
+      )
+      : undefined;
+
+    const spells = character.get("spells");
+
     return {
       name: character
         .getOrThrow("info")
@@ -237,12 +313,15 @@ export class Character {
       skills,
       passives,
       choices,
+      options,
       proficiencies: {
         armor: armorProfs,
         weapon: weaponProfs,
         language: languageProfs,
         tool: toolProfs,
       },
+      spellcasting,
+      spells,
       tree: result,
     };
   }
@@ -274,6 +353,6 @@ export class Character {
       ],
     } as Node;
 
-    return iterate(tree, { store: this.#store, log: true });
+    return iterate(tree, { store: this.#store, log: false });
   }
 }

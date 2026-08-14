@@ -311,16 +311,19 @@
                   "key": "spellcasting",
                   "ability": {
                     "type": "DEPENDENCY",
-                    "query": "character.abilities.wisdom"
+                    "query": "library.ability.wisdom"
                   },
-                  "prepare": false,
                   "table": {
-                    "spells": {
-                      "knownCount": { "type": "DEPENDENCY", "query": "?" }
-                    },
-                    "cantrips": {
-                      "knownCount": { "type": "DEPENDENCY", "query": "?" }
-                    }
+                    "2": { "spells": 2, "slots": [2] },
+                    "3": { "spells": 3, "slots": [3] },
+                    "5": { "spells": 4, "slots": [4, 2] },
+                    "7": { "spells": 5, "slots": [4, 3] },
+                    "9": { "spells": 6, "slots": [4, 3, 2] },
+                    "11": { "spells": 7, "slots": [4, 3, 3] },
+                    "13": { "spells": 8, "slots": [4, 3, 3, 1] },
+                    "15": { "spells": 9, "slots": [4, 3, 3, 2] },
+                    "17": { "spells": 10, "slots": [4, 3, 3, 3, 1] },
+                    "19": { "spells": 11, "slots": [4, 3, 3, 3, 2] }
                   }
                 }
               ]

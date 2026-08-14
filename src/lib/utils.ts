@@ -72,6 +72,11 @@ export function is<T extends NodeType>(
   return types.some((t) => node.type === t);
 }
 
+export function isValue(node: Node | undefined): node is Value {
+  if (!node) return false;
+  return is(node, "LITERAL") || is(node, "COMPUTED");
+}
+
 export function hasKeyOrValue<N extends Node>(
   node: N,
   shouldLog = false,
@@ -158,4 +163,8 @@ export function caseInsensitiveGet<
 
 export function log(input: unknown, active: boolean) {
   if (active) console.log(input);
+}
+
+export function printNode(input: Node): string {
+  return JSON.stringify(input, null, 1);
 }

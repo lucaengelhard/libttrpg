@@ -33,6 +33,7 @@ export type Choose = {
 export type Optional = {
   type: "OPTIONAL";
   value: Node;
+  active?: boolean;
 };
 
 export type Literal = {
@@ -107,21 +108,18 @@ export type Spell = {
   name: string;
   alwaysPrepared?: boolean;
   castWithoutSpellSlot?: Resource;
+  level: number;
+  upcast?: boolean;
+  ability?: Node;
 };
 
 export type Spellcasting = {
   type: "SPELLCASTING";
   ability: Node;
-  prepare?: boolean;
-  table: {
-    spells?: {
-      knownCount?: Node;
-      preparedCount?: Node;
-    };
-    cantrips?: {
-      knownCount?: Node;
-    };
-  };
+  table: Record<
+    string,
+    { spells: number; slots: number[]; prepared?: number; cantrips?: number }
+  >;
 };
 
 export type Roll = {
@@ -241,6 +239,7 @@ type ParseCtx = {
   nodePath: string;
   store: Store;
   classLevel?: number;
+  className?: string;
   apply: boolean;
   choiceDelete: boolean;
   log: boolean;
@@ -319,6 +318,8 @@ function parse(
         };
       }
       case "DEPENDENCY": {
+        // This causes problems because new iterations don't query for new updates
+        // Should insted return a dependency with a result key
         return lookup(ctx.store, node.query) ?? EMPTY;
       }
       case "CLASS": {
@@ -328,7 +329,13 @@ function parse(
           .getNode(node.name, "CLASS")!
           .level!;
 
-        return { ...node, levels: parseLevels(node.levels, level, ctx) };
+        return {
+          ...node,
+          levels: parseLevels(node.levels, level, {
+            ...ctx,
+            className: node.name,
+          }),
+        };
       }
       case "CHOOSE": {
         const from = parse(node.from, {
@@ -339,11 +346,12 @@ function parse(
 
         assert(from, ctx.nodePath, "MULTIPLE");
 
-        if (!ctx.apply && ctx.choiceDelete) {
-          ctx.store
-            .getOrThrow("character")
-            .getOrThrow("choices")
-            .delete(ctx.nodePath);
+        const choices = ctx.store
+          .getOrThrow("character")
+          .getOrThrow("choices");
+
+        if (!ctx.apply && ctx.choiceDelete && choices.has(ctx.nodePath)) {
+          choices.delete(ctx.nodePath);
           return node;
         }
 
@@ -382,6 +390,36 @@ function parse(
             ),
           },
           open: { type: "MULTIPLE", values: openValues },
+          from,
+        };
+      }
+      case "OPTIONAL": {
+        parse(node.value, {
+          ...ctx,
+          apply: false,
+          choiceDelete: false,
+        });
+
+        const options = ctx.store
+          .getOrThrow("character")
+          .getOrThrow("options");
+
+        if (!ctx.apply && ctx.choiceDelete && options.has(ctx.nodePath)) {
+          options.delete(ctx.nodePath);
+          return node;
+        }
+
+        if (!ctx.apply) return node;
+
+        const option = options
+          .getOrInsert(ctx.nodePath, {
+            ...node,
+            active: false,
+          }) as Optional;
+
+        return {
+          ...node,
+          value: option.active ? parse(node.value, ctx) : EMPTY,
         };
       }
       case "FEAT": {
@@ -541,18 +579,65 @@ function parse(
         return { ...node, armor, weapon, skill };
       }
 
-      case "OPTIONAL":
+      case "SPELLCASTING": {
+        const ability = parse(node.ability, ctx);
+        assert(ability, ctx.nodePath, "ABILITY");
+
+        if (ctx.className) {
+          const spellcasting = ctx.store
+            .getOrThrow("character")
+            .getOrInsert("spellcasting", new NodeMap());
+
+          spellcasting.set(ctx.className, { ...node, ability });
+        }
+
+        return { ...node, ability };
+      }
+
+      case "SPELL": {
+        if (!ctx.apply) return node;
+
+        const spell = ctx.store
+          .getOrThrow("character")
+          .getOrInsert("spells", new NodeMap())
+          .getOrInsert(node.name, node) as Spell;
+
+        if (!spell.castWithoutSpellSlot) {
+          spell.castWithoutSpellSlot = node.castWithoutSpellSlot;
+        }
+        if (!spell.alwaysPrepared) {
+          spell.alwaysPrepared = node.alwaysPrepared;
+        }
+        if (!spell.upcast) {
+          spell.upcast = node.upcast;
+        }
+
+        if (!ctx.className) return node;
+
+        const ability = node.ability ? parse(node.ability, ctx) : ctx.store
+          .getOrThrow("character")
+          .get("spellcasting")
+          ?.getNode(ctx.className, "SPELLCASTING")
+          ?.ability;
+
+        if (!ability || !expect(ability, { path: ctx.nodePath }, "ABILITY")) {
+          return node;
+        }
+
+        spell.ability = ability;
+
+        return { ...node, ability };
+      }
+
       case "COMPUTED":
       case "SUBCLASS":
       case "ACTION":
-      case "SPELL":
-      case "SPELLCASTING":
       case "ROLL":
-      case "RESOURCE":
-      case "ABILITY": {
+      case "RESOURCE": {
         log(node.type, ctx.log);
         return node;
       }
+      case "ABILITY":
       case "TYPE":
       case "EMPTY":
       case "LITERAL":

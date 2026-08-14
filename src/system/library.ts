@@ -133,31 +133,9 @@ export async function createLibrary(entryPoint: string): Promise<Library> {
       }
 
       case "SPELLCASTING": {
-        const spells = node.table.spells
-          ? {
-            ...node.table.spells,
-            knownCount: node.table.spells.knownCount
-              ? await resolveImports(node.table.spells.knownCount, filePath)
-              : undefined,
-            preparedCount: node.table.spells.preparedCount
-              ? await resolveImports(node.table.spells.preparedCount, filePath)
-              : undefined,
-          }
-          : undefined;
-
-        const cantrips = node.table.cantrips
-          ? {
-            ...node.table.cantrips,
-            knownCount: node.table.cantrips.knownCount
-              ? await resolveImports(node.table.cantrips.knownCount, filePath)
-              : undefined,
-          }
-          : undefined;
-
         return {
           ...node,
           ability: await resolveImports(node.ability, filePath),
-          table: { spells, cantrips },
         };
       }
 
