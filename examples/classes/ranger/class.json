@@ -54,7 +54,7 @@
                       "values": [
                         {
                           "type": "MODIFIER",
-                          "value": 5,
+                          "value": { "type": "LITERAL", "value": 5 },
                           "modify": {
                             "type": "DEPENDENCY",
                             "query": "character.stats.walking_speed"
@@ -66,8 +66,11 @@
                             "type": "DEPENDENCY",
                             "query": "character.stats.walking_speed"
                           },
-                          "set": "$CHARACTER.CLIMBING_SPEED",
-                          "setIf": "!$CHARACTER.CLIMBING_SPEED && $CHARACTER.CLIMBING_SPEED < $CHARACTER.WALKING_SPEED"
+                          "set": {
+                            "type": "DEPENDENCY",
+                            "query": "CHARACTER.CLIMBING_SPEED"
+                          },
+                          "setIf": "!CHARACTER.CLIMBING_SPEED && CHARACTER.CLIMBING_SPEED < CHARACTER.WALKING_SPEED"
                         },
                         {
                           "type": "MODIFIER",
@@ -75,8 +78,11 @@
                             "type": "DEPENDENCY",
                             "query": "character.stats.walking_speed"
                           },
-                          "set": "$CHARACTER.SWIMMING_SPEED",
-                          "setIf": "!$CHARACTER.SWIMMING_SPEED && $CHARACTER.SWIMMING_SPEED < $CHARACTER.WALKING_SPEED"
+                          "set": {
+                            "type": "DEPENDENCY",
+                            "query": "CHARACTER.SWIMMING_SPEED"
+                          },
+                          "setIf": "!CHARACTER.SWIMMING_SPEED && CHARACTER.SWIMMING_SPEED < CHARACTER.WALKING_SPEED"
                         }
                       ]
                     }
@@ -106,13 +112,16 @@
                                 "type": "MODIFIER",
                                 "value": {
                                   "type": "ROLL",
-                                  "diceType": 8,
-                                  "diceCount": 1,
+                                  "diceType": { "type": "LITERAL", "value": 8 },
+                                  "diceCount": {
+                                    "type": "LITERAL",
+                                    "value": 1
+                                  },
                                   "modifier": {
                                     "type": "DEPENDENCY",
                                     "query": "character.abilities.wisdom"
                                   },
-                                  "minimum": 1
+                                  "minimum": { "type": "LITERAL", "value": 1 }
                                 },
                                 "sets": "$CHARACTER.TEMP_HP"
                               }
@@ -133,12 +142,14 @@
           "levels": {
             "1": {
               "type": "PROFICIENCY",
-              "armor": [
-                "LIGHT",
-                "MEDIUM",
-                "SHIELDS"
-              ],
-              "weapons": ["SIMPLE", "MARTIAL"],
+              "armor": {
+                "type": "DEPENDENCY",
+                "query": "library.type?of=armor;name:light|medium|shields"
+              },
+              "weapon": {
+                "type": "DEPENDENCY",
+                "query": "library.type?of=weapon;name:simple|martial"
+              },
               "save": {
                 "type": "MULTIPLE",
                 "values": [
@@ -196,7 +207,7 @@
                                   "type": "MULTIPLE",
                                   "values": [{
                                     "type": "DEPENDENCY",
-                                    "query": "library.types?of=creature;tag=humanoid"
+                                    "query": "library.type?of=creature;tag=humanoid"
                                   }]
                                 }
                               }
@@ -243,23 +254,8 @@
             "name": "Additional Ranger Spells",
             "levels": {
               "2": {
-                "type": "MODIFIER",
-                "spellList": [
-                  "Entangle",
-                  "Searing smite",
-                  "Aid",
-                  "Enhance ability",
-                  "Gust of wind",
-                  "Magic weapon",
-                  "Summon beast",
-                  "Elemental weapon",
-                  "Meld into stone",
-                  "Revivify",
-                  "Summon fey",
-                  "Dominate beast",
-                  "Summon elemental",
-                  "Greater restoration"
-                ]
+                "type": "DEPENDENCY",
+                "query": "library.spell?name=Entangle|Searing smite|Aid|Enhance ability|Gust of wind|Magic weapon|Summon beast|Elemental weapon|Meld into stone|Revivify|Summon fey|Dominate beast|Summon elemental|Greater restoration"
               }
             }
           }
@@ -295,19 +291,22 @@
               "type": "MULTIPLE",
               "values": [
                 {
-                  "type": "MODIFIER",
-                  "spellList": {
+                  "type": "DEPENDENCY",
+                  "query": "library.spell?class=Ranger"
+                },
+                {
+                  "type": "SPELLCASTING",
+                  "ability": {
                     "type": "DEPENDENCY",
-                    "query": "library.spell?class=Ranger"
+                    "query": "character.abilities.wisdom"
                   },
-                  "spellcasting": {
-                    "ability": {
-                      "type": "DEPENDENCY",
-                      "query": "character.abilities.wisdom"
+                  "prepare": false,
+                  "table": {
+                    "spells": {
+                      "knownCount": { "type": "DEPENDENCY", "query": "?" }
                     },
-                    "spellTable": {
-                      "type": "DEPENDENCY",
-                      "query": "$STATIC.SPELL_TABLE"
+                    "cantrips": {
+                      "knownCount": { "type": "DEPENDENCY", "query": "?" }
                     }
                   }
                 }
@@ -332,41 +331,51 @@
                 "3": {
                   "type": "SPELL",
                   "name": "Speak with animals",
-                  "castsWithoutSpellSlot": {
-                    "count": 1,
-                    "reset": "$LONG_REST"
+                  "alwaysPrepared": true,
+                  "castWithoutSpellSlot": {
+                    "type": "RESOURCE",
+                    "uses": { "type": "LITERAL", "value": 1 },
+                    "resetTrigger": "$LONG_REST"
                   }
                 },
                 "5": {
                   "type": "SPELL",
                   "name": "Beast sense",
-                  "castsWithoutSpellSlot": {
-                    "count": 1,
-                    "reset": "$LONG_REST"
+                  "alwaysPrepared": true,
+                  "castWithoutSpellSlot": {
+                    "type": "RESOURCE",
+                    "uses": { "type": "LITERAL", "value": 1 },
+                    "resetTrigger": "$LONG_REST"
                   }
                 },
                 "9": {
                   "type": "SPELL",
                   "name": "Speak with plants",
-                  "castsWithoutSpellSlot": {
-                    "count": 1,
-                    "reset": "$LONG_REST"
+                  "alwaysPrepared": true,
+                  "castWithoutSpellSlot": {
+                    "type": "RESOURCE",
+                    "uses": { "type": "LITERAL", "value": 1 },
+                    "resetTrigger": "$LONG_REST"
                   }
                 },
                 "13": {
                   "type": "SPELL",
                   "name": "Locate creature",
-                  "castsWithoutSpellSlot": {
-                    "count": 1,
-                    "reset": "$LONG_REST"
+                  "alwaysPrepared": true,
+                  "castWithoutSpellSlot": {
+                    "type": "RESOURCE",
+                    "uses": { "type": "LITERAL", "value": 1 },
+                    "resetTrigger": "$LONG_REST"
                   }
                 },
                 "17": {
                   "type": "SPELL",
                   "name": "Commune with nature",
-                  "castsWithoutSpellSlot": {
-                    "count": 1,
-                    "reset": "$LONG_REST"
+                  "alwaysPrepared": true,
+                  "castWithoutSpellSlot": {
+                    "type": "RESOURCE",
+                    "uses": { "type": "LITERAL", "value": 1 },
+                    "resetTrigger": "$LONG_REST"
                   }
                 }
               }

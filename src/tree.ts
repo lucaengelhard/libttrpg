@@ -96,6 +96,43 @@ type Action = {
   effect: Node;
 };
 
+type Spell = {
+  type: "SPELL";
+  name: string;
+  alwaysPrepared?: boolean;
+  castWithoutSpellSlot?: Resource;
+};
+
+type Spellcasting = {
+  type: "SPELLCASTING";
+  ability: Node;
+  prepare?: boolean;
+  table: {
+    spells?: {
+      knownCount?: Node;
+      preparedCount?: Node;
+    };
+    cantrips?: {
+      knownCount?: Node;
+    };
+  };
+};
+
+type Roll = {
+  type: "ROLL";
+  diceType: Node;
+  diceCount: Node;
+  minimum: Node;
+  modifier: Node;
+};
+
+type Resource = {
+  type: "RESOURCE";
+  name: string;
+  uses: Node;
+  resetTrigger: string;
+};
+
 type Ability = { type: "ABILITY"; name: string };
 type Skill = {
   type: "SKILL";
@@ -125,6 +162,10 @@ export type Node =
     | Proficiency
     | Modifier
     | Action
+    | Spell
+    | Spellcasting
+    | Roll
+    | Resource
     | Ability
     | Skill
     | Type
@@ -346,6 +387,7 @@ async function createLibrary(entryPoint: string): Promise<Library> {
       }
 
       case "MODIFIER": {
+        if (node.value === undefined) console.log(node);
         const value = await resolveImports(node.value, filePath);
 
         const modify = node.modify
@@ -361,6 +403,63 @@ async function createLibrary(entryPoint: string): Promise<Library> {
 
       case "ACTION": {
         return { ...node, effect: await resolveImports(node.effect, filePath) };
+      }
+
+      case "SPELL": {
+        const castWithoutSpellSlot = node.castWithoutSpellSlot
+          ? await resolveImports(
+            node.castWithoutSpellSlot,
+            filePath,
+          ) as Resource
+          : undefined;
+
+        return { ...node, castWithoutSpellSlot };
+      }
+
+      case "ROLL": {
+        return {
+          ...node,
+          diceType: await resolveImports(node.diceType, filePath),
+          diceCount: await resolveImports(node.diceCount, filePath),
+          minimum: await resolveImports(node.minimum, filePath),
+          modifier: await resolveImports(node.modifier, filePath),
+        };
+      }
+
+      case "SPELLCASTING": {
+        const spells = node.table.spells
+          ? {
+            ...node.table.spells,
+            knownCount: node.table.spells.knownCount
+              ? await resolveImports(node.table.spells.knownCount, filePath)
+              : undefined,
+            preparedCount: node.table.spells.preparedCount
+              ? await resolveImports(node.table.spells.preparedCount, filePath)
+              : undefined,
+          }
+          : undefined;
+
+        const cantrips = node.table.cantrips
+          ? {
+            ...node.table.cantrips,
+            knownCount: node.table.cantrips.knownCount
+              ? await resolveImports(node.table.cantrips.knownCount, filePath)
+              : undefined,
+          }
+          : undefined;
+
+        return {
+          ...node,
+          ability: await resolveImports(node.ability, filePath),
+          table: { spells, cantrips },
+        };
+      }
+
+      case "RESOURCE": {
+        return {
+          ...node,
+          uses: await resolveImports(node.uses, filePath),
+        };
       }
 
       case "EMPTY":
