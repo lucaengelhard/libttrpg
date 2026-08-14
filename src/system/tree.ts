@@ -5,8 +5,9 @@ import {
   caseInsensitiveGet,
   expect,
   hasKeyOrValue,
+  log,
 } from "../lib/utils.ts";
-import { getNodePath } from "../lib/nodepath.ts";
+import { getNodePath, PATH_COUNTER } from "../lib/nodepath.ts";
 
 // OPERATORS
 export type Import = {
@@ -200,7 +201,6 @@ export function iterate(
   const {
     maxIterations,
     store = new CaseInsensitiveMap() as Store,
-    log,
   } = config ??
     {
       maxIterations: undefined,
@@ -208,13 +208,25 @@ export function iterate(
       log: false,
     };
 
-  if (log) console.log(`ITERATION #0`);
-  let previous = parse(tree, { nodePath: "ROOT", store, apply: true });
+  log(`ITERATION #0`, config?.log ?? false);
+  let previous = parse(tree, {
+    nodePath: "ROOT",
+    store,
+    apply: true,
+    choiceDelete: true,
+    log: config?.log ?? false,
+  });
 
   let iterations = 1;
   while (true) {
-    if (log) console.log(`ITERATION #${iterations}`);
-    const result = parse(previous, { nodePath: "ROOT", store, apply: true });
+    log(`ITERATION #${iterations}`, config?.log ?? false);
+    const result = parse(previous, {
+      nodePath: "ROOT",
+      store,
+      apply: true,
+      choiceDelete: true,
+      log: config?.log ?? false,
+    });
 
     if (deepEqual(previous, result)) return { result, iterations, store };
     previous = result;
@@ -230,6 +242,8 @@ type ParseCtx = {
   store: Store;
   classLevel?: number;
   apply: boolean;
+  choiceDelete: boolean;
+  log: boolean;
 };
 const PROTECTED_SECTIONS = ["library"];
 function parse(
@@ -260,7 +274,12 @@ function parse(
         // TODO: Remove if apply is false
         if (
           node.set &&
-          expect(node.set, { path: ctx.nodePath }, "DEPENDENCY", "MULTIPLE")
+          expect(
+            node.set,
+            { path: ctx.nodePath, log: ctx.log },
+            "DEPENDENCY",
+            "MULTIPLE",
+          )
         ) {
           if (node.set.type === "DEPENDENCY") applyValue(node.set, "SET");
           else {
@@ -273,7 +292,12 @@ function parse(
 
         if (
           node.modify &&
-          expect(node.modify, { path: ctx.nodePath }, "DEPENDENCY", "MULTIPLE")
+          expect(
+            node.modify,
+            { path: ctx.nodePath, log: ctx.log },
+            "DEPENDENCY",
+            "MULTIPLE",
+          )
         ) {
           if (node.modify.type === "DEPENDENCY") applyValue(node.modify, "SET");
           else {
@@ -289,7 +313,9 @@ function parse(
       case "MULTIPLE": {
         return {
           ...node,
-          values: node.values.map((v) => parse(v, ctx)).filter(hasKeyOrValue),
+          values: node.values
+            .map((v) => parse(v, ctx))
+            .filter((v) => hasKeyOrValue(v, ctx.log)),
         };
       }
       case "DEPENDENCY": {
@@ -305,9 +331,23 @@ function parse(
         return { ...node, levels: parseLevels(node.levels, level, ctx) };
       }
       case "CHOOSE": {
-        const from = parse(node.from, { ...ctx, apply: false });
+        const from = parse(node.from, {
+          ...ctx,
+          apply: false,
+          choiceDelete: false,
+        });
 
         assert(from, ctx.nodePath, "MULTIPLE");
+
+        if (!ctx.apply && ctx.choiceDelete) {
+          ctx.store
+            .getOrThrow("character")
+            .getOrThrow("choices")
+            .delete(ctx.nodePath);
+          return node;
+        }
+
+        if (!ctx.apply) return node;
 
         const optionKeys = new Set(
           from.values
@@ -370,7 +410,13 @@ function parse(
           kind: "armor" | "weapon",
         ) => {
           if (
-            !node || !expect(node, { path: ctx.nodePath }, "MULTIPLE", "CHOOSE")
+            !node ||
+            !expect(
+              node,
+              { path: ctx.nodePath, log: ctx.log },
+              "MULTIPLE",
+              "CHOOSE",
+            )
           ) {
             return;
           }
@@ -385,7 +431,7 @@ function parse(
 
           values.forEach((t) => {
             if (
-              !expect(t, { path: ctx.nodePath }, "TYPE") ||
+              !expect(t, { path: ctx.nodePath, log: ctx.log }, "TYPE") ||
               t.of.toLowerCase() !== kind
             ) return;
             const identifier = `${t.of}.${t.name}`;
@@ -408,7 +454,12 @@ function parse(
         ) => {
           if (
             !node ||
-            !expect(node, { path: ctx.nodePath }, "MULTIPLE", "CHOOSE")
+            !expect(
+              node,
+              { path: ctx.nodePath, log: ctx.log },
+              "MULTIPLE",
+              "CHOOSE",
+            )
           ) {
             return;
           }
@@ -499,7 +550,7 @@ function parse(
       case "ROLL":
       case "RESOURCE":
       case "ABILITY": {
-        console.log(node.type);
+        log(node.type, ctx.log);
         return node;
       }
       case "TYPE":
@@ -512,9 +563,8 @@ function parse(
       }
     }
   } catch (error) {
-    throw new Error(`${error} 
-		at ${ctx.nodePath}
-		`.replace("Error: ", ""));
+    log(`${error} at ${ctx.nodePath}`, ctx.log);
+    return EMPTY;
   }
 
   function parseLevels(
@@ -523,8 +573,17 @@ function parse(
     ctx: ParseCtx,
   ) {
     const result = Object.entries(levels)
-      .filter(([level]) => parseInt(level) <= currentLevel)
-      .map(([level, value]) => [level, parse(value, ctx)]);
+      .map((
+        [level, value],
+      ) => [
+        level,
+        parse(value, {
+          ...ctx,
+          apply: ctx.apply && parseInt(level) <= currentLevel,
+          nodePath: `${ctx.nodePath}${PATH_COUNTER}${level}`,
+        }),
+      ])
+      .filter(([level]) => parseInt(level as string) <= currentLevel);
     return Object.fromEntries(result);
   }
 }

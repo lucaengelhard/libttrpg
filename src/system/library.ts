@@ -202,7 +202,7 @@ export async function createLibrary(entryPoint: string): Promise<Library> {
   function build(node: Node) {
     if (!node) return;
     if ("key" in node || "name" in node) {
-      const anyNode = node as any; // TODO
+      const anyNode = node as NodeWithName;
       appendToLib(
         anyNode.key ?? anyNode.name,
         node as NodeWithKey | NodeWithName,

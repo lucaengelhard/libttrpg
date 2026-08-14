@@ -6,16 +6,7 @@ import {
   getProficiencyBonus,
   resolveValue,
 } from "../lib/utils.ts";
-import {
-  Class,
-  Computed,
-  iterate,
-  Multiple,
-  Node,
-  Store,
-  Type,
-  Value,
-} from "./tree.ts";
+import { Class, Computed, iterate, Node, Store, Type, Value } from "./tree.ts";
 import { Library } from "./library.ts";
 
 export class Character {
@@ -59,7 +50,7 @@ export class Character {
     ]);
   }
 
-  public addClass(className: string) {
+  public addClass(className: string): this {
     const classValue = this.#store.get("library")?.get("class")?.get(className);
     if (
       !classValue ||
@@ -67,54 +58,58 @@ export class Character {
         "classes",
         new NodeMap(),
       ).has(className)
-    ) return;
+    ) return this;
 
     const classes = this.#store
       .get("character")!
       .getOrInsert("classes", new NodeMap());
 
     classes.set(className, { ...classValue, level: 1 } as Class);
-    return this.applyTree();
+    this.applyTree();
+    return this;
   }
 
-  public setChoice(identifier: string, key: string) {
+  public setChoice(identifier: string, key: string): this {
     const choice = this.#store
       .getOrThrow("character")
       .getOrThrow("choices")
       .getNode(identifier, "CHOOSE");
 
-    if (!choice) return;
+    if (!choice) return this;
 
     const selected = choice.slectedKeys!;
     const open = choice.openKeys!;
 
-    if (!open.has(key)) return;
+    if (!open.has(key)) return this;
     selected.add(key);
     open.delete(key);
-    return this.applyTree();
+    this.applyTree();
+    return this;
   }
 
-  public setName(name: string) {
+  public setName(name: string): this {
     this.#store
       .getOrThrow("character")
       .getOrThrow("info")
       .set("name", { type: "LITERAL", value: name });
-    return this.applyTree();
+    this.applyTree();
+    return this;
   }
 
-  public setAbilityBase(name: string, value: number) {
+  public setAbilityBase(name: string, value: number): this {
     const ability = this.#store
       .getOrThrow("character")
       .getOrThrow("abilities")
       .get(name) as Computed | undefined;
-    if (!ability) return;
+    if (!ability) return this;
 
     ability.base = { type: "LITERAL", value };
-    return this.applyTree();
+    this.applyTree();
+    return this;
   }
 
   public get() {
-    this.applyTree();
+    const { result } = this.applyTree();
 
     const character = this.#store.getOrThrow("character");
     const classes = character
@@ -248,6 +243,7 @@ export class Character {
         language: languageProfs,
         tool: toolProfs,
       },
+      tree: result,
     };
   }
 
@@ -278,7 +274,6 @@ export class Character {
       ],
     } as Node;
 
-    iterate(tree, { store: this.#store, log: true });
-    //console.log(this.#store);
+    return iterate(tree, { store: this.#store, log: true });
   }
 }

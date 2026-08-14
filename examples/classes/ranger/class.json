@@ -308,6 +308,7 @@
                 },
                 {
                   "type": "SPELLCASTING",
+                  "key": "spellcasting",
                   "ability": {
                     "type": "DEPENDENCY",
                     "query": "character.abilities.wisdom"

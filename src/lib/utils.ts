@@ -74,8 +74,9 @@ export function is<T extends NodeType>(
 
 export function hasKeyOrValue<N extends Node>(
   node: N,
+  shouldLog = false,
 ): node is N & (NodeWithKey | NodeWithName) {
-  if (!(node.key !== undefined || "name" in node)) {
+  if (!(node.key !== undefined || "name" in node) && shouldLog) {
     console.warn("Missing key or name for node:");
     console.log(node);
   }
@@ -153,4 +154,8 @@ export function caseInsensitiveGet<
   }
 
   return undefined;
+}
+
+export function log(input: unknown, active: boolean) {
+  if (active) console.log(input);
 }
