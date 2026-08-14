@@ -1,10 +1,21 @@
 import { CaseInsensitiveMap, NodeMap } from "../lib/map.ts";
 import {
+  assert,
   getModifier,
+  getProficiency,
   getProficiencyBonus,
   resolveValue,
 } from "../lib/utils.ts";
-import { Class, Computed, Store, Value } from "./tree.ts";
+import {
+  Class,
+  Computed,
+  iterate,
+  Multiple,
+  Node,
+  Store,
+  Type,
+  Value,
+} from "./tree.ts";
 import { Library } from "./library.ts";
 
 export class Character {
@@ -41,6 +52,8 @@ export class Character {
           ["skills", new NodeMap(skills as any)],
           ["passives", new NodeMap(passives as any)],
           ["info", new NodeMap()],
+          ["choices", new NodeMap()],
+          ["proficiencies", new NodeMap()],
         ]),
       ],
     ]);
@@ -61,6 +74,24 @@ export class Character {
       .getOrInsert("classes", new NodeMap());
 
     classes.set(className, { ...classValue, level: 1 } as Class);
+    return this.applyTree();
+  }
+
+  public setChoice(identifier: string, key: string) {
+    const choice = this.#store
+      .getOrThrow("character")
+      .getOrThrow("choices")
+      .getNode(identifier, "CHOOSE");
+
+    if (!choice) return;
+
+    const selected = choice.slectedKeys!;
+    const open = choice.openKeys!;
+
+    if (!open.has(key)) return;
+    selected.add(key);
+    open.delete(key);
+    return this.applyTree();
   }
 
   public setName(name: string) {
@@ -68,6 +99,7 @@ export class Character {
       .getOrThrow("character")
       .getOrThrow("info")
       .set("name", { type: "LITERAL", value: name });
+    return this.applyTree();
   }
 
   public setAbilityBase(name: string, value: number) {
@@ -78,9 +110,12 @@ export class Character {
     if (!ability) return;
 
     ability.base = { type: "LITERAL", value };
+    return this.applyTree();
   }
 
   public get() {
+    this.applyTree();
+
     const character = this.#store.getOrThrow("character");
     const classes = character
       .get("classes");
@@ -115,7 +150,7 @@ export class Character {
           const modifier = getModifier(abilities.getOrThrow(name));
           const bonus = resolveValue(value as Value) as number ?? 0;
           const prof = value.type === "COMPUTED" && value.proficiency
-            ? value.proficiency * proficiencyBonus
+            ? getProficiency(value.proficiency) * proficiencyBonus
             : 0;
 
           return [name, modifier + bonus + prof];
@@ -135,7 +170,7 @@ export class Character {
           const modifier = getModifier(abilities.getOrThrow(skill.ability));
           const bonus = resolveValue(value as Value) as number ?? 0;
           const prof = value.type === "COMPUTED" && value.proficiency
-            ? value.proficiency * proficiencyBonus
+            ? getProficiency(value.proficiency) * proficiencyBonus
             : 0;
 
           return [name, modifier + bonus + prof];
@@ -153,6 +188,49 @@ export class Character {
         }),
     );
 
+    const choices = new CaseInsensitiveMap(
+      character
+        .getOrThrow("choices")
+        .entries()
+        .map(([path, choice]) => {
+          assert(choice, "CHARACTER_GET", "CHOOSE");
+          const selected = choice.slectedKeys
+            ? Array.from(choice.slectedKeys)
+            : [];
+
+          const open = choice.openKeys ? Array.from(choice.openKeys) : [];
+
+          return [path, { count: resolveValue(choice.count), selected, open }];
+        }),
+    );
+
+    const proficiencies = character
+      .getOrThrow("proficiencies");
+
+    const armorProfs = proficiencies
+      .values()
+      .filter((v) => v.type === "TYPE" && v.of.toLowerCase() === "armor")
+      .map((v) => (v as Type).name)
+      .toArray();
+
+    const weaponProfs = proficiencies
+      .values()
+      .filter((v) => v.type === "TYPE" && v.of.toLowerCase() === "weapon")
+      .map((v) => (v as Type).name)
+      .toArray();
+
+    const languageProfs = proficiencies
+      .values()
+      .filter((v) => v.type === "TYPE" && v.of.toLowerCase() === "language")
+      .map((v) => (v as Type).name)
+      .toArray();
+
+    const toolProfs = proficiencies
+      .values()
+      .filter((v) => v.type === "TYPE" && v.of.toLowerCase() === "tool")
+      .map((v) => (v as Type).name)
+      .toArray();
+
     return {
       name: character
         .getOrThrow("info")
@@ -163,6 +241,44 @@ export class Character {
       saves,
       skills,
       passives,
+      choices,
+      proficiencies: {
+        armor: armorProfs,
+        weapon: weaponProfs,
+        language: languageProfs,
+        tool: toolProfs,
+      },
     };
+  }
+
+  private applyTree() {
+    const character = this.#store
+      .getOrThrow("character");
+    const classes = character
+      .get("classes");
+
+    character.getOrThrow("proficiencies").clear(); // TODO Does this make sense?
+
+    const characterLevel = classes
+      ? classes
+        .values()
+        .map((c) => c.type === "CLASS" ? c.level ?? 0 : 0)
+        .reduce((acc, curr) => acc + curr)
+      : 0;
+
+    character.getOrThrow("info").set("characterlevel", {
+      type: "LITERAL",
+      value: characterLevel,
+    });
+
+    const tree = {
+      type: "MULTIPLE",
+      values: [
+        ...(classes?.values().toArray() ?? []),
+      ],
+    } as Node;
+
+    iterate(tree, { store: this.#store, log: true });
+    //console.log(this.#store);
   }
 }

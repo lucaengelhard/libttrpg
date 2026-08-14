@@ -1,13 +1,12 @@
 import deepEqual from "deep-equal";
 import { CaseInsensitiveMap, NodeMap } from "../lib/map.ts";
 import {
+  assert,
   caseInsensitiveGet,
-  getModifier,
-  getProficiencyBonus,
-  readData,
+  expect,
+  hasKeyOrValue,
 } from "../lib/utils.ts";
-import { createLibrary } from "./library.ts";
-import { Character } from "./character.ts";
+import { getNodePath } from "../lib/nodepath.ts";
 
 // OPERATORS
 export type Import = {
@@ -22,8 +21,12 @@ export type Multiple = {
 
 export type Choose = {
   type: "CHOOSE";
-  count: number | Value;
-  from: Multiple;
+  count: Value;
+  from: Node;
+  selected?: Multiple;
+  slectedKeys?: Set<string>;
+  open?: Multiple;
+  openKeys?: Set<string>;
 };
 
 export type Optional = {
@@ -41,9 +44,9 @@ export type Computed = {
   base?: Value;
   overwrite?: Value;
   modifiers: Value[];
-  proficiency?: ProficiencyValue;
+  proficiency?: { value: ProficiencyValue; source: string }[];
 };
-export type Value = Literal | Computed;
+export type Value = (Literal | Computed) & { source?: string };
 
 export type Dependency = {
   type: "DEPENDENCY";
@@ -81,6 +84,7 @@ export type Proficiency = {
   skill?: Node;
   armor?: Node;
   weapon?: Node;
+  value?: ProficiencyValue;
 };
 
 export type Modifier = {
@@ -146,6 +150,7 @@ export type Type = {
   type: "TYPE";
   of: string;
   name: string;
+  source?: Set<string>;
 };
 
 export type Node =
@@ -184,17 +189,32 @@ export type Store = CaseInsensitiveMap<
   CaseInsensitiveMap<string, NodeMap>
 >;
 
-function iterate(
+export function iterate(
   tree: Node,
-  config?: { maxIterations?: number; store?: Store },
+  config?: {
+    maxIterations?: number;
+    store?: Store;
+    log?: boolean;
+  },
 ) {
-  const { maxIterations, store = new CaseInsensitiveMap() as Store } = config ??
-    { maxIterations: undefined, store: new CaseInsensitiveMap() };
+  const {
+    maxIterations,
+    store = new CaseInsensitiveMap() as Store,
+    log,
+  } = config ??
+    {
+      maxIterations: undefined,
+      store: new CaseInsensitiveMap(),
+      log: false,
+    };
 
-  let previous = parse(store, tree);
+  if (log) console.log(`ITERATION #0`);
+  let previous = parse(tree, { nodePath: "ROOT", store, apply: true });
+
   let iterations = 1;
   while (true) {
-    const result = parse(store, previous);
+    if (log) console.log(`ITERATION #${iterations}`);
+    const result = parse(previous, { nodePath: "ROOT", store, apply: true });
 
     if (deepEqual(previous, result)) return { result, iterations, store };
     previous = result;
@@ -205,31 +225,307 @@ function iterate(
   }
 }
 
+type ParseCtx = {
+  nodePath: string;
+  store: Store;
+  classLevel?: number;
+  apply: boolean;
+};
+const PROTECTED_SECTIONS = ["library"];
 function parse(
-  store: Store,
   node: Node,
+  ctxInput: ParseCtx,
 ): Node {
-  switch (node.type) {
-    case "MODIFIER": {
-      const result = parse(store, node.value);
+  const ctx: ParseCtx = {
+    ...ctxInput,
+    nodePath: getNodePath(node, ctxInput.nodePath),
+  };
 
-      set(store, node.set, result);
+  try {
+    switch (node.type) {
+      case "MODIFIER": {
+        const value = parse(node.value, ctx);
+        assert(value, ctx.nodePath, "COMPUTED", "LITERAL");
 
-      return { ...node, value: result };
+        const applyValue = (dep: Dependency, mode: "SET" | "MODIFY") => {
+          updateModifier(
+            ctx.store,
+            dep.query,
+            { ...value, source: ctx.nodePath },
+            mode,
+            ctx.apply,
+          );
+        };
+
+        // TODO: Remove if apply is false
+        if (
+          node.set &&
+          expect(node.set, { path: ctx.nodePath }, "DEPENDENCY", "MULTIPLE")
+        ) {
+          if (node.set.type === "DEPENDENCY") applyValue(node.set, "SET");
+          else {
+            node.set.values
+              .forEach((v) =>
+                v.type === "DEPENDENCY" ? applyValue(v, "SET") : null
+              );
+          }
+        }
+
+        if (
+          node.modify &&
+          expect(node.modify, { path: ctx.nodePath }, "DEPENDENCY", "MULTIPLE")
+        ) {
+          if (node.modify.type === "DEPENDENCY") applyValue(node.modify, "SET");
+          else {
+            node.modify.values
+              .forEach((v) =>
+                v.type === "DEPENDENCY" ? applyValue(v, "MODIFY") : null
+              );
+          }
+        }
+
+        return { ...node, value };
+      }
+      case "MULTIPLE": {
+        return {
+          ...node,
+          values: node.values.map((v) => parse(v, ctx)).filter(hasKeyOrValue),
+        };
+      }
+      case "DEPENDENCY": {
+        return lookup(ctx.store, node.query) ?? EMPTY;
+      }
+      case "CLASS": {
+        const level = ctx.store
+          .getOrThrow("character")
+          .getOrThrow("classes")
+          .getNode(node.name, "CLASS")!
+          .level!;
+
+        return { ...node, levels: parseLevels(node.levels, level, ctx) };
+      }
+      case "CHOOSE": {
+        const from = parse(node.from, { ...ctx, apply: false });
+
+        assert(from, ctx.nodePath, "MULTIPLE");
+
+        const optionKeys = new Set(
+          from.values
+            .map((v) => "name" in v ? v.name : v.key)
+            .filter((s) => s !== undefined),
+        );
+        const choice = ctx.store
+          .getOrThrow("character")
+          .getOrThrow("choices")
+          .getOrInsert(ctx.nodePath, {
+            ...node,
+            slectedKeys: new Set(),
+            openKeys: optionKeys,
+          }) as Choose;
+
+        const selectedValues = from.values.filter((v) =>
+          choice.slectedKeys!.has("name" in v ? v.name : v.key)
+        );
+
+        const openValues = from.values.filter((v) =>
+          !choice.slectedKeys!.has("name" in v ? v.name : v.key)
+        );
+
+        choice.openKeys = optionKeys.difference(choice.slectedKeys!);
+
+        return {
+          ...node,
+          selected: {
+            type: "MULTIPLE",
+            values: selectedValues.map((v) =>
+              parse(v, ctx) as NodeWithKey | NodeWithName
+            ),
+          },
+          open: { type: "MULTIPLE", values: openValues },
+        };
+      }
+      case "FEAT": {
+        const gives = node.gives
+          ? parse(node.gives, ctx) as Multiple
+          : undefined;
+
+        const level = ctx.classLevel ??
+          ctx.store
+            .getOrThrow("character")
+            .getOrThrow("info")
+            .getNode(
+              "characterlevel",
+              "LITERAL",
+            )!.value as number;
+
+        const levels = node.levels
+          ? parseLevels(node.levels, level, ctx)
+          : undefined;
+
+        return { ...node, gives, levels };
+      }
+      case "PROFICIENCY": {
+        const applyTypeProficiency = (
+          node: Node | undefined,
+          kind: "armor" | "weapon",
+        ) => {
+          if (
+            !node || !expect(node, { path: ctx.nodePath }, "MULTIPLE", "CHOOSE")
+          ) {
+            return;
+          }
+
+          const values = node.type === "MULTIPLE"
+            ? node.values
+            : node.selected && node.selected.type === "MULTIPLE"
+            ? node.selected.values
+            : undefined;
+
+          if (!values) return;
+
+          values.forEach((t) => {
+            if (
+              !expect(t, { path: ctx.nodePath }, "TYPE") ||
+              t.of.toLowerCase() !== kind
+            ) return;
+            const identifier = `${t.of}.${t.name}`;
+            const source = `${ctx.nodePath}@${kind}`;
+            const existing = ctx.store
+              .getOrThrow("character")
+              .getOrThrow("proficiencies")
+              .getOrInsert(identifier, {
+                ...t,
+                source: new Set([source]),
+              }) as Type;
+            existing.source!.add(source);
+          });
+        };
+
+        const applyComputedProficiency = (
+          node: Node | undefined,
+          kind: "skills" | "saves",
+          proficiency: ProficiencyValue,
+        ) => {
+          if (
+            !node ||
+            !expect(node, { path: ctx.nodePath }, "MULTIPLE", "CHOOSE")
+          ) {
+            return;
+          }
+
+          const values = node.type === "MULTIPLE"
+            ? node.values
+            : node.selected && node.selected.type === "MULTIPLE"
+            ? node.selected.values
+            : undefined;
+
+          const openChooseValues = node.type === "CHOOSE" && node.open
+            ? node.open.values
+            : undefined;
+
+          const category = ctx.store
+            .getOrThrow("character")
+            .getOrThrow(kind);
+
+          if (openChooseValues) {
+            for (const open of openChooseValues) {
+              if (!("name" in open)) return;
+              const current = category
+                .getNode(open.name, "COMPUTED");
+              if (!current || !current.proficiency) continue;
+              current.proficiency = current.proficiency.filter((m) =>
+                m.source !== ctx.nodePath
+              );
+            }
+          }
+
+          if (!values) return;
+
+          for (const value of values) {
+            if (!("name" in value)) return;
+
+            const current = category
+              .getNode(value.name, "COMPUTED");
+
+            if (!current) return;
+
+            if (!ctx.apply && current.proficiency) {
+              current.proficiency = current.proficiency.filter((m) =>
+                m.source !== ctx.nodePath
+              );
+              return;
+            }
+
+            const valueObj = {
+              value: proficiency,
+              source: ctx.nodePath,
+            };
+
+            if (current.proficiency === undefined) {
+              current.proficiency = [valueObj];
+            } else if (current.proficiency.length === 0) {
+              current.proficiency.push(valueObj);
+            } else {
+              const existingIndex = current.modifiers.findIndex((m) =>
+                m.source === valueObj.source
+              );
+
+              if (existingIndex !== -1) {
+                current.proficiency[existingIndex] = valueObj;
+              } else current.proficiency.push(valueObj);
+            }
+          }
+        };
+
+        const armor = node.armor ? parse(node.armor, ctx) : undefined;
+
+        if (ctx.apply && armor) applyTypeProficiency(armor, "armor");
+
+        const weapon = node.weapon ? parse(node.weapon, ctx) : undefined;
+        if (ctx.apply) applyTypeProficiency(weapon, "weapon");
+
+        const skill = node.skill ? parse(node.skill, ctx) : undefined;
+        applyComputedProficiency(skill, "skills", node.value ?? 1);
+
+        return { ...node, armor, weapon, skill };
+      }
+
+      case "OPTIONAL":
+      case "COMPUTED":
+      case "SUBCLASS":
+      case "ACTION":
+      case "SPELL":
+      case "SPELLCASTING":
+      case "ROLL":
+      case "RESOURCE":
+      case "ABILITY": {
+        console.log(node.type);
+        return node;
+      }
+      case "TYPE":
+      case "EMPTY":
+      case "LITERAL":
+      case "SKILL":
+        return node;
+      case "IMPORT": {
+        throw `Unexpected import at: ${ctx.nodePath}`;
+      }
     }
-    case "MULTIPLE": {
-      return {
-        ...node,
-        values: node.values.map((v) => parse(store, v)) as NodeWithKey[],
-      };
-    }
-    case "DEPENDENCY": {
-      return lookup(store, node.query) ?? node;
-    }
-    case "EMPTY":
-    case "LITERAL": {
-      return node;
-    }
+  } catch (error) {
+    throw new Error(`${error} 
+		at ${ctx.nodePath}
+		`.replace("Error: ", ""));
+  }
+
+  function parseLevels(
+    levels: Record<string, Node>,
+    currentLevel: number,
+    ctx: ParseCtx,
+  ) {
+    const result = Object.entries(levels)
+      .filter(([level]) => parseInt(level) <= currentLevel)
+      .map(([level, value]) => [level, parse(value, ctx)]);
+    return Object.fromEntries(result);
   }
 }
 
@@ -248,7 +544,8 @@ function lookup(store: Store, query: string): Node | undefined {
   } else {
     const res: Multiple = {
       type: "MULTIPLE",
-      values: category.values().filter(applyParams).toArray() as NodeWithKey[],
+      values: category.values().filter(applyParams)
+        .toArray() as (NodeWithKey | NodeWithName)[],
     };
 
     return res;
@@ -260,18 +557,25 @@ function lookup(store: Store, query: string): Node | undefined {
 
     for (const segment of paramsSegments) {
       const [category, options] = segment.split("=");
-      const values = options.split("|");
+      const values = options.split("|").map((s) => s.toLowerCase());
+
       const nodeValue = caseInsensitiveGet(node, category)?.toString();
 
-      if (!nodeValue || !values.includes(nodeValue)) return false;
+      if (!nodeValue || !values.includes(nodeValue.toLowerCase())) return false;
     }
     return true;
   }
 }
 
-function set(store: Store, query: string, value: Node) {
+function updateModifier(
+  store: Store,
+  query: string,
+  value: Value,
+  mode: "SET" | "MODIFY",
+  apply: boolean,
+) {
   const [sectionKey, categoryKey, entryKey] = getSelectorComponents(query);
-  if (!entryKey) return;
+  if (!entryKey || PROTECTED_SECTIONS.includes(sectionKey)) return;
 
   const category = store
     .getOrInsert(
@@ -282,9 +586,50 @@ function set(store: Store, query: string, value: Node) {
       new NodeMap(),
     );
 
-  const current = category.get(entryKey);
-  // TODO: How to resolve conflicting values (e.g. updates in the same cycle, what value has precedence over the other?)
-  category.set(entryKey, value);
+  const current = category.getOrInsert(entryKey, {
+    type: "COMPUTED",
+    modifiers: [],
+  });
+  if (current.type !== "COMPUTED" || value.source === undefined) return;
+
+  if (!apply) {
+    switch (mode) {
+      case "SET": {
+        current.overwrite !== undefined &&
+          current.overwrite.source === value.source
+          ? current.overwrite = undefined
+          : null;
+        break;
+      }
+      case "MODIFY": {
+        current.modifiers = current.modifiers.filter((m) =>
+          m.source !== value.source
+        );
+      }
+    }
+
+    return;
+  }
+
+  switch (mode) {
+    case "SET": {
+      if (current.overwrite !== undefined) {
+        // TODO
+      }
+      current.overwrite = value;
+      break;
+    }
+    case "MODIFY": {
+      const existingIndex = current.modifiers.findIndex((m) =>
+        m.source === value.source
+      );
+
+      if (existingIndex !== -1) current.modifiers[existingIndex] = value;
+      else current.modifiers.push(value);
+
+      break;
+    }
+  }
 }
 
 function cleanupQuery(query: string) {

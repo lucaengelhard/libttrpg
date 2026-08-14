@@ -1,5 +1,13 @@
 import * as path from "@std/path";
-import { Node, NodeType, NodeWith, Value } from "../system/tree.ts";
+import {
+  Node,
+  NodeType,
+  NodeWith,
+  NodeWithKey,
+  NodeWithName,
+  ProficiencyValue,
+  Value,
+} from "../system/tree.ts";
 
 export function getModifier(value: number): number {
   return Math.floor((value - 10) / 2);
@@ -28,35 +36,33 @@ export async function readData(currentPath: string, importPath: string) {
   return { data: parsed, newPath: newAbsPath };
 }
 
-export type NodePath = string;
-export const PATH_SEPARATOR = "_/_";
-export const PATH_IDENTIFIER = "@";
-export const PATH_COUNTER = "#";
-export function getNodePathSegments(
-  p: NodePath,
-): { value: string; identifier?: string; counter?: number }[] {
-  const segments = p.split(PATH_SEPARATOR);
-  return segments.map((s) => {
-    const [value, identifier] = s.split(PATH_IDENTIFIER);
-    if (identifier) {
-      const [name, counter] = identifier.split(PATH_COUNTER);
-      return { value, identifier: name, counter: parseInt(counter) };
-    }
-    return { value };
-  });
-}
-
 export function expect<N extends NodeType>(
   node: Node,
-  { path, log = false }: { path: NodePath; log?: boolean },
+  { path, log = false, panic = false }: {
+    path: string;
+    log?: boolean;
+    panic?: boolean;
+  },
   ...types: N[]
 ): node is NodeWith<N> {
   const res = is(node, ...types);
-  if (!res && log) {
+  if (!res) {
     const wantedTypes = types.length === 1 ? types[0] : types.join(" | ");
-    console.warn(`Expected: ${wantedTypes}, Got: ${node.type} at ${path}`);
+    const errorString =
+      `Expected: ${wantedTypes}, Got: ${node.type} at ${path}`;
+
+    if (panic) throw errorString;
+    else if (log) console.warn(errorString);
   }
   return res;
+}
+
+export function assert<N extends NodeType>(
+  node: Node,
+  path: string,
+  ...types: N[]
+): asserts node is NodeWith<N> {
+  expect(node, { path, panic: true }, ...types);
 }
 
 export function is<T extends NodeType>(
@@ -64,6 +70,17 @@ export function is<T extends NodeType>(
   ...types: T[]
 ): node is NodeWith<T> {
   return types.some((t) => node.type === t);
+}
+
+export function hasKeyOrValue<N extends Node>(
+  node: N,
+): node is N & (NodeWithKey | NodeWithName) {
+  if (!(node.key !== undefined || "name" in node)) {
+    console.warn("Missing key or name for node:");
+    console.log(node);
+  }
+
+  return node.key !== undefined || "name" in node;
 }
 
 export function resolveValue(
@@ -97,6 +114,17 @@ export function resolveValue(
         : undefined;
     }
   }
+}
+
+export function getProficiency(
+  input: { value: ProficiencyValue; source: string }[],
+): number {
+  let max: number | null = null;
+  for (const value of input) {
+    if (max === null || value.value > max) max = value.value;
+  }
+
+  return max === null ? 1 : max;
 }
 
 type CaseInsensitiveKey<R, K extends string> = {

@@ -9,7 +9,8 @@
       "values": [
         {
           "type": "CHOOSE",
-          "count": 1,
+          "key": "natural_deft_explorer",
+          "count": { "type": "LITERAL", "value": 1 },
           "from": {
             "type": "MULTIPLE",
             "values": [
@@ -25,19 +26,21 @@
                       "values": [
                         {
                           "type": "PROFICIENCY",
+                          "key": "deft_explorer_proficiency",
                           "expertise": true,
                           "skill": {
                             "type": "CHOOSE",
-                            "count": 1,
+                            "count": { "type": "LITERAL", "value": 1 },
                             "from": {
                               "type": "DEPENDENCY",
-                              "query": "character.skill?proficient=true"
+                              "query": "character.skills?proficient=true"
                             }
                           }
                         },
                         {
                           "type": "CHOOSE",
-                          "count": 2,
+                          "key": "deft_explorer_language",
+                          "count": { "type": "LITERAL", "value": 2 },
                           "from": {
                             "type": "DEPENDENCY",
                             "query": "library.type?of=language"
@@ -54,6 +57,7 @@
                       "values": [
                         {
                           "type": "MODIFIER",
+                          "key": "roving_walking_speed",
                           "value": { "type": "LITERAL", "value": 5 },
                           "modify": {
                             "type": "DEPENDENCY",
@@ -62,6 +66,7 @@
                         },
                         {
                           "type": "MODIFIER",
+                          "key": "roving_climbing_speed",
                           "value": {
                             "type": "DEPENDENCY",
                             "query": "character.stats.walking_speed"
@@ -74,6 +79,7 @@
                         },
                         {
                           "type": "MODIFIER",
+                          "key": "roving_swimming_speed",
                           "value": {
                             "type": "DEPENDENCY",
                             "query": "character.stats.walking_speed"
@@ -104,12 +110,14 @@
                         },
                         {
                           "type": "ACTION",
+                          "key": "tireless_action",
                           "time": "1 Action",
                           "effect": {
                             "type": "MULTIPLE",
                             "values": [
                               {
                                 "type": "MODIFIER",
+                                "key": "tireless_action_modifier",
                                 "value": {
                                   "type": "ROLL",
                                   "diceType": { "type": "LITERAL", "value": 8 },
@@ -144,20 +152,22 @@
               "type": "PROFICIENCY",
               "armor": {
                 "type": "DEPENDENCY",
-                "query": "library.type?of=armor;name:light|medium|shields"
+                "query": "library.type?of=armor;name=light|medium|shields"
               },
               "weapon": {
                 "type": "DEPENDENCY",
-                "query": "library.type?of=weapon;name:simple|martial"
+                "query": "library.type?of=weapon;name=simple|martial"
               },
               "save": {
                 "type": "MULTIPLE",
                 "values": [
                   {
+                    "key": "strength",
                     "type": "DEPENDENCY",
                     "query": "character.abilities.strength"
                   },
                   {
+                    "key": "dexterity",
                     "type": "DEPENDENCY",
                     "query": "character.abilities.dexterity"
                   }
@@ -165,10 +175,10 @@
               },
               "skill": {
                 "type": "CHOOSE",
-                "count": 3,
+                "count": { "type": "LITERAL", "value": 3 },
                 "from": {
                   "type": "DEPENDENCY",
-                  "query": "character.skills?NAME=Animal Handling|Athletics|Insight|Investigation|Nature|Perception|Stealth|Survival"
+                  "query": "library.skill?NAME=Animal Handling|Athletics|Insight|Investigation|Nature|Perception|Stealth|Survival"
                 }
               }
             }
@@ -176,7 +186,8 @@
         },
         {
           "type": "CHOOSE",
-          "count": 1,
+          "key": "favored_enemy",
+          "count": { "type": "LITERAL", "value": 1 },
           "from": {
             "type": "MULTIPLE",
             "values": [
@@ -188,13 +199,15 @@
                     "type": "MULTIPLE",
                     "values": [{
                       "type": "CHOOSE",
-                      "count": 1,
+                      "key": "favored_enemy_creature",
+                      "count": { "type": "LITERAL", "value": 1 },
                       "chooseAdditionalAtLevel": [6, 14],
                       "from": {
                         "type": "MULTIPLE",
                         "values": [
                           {
                             "type": "MULTIPLE",
+                            "key": "humanoid",
                             "values": [
                               {
                                 "type": "LITERAL",
@@ -202,13 +215,11 @@
                               },
                               {
                                 "type": "CHOOSE",
-                                "count": 2,
+                                "key": "favored_enemy_creature_humanoid",
+                                "count": { "type": "LITERAL", "value": 2 },
                                 "from": {
-                                  "type": "MULTIPLE",
-                                  "values": [{
-                                    "type": "DEPENDENCY",
-                                    "query": "library.type?of=creature;tag=humanoid"
-                                  }]
+                                  "type": "DEPENDENCY",
+                                  "query": "library.type?of=creature;tag=humanoid"
                                 }
                               }
                             ]
@@ -229,7 +240,8 @@
                       }
                     }, {
                       "type": "CHOOSE",
-                      "count": 1,
+                      "key": "favored_enemy_language",
+                      "count": { "type": "LITERAL", "value": 1 },
                       "from": {
                         "type": "DEPENDENCY",
                         "query": "library.type?of=language"
@@ -275,7 +287,7 @@
           "levels": {
             "2": {
               "type": "CHOOSE",
-              "count": 1,
+              "count": { "type": "LITERAL", "value": 1 },
               "from": {
                 "type": "DEPENDENCY",
                 "query": "$STATIC.FIGHTING_STYLES"
@@ -320,7 +332,8 @@
       "type": "MULTIPLE",
       "values": [{
         "type": "CHOOSE",
-        "count": 1,
+        "key": "primeval_primal_awareness",
+        "count": { "type": "LITERAL", "value": 1 },
         "from": {
           "type": "MULTIPLE",
           "values": [
@@ -388,7 +401,7 @@
         "levels": {
           "3": {
             "type": "CHOOSE",
-            "count": 1,
+            "count": { "type": "LITERAL", "value": 1 },
             "from": {
               "type": "DEPENDENCY",
               "query": "library.subclass?for=Ranger"

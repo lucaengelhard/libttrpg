@@ -589,4 +589,11 @@ char.setAbilityBase("intelligence", 13);
 char.setAbilityBase("wisdom", 13);
 char.setAbilityBase("charisma", 8);
 
-console.log(char.get());
+//char.get();
+char.setChoice(
+  "root_/_multiple_/_class@ranger_/_multiple_/_feat@proficiencies_/_proficiency_/_choose",
+  "PERCEPTION",
+);
+char.get();
+
+//console.log(char.get());

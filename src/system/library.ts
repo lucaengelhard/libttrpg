@@ -9,6 +9,7 @@ import {
   NodeWithKey,
   NodeWithName,
   Resource,
+  Value,
 } from "./tree.ts";
 
 export type Library = CaseInsensitiveMap<string, NodeMap>;
@@ -48,6 +49,7 @@ export async function createLibrary(entryPoint: string): Promise<Library> {
         return {
           ...node,
           from: await resolveImports(node.from, filePath) as Multiple,
+          count: await resolveImports(node.count, filePath) as Value,
         };
       }
       case "OPTIONAL": {
@@ -165,10 +167,11 @@ export async function createLibrary(entryPoint: string): Promise<Library> {
           uses: await resolveImports(node.uses, filePath),
         };
       }
-
+      case "LITERAL": {
+        return { ...node, key: node.key ?? node.value.toString() };
+      }
       case "EMPTY":
       case "DEPENDENCY":
-      case "LITERAL":
       case "COMPUTED":
       case "SKILL":
       case "ABILITY":
