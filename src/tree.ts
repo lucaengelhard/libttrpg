@@ -312,7 +312,6 @@ async function createLibrary(entryPoint: string): Promise<Library> {
   const library: Library = new CaseInsensitiveMap();
 
   const resolved = await resolveImports(data, path.resolve(entryPoint));
-  //console.log(JSON.stringify(resolved, null, 1));
 
   build(resolved);
 
@@ -511,6 +510,11 @@ async function createLibrary(entryPoint: string): Promise<Library> {
         }
         break;
       }
+      case "PROFICIENCY":
+      case "MODIFIER":
+      case "ACTION":
+      case "SPELLCASTING":
+      case "ROLL":
       case "EMPTY":
       case "CHOOSE":
       case "OPTIONAL":
