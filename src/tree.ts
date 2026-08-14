@@ -472,8 +472,7 @@ async function createLibrary(entryPoint: string): Promise<Library> {
         return node;
       }
       default: {
-        console.log(node.type);
-
+        console.log(node);
         return node;
       }
     }
