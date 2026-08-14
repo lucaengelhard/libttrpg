@@ -1,4 +1,4 @@
-import { EMPTY, Node, NodeWith } from "./types.ts";
+/* import { EMPTY, Node, NodeWith } from "./types.ts";
 import {
   caseInsensitiveGet,
   expect,
@@ -574,4 +574,19 @@ await char.setOption(
   true,
 ); */
 
-console.log(lib);
+import { Character } from "./system/character.ts";
+import { createLibrary } from "./system/library.ts";
+
+const lib = await createLibrary("./examples/index.json");
+const char = new Character(lib);
+
+char.addClass("ranger");
+char.setName("Vaas");
+char.setAbilityBase("strength", 12);
+char.setAbilityBase("dexterity", 15);
+char.setAbilityBase("constitution", 14);
+char.setAbilityBase("intelligence", 13);
+char.setAbilityBase("wisdom", 13);
+char.setAbilityBase("charisma", 8);
+
+console.log(char.get());

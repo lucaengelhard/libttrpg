@@ -1,8 +1,12 @@
-import { Node, NodeType, NodeWith } from "../types.ts";
 import * as path from "@std/path";
+import { Node, NodeType, NodeWith, Value } from "../system/tree.ts";
 
 export function getModifier(value: number): number {
   return Math.floor((value - 10) / 2);
+}
+
+export function getProficiencyBonus(level: number) {
+  return Math.ceil(level / 4) + 1;
 }
 
 const cache = new Map<string, Node>();
@@ -62,8 +66,37 @@ export function is<T extends NodeType>(
   return types.some((t) => node.type === t);
 }
 
-export function getProficiencyBonus(level: number) {
-  return Math.ceil(level / 4) + 1;
+export function resolveValue(
+  node: Value,
+): string | number | boolean | undefined {
+  switch (node.type) {
+    case "LITERAL":
+      return node.value;
+    case "COMPUTED": {
+      if (node.overwrite) return resolveValue(node.overwrite);
+      const base = node.base ? resolveValue(node.base) : undefined;
+      const modifiers = node.modifiers.map(resolveValue).filter((v) =>
+        v !== undefined
+      );
+
+      const values = base ? [base, ...modifiers] : modifiers;
+      return values.length > 0
+        ? values
+          .reduce((acc, curr) => {
+            const isBool = typeof acc === "boolean" ||
+              typeof curr === "boolean";
+            const isNumber = typeof acc === "number" ||
+              typeof curr === "number";
+
+            return isBool
+              ? (Boolean(acc) && Boolean(curr))
+              : isNumber
+              ? Number(acc) + Number(curr)
+              : acc + curr;
+          })
+        : undefined;
+    }
+  }
 }
 
 type CaseInsensitiveKey<R, K extends string> = {
