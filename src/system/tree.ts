@@ -6,6 +6,7 @@ import {
   expect,
   hasKeyOrValue,
   log,
+  unwrapDependency,
 } from "../lib/utils.ts";
 import { getNodePath, PATH_COUNTER } from "../lib/nodepath.ts";
 
@@ -53,6 +54,7 @@ export type Value = (Literal | Computed) & { source?: string };
 export type Dependency = {
   type: "DEPENDENCY";
   query: string;
+  result?: Node;
 };
 
 export type Empty = typeof EMPTY;
@@ -257,7 +259,7 @@ function parse(
   try {
     switch (node.type) {
       case "MODIFIER": {
-        const value = parse(node.value, ctx);
+        const value = unwrapDependency(parse(node.value, ctx));
         assert(value, ctx.nodePath, "COMPUTED", "LITERAL");
 
         const applyValue = (dep: Dependency, mode: "SET" | "MODIFY") => {
@@ -318,9 +320,9 @@ function parse(
         };
       }
       case "DEPENDENCY": {
-        // This causes problems because new iterations don't query for new updates
-        // Should insted return a dependency with a result key
-        return lookup(ctx.store, node.query) ?? EMPTY;
+        const result = lookup(ctx.store, node.query) ?? EMPTY;
+        const key = node.key ?? node.query;
+        return { ...node, result, key };
       }
       case "CLASS": {
         const level = ctx.store
@@ -344,7 +346,9 @@ function parse(
           choiceDelete: false,
         });
 
-        assert(from, ctx.nodePath, "MULTIPLE");
+        const unwrapped = unwrapDependency(from);
+
+        assert(unwrapped, ctx.nodePath, "MULTIPLE");
 
         const choices = ctx.store
           .getOrThrow("character")
@@ -358,7 +362,7 @@ function parse(
         if (!ctx.apply) return node;
 
         const optionKeys = new Set(
-          from.values
+          unwrapped.values
             .map((v) => "name" in v ? v.name : v.key)
             .filter((s) => s !== undefined),
         );
@@ -371,11 +375,11 @@ function parse(
             openKeys: optionKeys,
           }) as Choose;
 
-        const selectedValues = from.values.filter((v) =>
+        const selectedValues = unwrapped.values.filter((v) =>
           choice.slectedKeys!.has("name" in v ? v.name : v.key)
         );
 
-        const openValues = from.values.filter((v) =>
+        const openValues = unwrapped.values.filter((v) =>
           !choice.slectedKeys!.has("name" in v ? v.name : v.key)
         );
 
@@ -490,105 +494,102 @@ function parse(
           kind: "skills" | "saves",
           proficiency: ProficiencyValue,
         ) => {
-          if (
-            !node ||
-            !expect(
-              node,
-              { path: ctx.nodePath, log: ctx.log },
-              "MULTIPLE",
-              "CHOOSE",
-            )
-          ) {
-            return;
-          }
-
-          const values = node.type === "MULTIPLE"
-            ? node.values
-            : node.selected && node.selected.type === "MULTIPLE"
-            ? node.selected.values
-            : undefined;
-
-          const openChooseValues = node.type === "CHOOSE" && node.open
-            ? node.open.values
-            : undefined;
+          if (!node) return;
+          const unwrapped = unwrapDependency(node);
+          assert(unwrapped, ctx.nodePath, "MULTIPLE", "CHOOSE");
 
           const category = ctx.store
             .getOrThrow("character")
             .getOrThrow(kind);
 
-          if (openChooseValues) {
-            for (const open of openChooseValues) {
-              if (!("name" in open)) return;
-              const current = category
-                .getNode(open.name, "COMPUTED");
+          const deleteNodes = (toDelete: Node[]) => {
+            for (const element of toDelete) {
+              if (!("name" in element)) continue;
+
+              const current = category.getNode(element.name, "COMPUTED");
               if (!current || !current.proficiency) continue;
-              current.proficiency = current.proficiency.filter((m) =>
-                m.source !== ctx.nodePath
+
+              current.proficiency = current.proficiency.filter(
+                (p) => p.source !== ctx.nodePath,
               );
             }
-          }
+          };
 
-          if (!values) return;
+          const createNodes = (toCreate: Node[]) => {
+            for (const element of toCreate) {
+              if (!("name" in element)) continue;
+              const newValue = { value: proficiency, source: ctx.nodePath };
 
-          for (const value of values) {
-            if (!("name" in value)) return;
-
-            const current = category
-              .getNode(value.name, "COMPUTED");
-
-            if (!current) return;
-
-            if (!ctx.apply && current.proficiency) {
-              current.proficiency = current.proficiency.filter((m) =>
-                m.source !== ctx.nodePath
+              const current = category.getNode(
+                element.name,
+                "COMPUTED",
               );
-              return;
-            }
 
-            const valueObj = {
-              value: proficiency,
-              source: ctx.nodePath,
-            };
-
-            if (current.proficiency === undefined) {
-              current.proficiency = [valueObj];
-            } else if (current.proficiency.length === 0) {
-              current.proficiency.push(valueObj);
-            } else {
-              const existingIndex = current.modifiers.findIndex((m) =>
-                m.source === valueObj.source
+              if (!current) continue;
+              if (!current.proficiency) current.proficiency = [];
+              const existingIndex = current.proficiency.findIndex((m) =>
+                m.source === ctx.nodePath
               );
 
               if (existingIndex !== -1) {
-                current.proficiency[existingIndex] = valueObj;
-              } else current.proficiency.push(valueObj);
+                current.proficiency[existingIndex] = newValue;
+              } else current.proficiency.push(newValue);
+            }
+          };
+
+          switch (unwrapped.type) {
+            case "MULTIPLE": {
+              if (!ctx.apply) deleteNodes(unwrapped.values);
+              else createNodes(unwrapped.values);
+              break;
+            }
+            case "CHOOSE": {
+              const openValues = unwrapped.open?.values ?? [];
+              const selectedValues = unwrapped.selected?.values ?? [];
+              const toDelete = ctx.apply
+                ? openValues
+                : [...openValues, ...selectedValues] as Node[];
+              const toCreate = ctx.apply ? selectedValues : [];
+
+              deleteNodes(toDelete);
+              createNodes(toCreate);
+              break;
             }
           }
         };
 
         const armor = node.armor ? parse(node.armor, ctx) : undefined;
-
-        if (ctx.apply && armor) applyTypeProficiency(armor, "armor");
+        if (ctx.apply && armor) {
+          applyTypeProficiency(unwrapDependency(armor), "armor");
+        }
 
         const weapon = node.weapon ? parse(node.weapon, ctx) : undefined;
-        if (ctx.apply) applyTypeProficiency(weapon, "weapon");
+        if (ctx.apply && weapon) {
+          applyTypeProficiency(unwrapDependency(weapon), "weapon");
+        }
 
         const skill = node.skill ? parse(node.skill, ctx) : undefined;
         applyComputedProficiency(skill, "skills", node.value ?? 1);
+
+        const save = node.save ? parse(node.save, ctx) : undefined;
+        applyComputedProficiency(save, "saves", node.value ?? 1);
 
         return { ...node, armor, weapon, skill };
       }
 
       case "SPELLCASTING": {
         const ability = parse(node.ability, ctx);
-        assert(ability, ctx.nodePath, "ABILITY");
+        assert(unwrapDependency(ability), ctx.nodePath, "ABILITY");
 
         if (ctx.className) {
           const spellcasting = ctx.store
             .getOrThrow("character")
             .getOrInsert("spellcasting", new NodeMap());
 
-          spellcasting.set(ctx.className, { ...node, ability });
+          spellcasting.set(ctx.className, {
+            ...node,
+            ability: unwrapDependency(ability),
+          });
         }
 
         return { ...node, ability };
@@ -620,11 +621,14 @@ function parse(
           ?.getNode(ctx.className, "SPELLCASTING")
           ?.ability;
 
-        if (!ability || !expect(ability, { path: ctx.nodePath }, "ABILITY")) {
+        if (
+          !ability ||
+          !expect(unwrapDependency(ability), { path: ctx.nodePath }, "ABILITY")
+        ) {
           return node;
         }
 
-        spell.ability = ability;
+        spell.ability = unwrapDependency(ability);
 
         return { ...node, ability };
       }

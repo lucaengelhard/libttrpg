@@ -201,12 +201,12 @@ export class Character {
         .getOrThrow("skills")
         .entries()
         .map(([name, value]) => {
-          const skill = this.#store
+          const libSkill = this.#store
             .getOrThrow("library")
             .getOrThrow("skill")
             .getNode(name, "SKILL")!;
 
-          const modifier = getModifier(abilities.getOrThrow(skill.ability));
+          const modifier = getModifier(abilities.getOrThrow(libSkill.ability));
           const bonus = resolveValue(value as Value) as number ?? 0;
           const prof = value.type === "COMPUTED" && value.proficiency
             ? getProficiency(value.proficiency) * proficiencyBonus

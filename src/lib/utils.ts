@@ -1,5 +1,7 @@
 import * as path from "@std/path";
 import {
+  Dependency,
+  EMPTY,
   Node,
   NodeType,
   NodeWith,
@@ -130,7 +132,12 @@ export function getProficiency(
     if (max === null || value.value > max) max = value.value;
   }
 
-  return max === null ? 1 : max;
+  return max === null ? 0 : max;
+}
+
+export function unwrapDependency(node: Node): Node {
+  if (node.type !== "DEPENDENCY") return node;
+  return node.result ?? EMPTY;
 }
 
 type CaseInsensitiveKey<R, K extends string> = {

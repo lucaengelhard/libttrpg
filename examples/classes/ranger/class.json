@@ -159,19 +159,8 @@
                 "query": "library.type?of=weapon;name=simple|martial"
               },
               "save": {
-                "type": "MULTIPLE",
-                "values": [
-                  {
-                    "key": "strength",
-                    "type": "DEPENDENCY",
-                    "query": "character.abilities.strength"
-                  },
-                  {
-                    "key": "dexterity",
-                    "type": "DEPENDENCY",
-                    "query": "character.abilities.dexterity"
-                  }
-                ]
+                "type": "DEPENDENCY",
+                "query": "library.ability?name=strength|dexterity"
               },
               "skill": {
                 "type": "CHOOSE",
