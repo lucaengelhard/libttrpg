@@ -451,22 +451,14 @@ function parse(
           node: Node | undefined,
           kind: "armor" | "weapon",
         ) => {
-          if (
-            !node ||
-            !expect(
-              node,
-              { path: ctx.nodePath, log: ctx.log },
-              "MULTIPLE",
-              "CHOOSE",
-            )
-          ) {
-            return;
-          }
+          if (!node) return;
+          const unwrapped = unwrapDependency(node);
+          assert(unwrapped, ctx.nodePath, "MULTIPLE", "CHOOSE");
 
-          const values = node.type === "MULTIPLE"
-            ? node.values
-            : node.selected && node.selected.type === "MULTIPLE"
-            ? node.selected.values
+          const values = unwrapped.type === "MULTIPLE"
+            ? unwrapped.values
+            : unwrapped.selected && unwrapped.selected.type === "MULTIPLE"
+            ? unwrapped.selected.values
             : undefined;
 
           if (!values) return;

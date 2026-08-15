@@ -353,6 +353,6 @@ export class Character {
       ],
     } as Node;
 
-    return iterate(tree, { store: this.#store, log: false });
+    return iterate(tree, { store: this.#store, log: true });
   }
 }
