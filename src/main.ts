@@ -1,3 +1,4 @@
+import { getFromNodePath } from "./lib/nodepath.ts";
 import { printNode } from "./lib/utils.ts";
 import { Character } from "./system/character.ts";
 import { createLibrary } from "./system/library.ts";
@@ -38,7 +39,7 @@ const char = dnd.createCharacter()
     "root_/_multiple_/_class@ranger#1_/_multiple_/_feat@proficiencies#1_/_proficiency_/_choose",
     "PERCEPTION",
   )
-  .setClassLevel("ranger", 2)
+  .setClassLevel("ranger", 10)
   .setOption(
     "root_/_multiple_/_class@ranger#2_/_multiple_/_optional@additional ranger spells",
     true,
@@ -51,8 +52,12 @@ const char = dnd.createCharacter()
   ).setChoice(
     "root_/_multiple_/_class@ranger#1_/_multiple_/_choose@favored_enemy",
     "Favored Enemy",
+  ).setChoice(
+    "root_/_multiple_/_class@ranger#3_/_multiple_/_feat@ranger archetype#3_/_choose",
+    "Beast Master",
   );
 
+char.get();
 //console.log(char.get());
 
-//console.log(printNode(char.tree));
+//console.log(printNode(char.get().tree));

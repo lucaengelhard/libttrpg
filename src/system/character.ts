@@ -332,6 +332,8 @@ export class Character {
 
     const spells = character.get("spells");
 
+    const actions = character.get("actions");
+
     return {
       name: character
         .getOrThrow("info")
@@ -342,8 +344,6 @@ export class Character {
       saves,
       skills,
       passives,
-      choices,
-      options,
       proficiencies: {
         armor: armorProfs,
         weapon: weaponProfs,
@@ -352,7 +352,10 @@ export class Character {
       },
       spellcasting,
       spells,
+      actions,
       tree: result,
+      choices,
+      options,
     };
   }
 

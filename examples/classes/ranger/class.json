@@ -110,7 +110,7 @@
                         },
                         {
                           "type": "ACTION",
-                          "key": "tireless_action",
+                          "name": "Get temporary hitpoints",
                           "time": "1 Action",
                           "effect": {
                             "type": "MULTIPLE",
@@ -131,7 +131,7 @@
                                   },
                                   "minimum": { "type": "LITERAL", "value": 1 }
                                 },
-                                "sets": "$CHARACTER.TEMP_HP"
+                                "set": "character.stats.temp_hp"
                               }
                             ]
                           }

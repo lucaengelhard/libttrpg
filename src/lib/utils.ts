@@ -1,6 +1,5 @@
 import * as path from "@std/path";
 import {
-  Dependency,
   EMPTY,
   Node,
   NodeType,

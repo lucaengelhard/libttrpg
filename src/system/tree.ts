@@ -50,7 +50,7 @@ export type Computed = {
   modifiers: Value[];
   proficiency?: { value: ProficiencyValue; source: string }[];
 };
-export type Value = (Literal | Computed) & { source?: string };
+export type Value = (Literal | Computed | Roll) & { source?: string };
 
 export type Dependency = {
   type: "DEPENDENCY";
@@ -102,6 +102,7 @@ export type Modifier = {
 
 export type Action = {
   type: "ACTION";
+  name: string;
   time: string;
   effect: Node;
 };
@@ -261,7 +262,7 @@ function parse(
     switch (node.type) {
       case "MODIFIER": {
         const value = unwrapDependency(parse(node.value, ctx));
-        assert(value, ctx.nodePath, "COMPUTED", "LITERAL");
+        assert(value, ctx.nodePath, "COMPUTED", "LITERAL", "ROLL");
 
         const set = node.set ? parse(node.set, ctx) : undefined;
         const modify = node.modify ? parse(node.modify, ctx) : undefined;
@@ -303,11 +304,11 @@ function parse(
           );
 
           if (existingIndex !== -1) {
-            computed[key][existingIndex] = valueObject;
-          } else computed[key].push(valueObject);
+            computed[key][existingIndex] = { ...valueObject };
+          } else computed[key].push({ ...valueObject });
         };
 
-        if (set) {
+        if (set && !is(set, "EMPTY")) {
           const unwrapped = unwrapDependency(set);
 
           assert(unwrapped, ctx.nodePath, "COMPUTED", "MULTIPLE");
@@ -320,7 +321,7 @@ function parse(
           }
         }
 
-        if (modify) {
+        if (modify && !is(modify, "EMPTY")) {
           const unwrapped = unwrapDependency(modify);
           assert(unwrapped, ctx.nodePath, "COMPUTED", "MULTIPLE");
 
@@ -648,14 +649,44 @@ function parse(
         return { ...node, ability };
       }
 
-      case "COMPUTED":
-      case "SUBCLASS":
-      case "ACTION":
-      case "ROLL":
+      case "SUBCLASS": {
+        if (!ctx.classLevel) return node;
+
+        return {
+          ...node,
+          levels: parseLevels(node.levels, ctx.classLevel, ctx),
+        };
+      }
+
+      case "ACTION": {
+        const actions = ctx.store
+          .getOrThrow("character")
+          .getOrInsert("actions", new NodeMap());
+
+        const effect = parse(node.effect, { ...ctx, apply: false });
+
+        if (ctx.apply) actions.set(ctx.nodePath, { ...node, effect });
+
+        return {
+          ...node,
+          effect,
+        };
+      }
+
+      case "ROLL": {
+        const diceType = parse(node.diceType, { ...ctx, apply: false });
+        const diceCount = parse(node.diceCount, { ...ctx, apply: false });
+        const minimum = parse(node.minimum, { ...ctx, apply: false });
+        const modifier = parse(node.modifier, { ...ctx, apply: false });
+
+        return { ...node, diceType, diceCount, modifier, minimum };
+      }
       case "RESOURCE": {
         log(node.type, ctx.log);
+
         return node;
       }
+      case "COMPUTED":
       case "ABILITY":
       case "TYPE":
       case "EMPTY":
@@ -664,6 +695,11 @@ function parse(
         return node;
       case "IMPORT": {
         throw `Unexpected import at: ${ctx.nodePath}`;
+      }
+      default: {
+        const unhandled = node as Node;
+        log(unhandled.type, ctx.log);
+        break;
       }
     }
   } catch (error) {

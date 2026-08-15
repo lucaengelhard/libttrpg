@@ -198,7 +198,6 @@ export async function createLibrary(entryPoint: string): Promise<Library> {
       }
       case "PROFICIENCY":
       case "MODIFIER":
-      case "ACTION":
       case "SPELLCASTING":
       case "ROLL":
       case "EMPTY":
