@@ -8,18 +8,6 @@
       "type": "MULTIPLE",
       "values": [
         {
-          "type": "OPTIONAL",
-          "key": "test_modifier",
-          "value": {
-            "type": "MODIFIER",
-            "value": { "type": "LITERAL", "value": 12 },
-            "set": {
-              "type": "DEPENDENCY",
-              "query": "character.skills.acrobatics"
-            }
-          }
-        },
-        {
           "type": "CHOOSE",
           "key": "natural_deft_explorer",
           "count": { "type": "LITERAL", "value": 1 },
@@ -85,7 +73,7 @@
                           },
                           "set": {
                             "type": "DEPENDENCY",
-                            "query": "CHARACTER.CLIMBING_SPEED"
+                            "query": "character.stats.climbing_speed"
                           },
                           "setIf": "!CHARACTER.CLIMBING_SPEED && CHARACTER.CLIMBING_SPEED < CHARACTER.WALKING_SPEED"
                         },
@@ -98,7 +86,7 @@
                           },
                           "set": {
                             "type": "DEPENDENCY",
-                            "query": "CHARACTER.SWIMMING_SPEED"
+                            "query": "CHARACTER.stats.SWIMMING_SPEED"
                           },
                           "setIf": "!CHARACTER.SWIMMING_SPEED && CHARACTER.SWIMMING_SPEED < CHARACTER.WALKING_SPEED"
                         }

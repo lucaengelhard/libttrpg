@@ -247,7 +247,7 @@ type ParseCtx = {
   choiceDelete: boolean;
   log: boolean;
 };
-const PROTECTED_SECTIONS = ["library"].map((s) => s.toLowerCase());
+
 function parse(
   node: Node,
   ctxInput: ParseCtx,
@@ -266,20 +266,18 @@ function parse(
         const set = node.set ? parse(node.set, ctx) : undefined;
         const modify = node.modify ? parse(node.modify, ctx) : undefined;
 
-        if (node.set && is(node.set, "DEPENDENCY")) {
-          for (const section of PROTECTED_SECTIONS) {
-            if (node.set.query.toLowerCase().startsWith(section)) {
-              throw `Forbidden set access to ${section}`;
-            }
-          }
+        if (
+          node.set && is(node.set, "DEPENDENCY") &&
+          !node.set.query.toLowerCase().startsWith("character")
+        ) {
+          throw "Forbidden set access outside of character";
         }
 
-        if (node.modify && is(node.modify, "DEPENDENCY")) {
-          for (const section of PROTECTED_SECTIONS) {
-            if (node.modify.query.toLowerCase().startsWith(section)) {
-              throw `Forbidden modify access to ${section}`;
-            }
-          }
+        if (
+          node.modify && is(node.modify, "DEPENDENCY") &&
+          !node.modify.query.toLowerCase().startsWith("character")
+        ) {
+          throw "Forbidden set access outside of character";
         }
 
         const valueObject = {

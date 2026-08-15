@@ -46,6 +46,27 @@ export class Character {
           ["choices", new NodeMap()],
           ["options", new NodeMap()],
           ["proficiencies", new NodeMap()],
+          [
+            "stats",
+            new NodeMap([
+              ["walking_speed", {
+                type: "COMPUTED",
+                modifiers: [],
+              }],
+              ["swimming_speed", {
+                type: "COMPUTED",
+                modifiers: [],
+              }],
+              ["flying_speed", {
+                type: "COMPUTED",
+                modifiers: [],
+              }],
+              ["climbing_speed", {
+                type: "COMPUTED",
+                modifiers: [],
+              }],
+            ]),
+          ],
         ]),
       ],
     ]);
@@ -181,6 +202,7 @@ export class Character {
           [name, value],
         ) => [name, resolveValue(value as Value) as number | undefined ?? 0]),
     );
+
     const saves = new CaseInsensitiveMap(
       character
         .getOrThrow("saves")
@@ -361,6 +383,6 @@ export class Character {
       ],
     } as Node;
 
-    return iterate(tree, { store: this.#store, log: false });
+    return iterate(tree, { store: this.#store, log: true });
   }
 }
