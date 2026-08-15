@@ -192,6 +192,10 @@ export class Character {
             ? getProficiency(value.proficiency) * proficiencyBonus
             : 0;
 
+          if ("overwrite" in value && value.overwrite!.length > 0) {
+            return [name, bonus];
+          }
+
           return [name, modifier + bonus + prof];
         }),
     );
@@ -211,6 +215,10 @@ export class Character {
           const prof = value.type === "COMPUTED" && value.proficiency
             ? getProficiency(value.proficiency) * proficiencyBonus
             : 0;
+
+          if ("overwrite" in value && value.overwrite!.length > 0) {
+            return [name, bonus];
+          }
 
           return [name, modifier + bonus + prof];
         }),
@@ -353,6 +361,6 @@ export class Character {
       ],
     } as Node;
 
-    return iterate(tree, { store: this.#store, log: true });
+    return iterate(tree, { store: this.#store, log: false });
   }
 }

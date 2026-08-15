@@ -98,7 +98,9 @@ export function resolveValue(
     case "LITERAL":
       return node.value;
     case "COMPUTED": {
-      if (node.overwrite) return resolveValue(node.overwrite);
+      if (node.overwrite && node.overwrite.length > 0) {
+        return resolveValue(getMaxValue(node.overwrite));
+      }
       const base = node.base ? resolveValue(node.base) : undefined;
       const modifiers = node.modifiers.map(resolveValue).filter((v) =>
         v !== undefined
@@ -122,6 +124,21 @@ export function resolveValue(
         : undefined;
     }
   }
+}
+
+export function getMaxValue(values: Value[]): Value {
+  let current = values[0];
+  for (const value of values) {
+    if (
+      typeof resolveValue(value) === "string" ||
+      typeof resolveValue(value) === "number"
+    ) return values[0];
+
+    if (resolveValue(value) as number > (resolveValue(current) as number)) {
+      current = value;
+    }
+  }
+  return current;
 }
 
 export function getProficiency(

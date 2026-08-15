@@ -15,6 +15,10 @@ export async function create(libraryEntryPoint: string) {
 const dnd = await create("./examples/index.json");
 const char = dnd.createCharacter()
   .addClass("ranger")
+  .setOption(
+    "root_/_multiple_/_class@ranger#1_/_multiple_/_optional@test_modifier",
+    true,
+  )
   .setName("Vaas")
   .setAbilityBase("strength", 12)
   .setAbilityBase("dexterity", 15)
@@ -42,9 +46,17 @@ const char = dnd.createCharacter()
   .setOption(
     "root_/_multiple_/_class@ranger#2_/_multiple_/_optional@additional ranger spells",
     true,
-  )
-  .get();
+  ).setOption(
+    "root_/_multiple_/_class@ranger#2_/_multiple_/_optional@spellcasting focus",
+    true,
+  ).setChoice(
+    "root_/_multiple_/_class@ranger#1_/_multiple_/_choose@natural_deft_explorer",
+    "Deft Explorer",
+  ).setChoice(
+    "root_/_multiple_/_class@ranger#1_/_multiple_/_choose@favored_enemy",
+    "Favored Enemy",
+  );
 
-//console.log(char);
+console.log(char.get());
 
 //console.log(printNode(char.tree));

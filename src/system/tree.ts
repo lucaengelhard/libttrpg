@@ -5,6 +5,7 @@ import {
   caseInsensitiveGet,
   expect,
   hasKeyOrValue,
+  is,
   log,
   unwrapDependency,
 } from "../lib/utils.ts";
@@ -45,7 +46,7 @@ export type Literal = {
 export type Computed = {
   type: "COMPUTED";
   base?: Value;
-  overwrite?: Value;
+  overwrite?: Value[];
   modifiers: Value[];
   proficiency?: { value: ProficiencyValue; source: string }[];
 };
@@ -177,7 +178,7 @@ export type Node =
     | Skill
     | Type
   )
-  & { key?: string };
+  & { key?: string; description?: string };
 export type NodeWithKey = Node & { key: string };
 export type NodeWithName = Node & { name: string };
 export type NodeType = Node["type"];
@@ -246,7 +247,7 @@ type ParseCtx = {
   choiceDelete: boolean;
   log: boolean;
 };
-const PROTECTED_SECTIONS = ["library"];
+const PROTECTED_SECTIONS = ["library"].map((s) => s.toLowerCase());
 function parse(
   node: Node,
   ctxInput: ParseCtx,
@@ -262,54 +263,78 @@ function parse(
         const value = unwrapDependency(parse(node.value, ctx));
         assert(value, ctx.nodePath, "COMPUTED", "LITERAL");
 
-        const applyValue = (dep: Dependency, mode: "SET" | "MODIFY") => {
-          updateModifier(
-            ctx.store,
-            dep.query,
-            { ...value, source: ctx.nodePath },
-            mode,
-            ctx.apply,
-          );
+        const set = node.set ? parse(node.set, ctx) : undefined;
+        const modify = node.modify ? parse(node.modify, ctx) : undefined;
+
+        if (node.set && is(node.set, "DEPENDENCY")) {
+          for (const section of PROTECTED_SECTIONS) {
+            if (node.set.query.toLowerCase().startsWith(section)) {
+              throw `Forbidden set access to ${section}`;
+            }
+          }
+        }
+
+        if (node.modify && is(node.modify, "DEPENDENCY")) {
+          for (const section of PROTECTED_SECTIONS) {
+            if (node.modify.query.toLowerCase().startsWith(section)) {
+              throw `Forbidden modify access to ${section}`;
+            }
+          }
+        }
+
+        const valueObject = {
+          ...value,
+          source: ctx.nodePath,
         };
 
-        // TODO: Remove if apply is false
-        if (
-          node.set &&
-          expect(
-            node.set,
-            { path: ctx.nodePath, log: ctx.log },
-            "DEPENDENCY",
-            "MULTIPLE",
-          )
-        ) {
-          if (node.set.type === "DEPENDENCY") applyValue(node.set, "SET");
+        const applyComputed = (
+          computed: Computed,
+          key: "modifiers" | "overwrite",
+        ) => {
+          if (computed[key] === undefined) computed[key] = [];
+
+          if (!ctx.apply) {
+            computed[key] = computed[key].filter((element) =>
+              element.source !== ctx.nodePath
+            );
+            return;
+          }
+
+          const existingIndex = computed[key].findIndex((element) =>
+            element.source === ctx.nodePath
+          );
+
+          if (existingIndex !== -1) {
+            computed[key][existingIndex] = valueObject;
+          } else computed[key].push(valueObject);
+        };
+
+        if (set) {
+          const unwrapped = unwrapDependency(set);
+
+          assert(unwrapped, ctx.nodePath, "COMPUTED", "MULTIPLE");
+
+          if (is(unwrapped, "COMPUTED")) applyComputed(unwrapped, "overwrite");
           else {
-            node.set.values
-              .forEach((v) =>
-                v.type === "DEPENDENCY" ? applyValue(v, "SET") : null
-              );
+            unwrapped.values
+              .filter((v) => is(v, "COMPUTED"))
+              .forEach((v) => applyComputed(v, "overwrite"));
           }
         }
 
-        if (
-          node.modify &&
-          expect(
-            node.modify,
-            { path: ctx.nodePath, log: ctx.log },
-            "DEPENDENCY",
-            "MULTIPLE",
-          )
-        ) {
-          if (node.modify.type === "DEPENDENCY") applyValue(node.modify, "SET");
+        if (modify) {
+          const unwrapped = unwrapDependency(modify);
+          assert(unwrapped, ctx.nodePath, "COMPUTED", "MULTIPLE");
+
+          if (is(unwrapped, "COMPUTED")) applyComputed(unwrapped, "modifiers");
           else {
-            node.modify.values
-              .forEach((v) =>
-                v.type === "DEPENDENCY" ? applyValue(v, "MODIFY") : null
-              );
+            unwrapped.values
+              .filter((v) => is(v, "COMPUTED"))
+              .forEach((v) => applyComputed(v, "modifiers"));
           }
         }
 
-        return { ...node, value };
+        return { ...node, value, set, modify };
       }
       case "MULTIPLE": {
         return {
@@ -704,71 +729,6 @@ function lookup(store: Store, query: string): Node | undefined {
       if (!nodeValue || !values.includes(nodeValue.toLowerCase())) return false;
     }
     return true;
-  }
-}
-
-function updateModifier(
-  store: Store,
-  query: string,
-  value: Value,
-  mode: "SET" | "MODIFY",
-  apply: boolean,
-) {
-  const [sectionKey, categoryKey, entryKey] = getSelectorComponents(query);
-  if (!entryKey || PROTECTED_SECTIONS.includes(sectionKey)) return;
-
-  const category = store
-    .getOrInsert(
-      sectionKey,
-      new CaseInsensitiveMap(),
-    ).getOrInsert(
-      categoryKey,
-      new NodeMap(),
-    );
-
-  const current = category.getOrInsert(entryKey, {
-    type: "COMPUTED",
-    modifiers: [],
-  });
-  if (current.type !== "COMPUTED" || value.source === undefined) return;
-
-  if (!apply) {
-    switch (mode) {
-      case "SET": {
-        current.overwrite !== undefined &&
-          current.overwrite.source === value.source
-          ? current.overwrite = undefined
-          : null;
-        break;
-      }
-      case "MODIFY": {
-        current.modifiers = current.modifiers.filter((m) =>
-          m.source !== value.source
-        );
-      }
-    }
-
-    return;
-  }
-
-  switch (mode) {
-    case "SET": {
-      if (current.overwrite !== undefined) {
-        // TODO
-      }
-      current.overwrite = value;
-      break;
-    }
-    case "MODIFY": {
-      const existingIndex = current.modifiers.findIndex((m) =>
-        m.source === value.source
-      );
-
-      if (existingIndex !== -1) current.modifiers[existingIndex] = value;
-      else current.modifiers.push(value);
-
-      break;
-    }
   }
 }
 
