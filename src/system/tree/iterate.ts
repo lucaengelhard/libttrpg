@@ -28,7 +28,7 @@ export function iterate(
     nodePath: "ROOT",
     store,
     apply: true,
-    choiceDelete: true,
+    delete: true,
     log: config?.log ?? false,
   });
 
@@ -39,7 +39,7 @@ export function iterate(
       nodePath: "ROOT",
       store,
       apply: true,
-      choiceDelete: true,
+      delete: true,
       log: config?.log ?? false,
     });
 

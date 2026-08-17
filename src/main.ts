@@ -1,12 +1,9 @@
 import { getFromNodePath } from "./lib/nodepath.ts";
 import { printNode } from "./lib/utils.ts";
-import { Character } from "./system/character.ts";
 import { createLibrary, load } from "./system/library.ts";
 
 const tree = await load("./examples/index.json");
-const { library, createCharacter } = createLibrary(tree);
-
-console.log(library);
+const { createCharacter } = createLibrary(tree);
 
 const char = createCharacter()
   .addClass("ranger")
@@ -49,9 +46,17 @@ const char = createCharacter()
   ).setChoice(
     "root_/_multiple_/_class@ranger#3_/_multiple_/_feat@ranger archetype#3_/_choose",
     "Beast Master",
+  ).setChoice(
+    "root_/_multiple_/_class@ranger#3_/_multiple_/_choose@primeval_primal_awareness",
+    "Primal Awareness",
   );
 
-char.get();
-//console.log(char.get());
+console.log(char.get().resources);
+
+char.setClassLevel("ranger", 3);
+console.log(char.get().resources);
+
+char.setClassLevel("ranger", 2);
+console.log(char.get().resources);
 
 //console.log(printNode(char.get().tree));

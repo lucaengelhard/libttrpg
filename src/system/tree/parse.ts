@@ -19,6 +19,7 @@ import {
   NodeWithName,
   Optional,
   ProficiencyValue,
+  Resource,
   Spell,
   Store,
   Type,
@@ -30,7 +31,7 @@ export type ParseCtx = {
   classLevel?: number;
   className?: string;
   apply: boolean;
-  choiceDelete: boolean;
+  delete: boolean;
   log: boolean;
 };
 
@@ -96,10 +97,8 @@ export function parse(
         if (set && !is(set, "EMPTY")) {
           const unwrapped = unwrapDependency(set);
 
-          assert(unwrapped, ctx.nodePath, "COMPUTED", "MULTIPLE");
-
           if (is(unwrapped, "COMPUTED")) applyComputed(unwrapped, "overwrite");
-          else {
+          else if (is(unwrapped, "MULTIPLE")) {
             unwrapped.values
               .filter((v) => is(v, "COMPUTED"))
               .forEach((v) => applyComputed(v, "overwrite"));
@@ -108,10 +107,9 @@ export function parse(
 
         if (modify && !is(modify, "EMPTY")) {
           const unwrapped = unwrapDependency(modify);
-          assert(unwrapped, ctx.nodePath, "COMPUTED", "MULTIPLE");
 
           if (is(unwrapped, "COMPUTED")) applyComputed(unwrapped, "modifiers");
-          else {
+          else if (is(unwrapped, "MULTIPLE")) {
             unwrapped.values
               .filter((v) => is(v, "COMPUTED"))
               .forEach((v) => applyComputed(v, "modifiers"));
@@ -129,8 +127,8 @@ export function parse(
         };
       }
       case "DEPENDENCY": {
-        const result = lookup(ctx.store, node.query, ctx) ?? EMPTY;
         const key = node.key ?? node.query;
+        const result = lookup(ctx.store, node.query, ctx);
         return { ...node, result, key };
       }
       case "CLASS": {
@@ -145,6 +143,7 @@ export function parse(
           levels: parseLevels(node.levels, level, {
             ...ctx,
             className: node.name,
+            classLevel: level,
           }),
         };
       }
@@ -152,7 +151,7 @@ export function parse(
         const from = parse(node.from, {
           ...ctx,
           apply: false,
-          choiceDelete: false,
+          delete: false,
         });
 
         const unwrapped = unwrapDependency(from);
@@ -163,8 +162,9 @@ export function parse(
           .getOrThrow("character")
           .getOrThrow("choices");
 
-        if (!ctx.apply && ctx.choiceDelete && choices.has(ctx.nodePath)) {
+        if (!ctx.apply && ctx.delete) {
           choices.delete(ctx.nodePath);
+          parse(node.from, { ...ctx, apply: false, delete: true });
           return node;
         }
 
@@ -210,15 +210,16 @@ export function parse(
         parse(node.value, {
           ...ctx,
           apply: false,
-          choiceDelete: false,
+          delete: false,
         });
 
         const options = ctx.store
           .getOrThrow("character")
           .getOrThrow("options");
 
-        if (!ctx.apply && ctx.choiceDelete && options.has(ctx.nodePath)) {
+        if (!ctx.apply && ctx.delete && options.has(ctx.nodePath)) {
           options.delete(ctx.nodePath);
+          parse(node.value, { ...ctx, apply: false, delete: true });
           return node;
         }
 
@@ -404,23 +405,26 @@ export function parse(
           .getOrInsert("spells", new NodeMap())
           .getOrInsert(node.name, node) as Spell;
 
-        if (!spell.castWithoutSpellSlot) {
-          spell.castWithoutSpellSlot = node.castWithoutSpellSlot;
-        }
-        if (!spell.alwaysPrepared) {
-          spell.alwaysPrepared = node.alwaysPrepared;
-        }
-        if (!spell.upcast) {
-          spell.upcast = node.upcast;
-        }
+        const castWithoutSpellSlot = node.castWithoutSpellSlot
+          ? parse(node.castWithoutSpellSlot, ctx) as Resource
+          : undefined;
 
-        if (!ctx.className) return node;
+        spell.castWithoutSpellSlot = castWithoutSpellSlot ??
+          spell.castWithoutSpellSlot;
 
-        const ability = node.ability ? parse(node.ability, ctx) : ctx.store
-          .getOrThrow("character")
-          .get("spellcasting")
-          ?.getNode(ctx.className, "SPELLCASTING")
-          ?.ability;
+        spell.alwaysPrepared = node.alwaysPrepared || spell.alwaysPrepared;
+
+        spell.upcast = node.upcast || spell.upcast;
+
+        const ability = node.ability
+          ? parse(node.ability, ctx)
+          : ctx.className
+          ? ctx.store
+            .getOrThrow("character")
+            .get("spellcasting")
+            ?.getNode(ctx.className, "SPELLCASTING")
+            ?.ability
+          : undefined;
 
         if (
           !ability ||
@@ -448,14 +452,10 @@ export function parse(
           .getOrThrow("character")
           .getOrInsert("actions", new NodeMap());
 
-        const effect = parse(node.effect, { ...ctx, apply: false });
+        if (ctx.apply) actions.set(ctx.nodePath, { ...node });
+        else actions.delete(ctx.nodePath);
 
-        if (ctx.apply) actions.set(ctx.nodePath, { ...node, effect });
-
-        return {
-          ...node,
-          effect,
-        };
+        return { ...node };
       }
 
       case "ROLL": {
@@ -471,20 +471,26 @@ export function parse(
 
         const resources = ctx.store
           .getOrThrow("character")
-          .getOrInsert("resources", new NodeMap());
+          .getOrThrow("resources");
 
-        if (!resources.has(ctx.nodePath)) {
-          resources.set(ctx.nodePath, {
+        if (!ctx.apply && ctx.delete) {
+          resources.delete(node.name);
+          return { ...node, uses };
+        }
+
+        if (!resources.has(node.name)) {
+          resources.set(node.name, {
             ...node,
             spent: { type: "LITERAL", value: 0 },
           });
         } else {
-          const current = resources.getNode(ctx.nodePath, "RESOURCE")!;
-          resources.set(ctx.nodePath, { ...node, spent: current.spent });
+          const current = resources.getNode(node.name, "RESOURCE")!;
+          resources.set(node.name, { ...node, spent: current.spent });
         }
 
         return { ...node, uses };
       }
+
       case "COMPUTED":
       case "ABILITY":
       case "EMPTY":
@@ -520,6 +526,7 @@ export function parse(
           ...ctx,
           apply: ctx.apply && parseInt(level) <= currentLevel,
           nodePath: `${ctx.nodePath}${PATH_COUNTER}${level}`,
+          delete: parseInt(level) > currentLevel ? true : ctx.delete,
         }),
       ])
       .filter(([level]) => parseInt(level as string) <= currentLevel);

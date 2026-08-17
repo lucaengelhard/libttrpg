@@ -21,7 +21,12 @@ export async function load(entryPoint: string): Promise<Node> {
 
   async function resolveImports(node: Node, filePath: string): Promise<Node> {
     if (!(typeof node === "object" && "type" in node)) {
-      console.log(`tried to parse non-node value during import: ${node}`);
+      console.log(
+        `tried to parse non-node value during import of "${filePath}": ${
+          JSON.stringify(node)
+        }`,
+      );
+
       return EMPTY;
     }
 
@@ -109,10 +114,6 @@ export async function load(entryPoint: string): Promise<Node> {
         return { ...node, value, modify, set };
       }
 
-      case "ACTION": {
-        return { ...node, effect: await resolveImports(node.effect, filePath) };
-      }
-
       case "SPELL": {
         const castWithoutSpellSlot = node.castWithoutSpellSlot
           ? await resolveImports(
@@ -150,6 +151,7 @@ export async function load(entryPoint: string): Promise<Node> {
       case "LITERAL": {
         return { ...node, key: node.key ?? node.value.toString() };
       }
+      case "ACTION":
       case "TYPE":
       case "EMPTY":
       case "DEPENDENCY":

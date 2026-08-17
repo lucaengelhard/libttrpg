@@ -6,10 +6,19 @@ import {
   getProficiencyBonus,
   is,
   resolveValue,
+  unwrapDependency,
 } from "../lib/utils.ts";
 import { Library } from "./library.ts";
 import { iterate } from "./tree/iterate.ts";
-import { Class, Computed, Node, Store, Type, Value } from "./tree/types.ts";
+import {
+  Class,
+  Computed,
+  Node,
+  Store,
+  Type,
+  Value,
+  ZERO,
+} from "./tree/types.ts";
 
 export class Character {
   #store: Store;
@@ -45,6 +54,7 @@ export class Character {
           ["skills", new NodeMap(skills as any)],
           ["passives", new NodeMap(passives as any)],
           ["info", new NodeMap()],
+          ["resources", new NodeMap()],
           ["choices", new NodeMap()],
           ["options", new NodeMap()],
           ["proficiencies", new NodeMap()],
@@ -187,6 +197,47 @@ export class Character {
     if (!ability) return this;
 
     ability.base = { type: "LITERAL", value };
+    this.update();
+    return this;
+  }
+
+  public useResource(name: string): this {
+    const resources = this.#store
+      .getOrThrow("character")
+      .getOrThrow("resources");
+    const resource = resources.getNode(name, "RESOURCE");
+
+    if (!resource) return this;
+
+    const usesNode = unwrapDependency(resource.uses);
+    assert(usesNode, "useResources", "LITERAL", "COMPUTED");
+    const uses = resolveValue(usesNode) as number;
+    const spent = resolveValue(resource.spent) as number;
+
+    if (spent < uses) {
+      resources.set(name, {
+        ...resource,
+        spent: { type: "LITERAL", value: spent + 1 },
+      });
+    }
+
+    this.update();
+    return this;
+  }
+
+  public trigger(identifier: string): this {
+    const resources = this.#store
+      .getOrThrow("character")
+      .getOrThrow("resources");
+
+    for (const [key, resource] of resources) {
+      assert(resource, "TRIGGER", "RESOURCE");
+
+      if (identifier.toLowerCase() === resource.resetTrigger.toLowerCase()) {
+        resources.set(key, { ...resource, spent: ZERO });
+      }
+    }
+
     this.update();
     return this;
   }
@@ -351,8 +402,25 @@ export class Character {
       : undefined;
 
     const spells = character.get("spells");
-
     const actions = character.get("actions");
+    const resources = new CaseInsensitiveMap(
+      character.getOrThrow("resources")
+        .values()
+        .map((resource) => {
+          assert(resource, "CHARACTER_GET", "RESOURCE");
+
+          const usesNode = unwrapDependency(resource.uses);
+          assert(usesNode, "useResources", "LITERAL", "COMPUTED");
+          const uses = resolveValue(usesNode) as number;
+          const spent = resolveValue(resource.spent) as number;
+
+          return [resource.name, {
+            uses,
+            spent,
+            resetTrigger: resource.resetTrigger,
+          }];
+        }),
+    );
 
     return {
       name: character
@@ -374,6 +442,7 @@ export class Character {
       spellcasting,
       spells,
       actions,
+      resources,
       tree: result,
       choices,
       options,

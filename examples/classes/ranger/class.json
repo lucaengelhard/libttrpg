@@ -111,33 +111,7 @@
                         {
                           "type": "ACTION",
                           "name": "Get temporary hitpoints",
-                          "time": "1 Action",
-                          "effect": {
-                            "type": "MULTIPLE",
-                            "values": [
-                              {
-                                "type": "MODIFIER",
-                                "key": "tireless_action_modifier",
-                                "value": {
-                                  "type": "ROLL",
-                                  "diceType": { "type": "LITERAL", "value": 8 },
-                                  "diceCount": {
-                                    "type": "LITERAL",
-                                    "value": 1
-                                  },
-                                  "modifier": {
-                                    "type": "DEPENDENCY",
-                                    "query": "character.abilities.wisdom"
-                                  },
-                                  "minimum": { "type": "LITERAL", "value": 1 }
-                                },
-                                "set": {
-                                  "type": "DEPENDENCY",
-                                  "query": "character.stats.temp_hp"
-                                }
-                              }
-                            ]
-                          }
+                          "time": "1 Action"
                         }
                       ]
                     }
@@ -343,6 +317,7 @@
                   "alwaysPrepared": true,
                   "castWithoutSpellSlot": {
                     "type": "RESOURCE",
+                    "name": "Speak with animals (Primal Awareness)",
                     "uses": { "type": "LITERAL", "value": 1 },
                     "resetTrigger": "LONG_REST"
                   }
@@ -353,6 +328,7 @@
                   "alwaysPrepared": true,
                   "castWithoutSpellSlot": {
                     "type": "RESOURCE",
+                    "name": "Beast sense (Primal Awareness)",
                     "uses": { "type": "LITERAL", "value": 1 },
                     "resetTrigger": "LONG_REST"
                   }
@@ -363,6 +339,7 @@
                   "alwaysPrepared": true,
                   "castWithoutSpellSlot": {
                     "type": "RESOURCE",
+                    "name": "Speak with plants (Primal Awareness)",
                     "uses": { "type": "LITERAL", "value": 1 },
                     "resetTrigger": "LONG_REST"
                   }
@@ -373,6 +350,7 @@
                   "alwaysPrepared": true,
                   "castWithoutSpellSlot": {
                     "type": "RESOURCE",
+                    "name": "Locate creature (Primal Awareness)",
                     "uses": { "type": "LITERAL", "value": 1 },
                     "resetTrigger": "LONG_REST"
                   }
@@ -383,6 +361,7 @@
                   "alwaysPrepared": true,
                   "castWithoutSpellSlot": {
                     "type": "RESOURCE",
+                    "name": "Commune with nature (Primal Awareness)",
                     "uses": { "type": "LITERAL", "value": 1 },
                     "resetTrigger": "LONG_REST"
                   }
@@ -419,7 +398,10 @@
       "values": [{
         "type": "FEAT",
         "name": "Archery",
-        "gives": {}
+        "gives": {
+          "type": "MULTIPLE",
+          "values": []
+        }
       }]
     }
   }

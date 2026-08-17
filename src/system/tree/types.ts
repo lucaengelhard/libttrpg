@@ -49,7 +49,6 @@ export type Dependency = {
 };
 
 export type Empty = typeof EMPTY;
-export const EMPTY = { type: "EMPTY" } as const;
 
 // VALUES
 export type Class = {
@@ -98,7 +97,6 @@ export type Action = {
   type: "ACTION";
   name: string;
   time: string;
-  effect: Node;
 };
 
 export type Spell = {
@@ -212,3 +210,6 @@ export const NODE_TYPES = exhaustiveUnionArray<NodeType>()(
     "TYPE",
   ] as const,
 );
+
+export const EMPTY = { type: "EMPTY" } as const;
+export const ZERO: Literal = { type: "LITERAL", value: 0 } as const;
