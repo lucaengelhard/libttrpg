@@ -11,21 +11,18 @@ import {
   Resource,
   Value,
 } from "./tree.ts";
+import { Character } from "./character.ts";
 
-export type Library = CaseInsensitiveMap<string, NodeMap>;
-export async function createLibrary(entryPoint: string): Promise<Library> {
+export async function load(entryPoint: string): Promise<Node> {
   const { data } = await readData("", entryPoint);
-  const library: Library = new CaseInsensitiveMap();
 
   const resolved = await resolveImports(data, path.resolve(entryPoint));
 
-  build(resolved);
-
-  return library;
+  return resolved;
 
   async function resolveImports(node: Node, filePath: string): Promise<Node> {
     if (!(typeof node === "object" && "type" in node)) {
-      console.log(node);
+      console.log(`tried to parse non-node value during import: ${node}`);
       return EMPTY;
     }
 
@@ -56,16 +53,22 @@ export async function createLibrary(entryPoint: string): Promise<Library> {
         return { ...node, value: await resolveImports(node.value, filePath) };
       }
       case "CLASS": {
-        return { ...node, levels: await resolveLevels(node.levels, filePath) };
+        return {
+          ...node,
+          levels: await resolveRecord(node.levels, filePath),
+          static: node.static && !(node.static instanceof NodeMap)
+            ? await resolveRecord(node.static, filePath)
+            : undefined,
+        };
       }
       case "SUBCLASS": {
-        return { ...node, levels: await resolveLevels(node.levels, filePath) };
+        return { ...node, levels: await resolveRecord(node.levels, filePath) };
       }
       case "FEAT": {
         return {
           ...node,
           levels: node.levels
-            ? await resolveLevels(node.levels, filePath)
+            ? await resolveRecord(node.levels, filePath)
             : undefined,
           gives: node.gives
             ? await resolveImports(node.gives, filePath) as Multiple
@@ -148,12 +151,12 @@ export async function createLibrary(entryPoint: string): Promise<Library> {
       case "LITERAL": {
         return { ...node, key: node.key ?? node.value.toString() };
       }
+      case "TYPE":
       case "EMPTY":
       case "DEPENDENCY":
       case "COMPUTED":
       case "SKILL":
-      case "ABILITY":
-      case "TYPE": {
+      case "ABILITY": {
         return node;
       }
       default: {
@@ -162,7 +165,7 @@ export async function createLibrary(entryPoint: string): Promise<Library> {
       }
     }
 
-    async function resolveLevels(
+    async function resolveRecord(
       levels: Record<string, Node>,
       filePath: string,
     ): Promise<Record<string, Node>> {
@@ -175,6 +178,18 @@ export async function createLibrary(entryPoint: string): Promise<Library> {
         await Promise.all(result),
       );
     }
+  }
+}
+
+export type Library = CaseInsensitiveMap<string, NodeMap>;
+export function createLibrary(tree: Node) {
+  const library: Library = new CaseInsensitiveMap();
+  build(tree);
+
+  return { createCharacter, library };
+
+  function createCharacter() {
+    return new Character(library);
   }
 
   function build(node: Node) {

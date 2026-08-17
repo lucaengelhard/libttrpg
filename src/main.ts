@@ -1,20 +1,14 @@
 import { getFromNodePath } from "./lib/nodepath.ts";
 import { printNode } from "./lib/utils.ts";
 import { Character } from "./system/character.ts";
-import { createLibrary } from "./system/library.ts";
+import { createLibrary, load } from "./system/library.ts";
 
-export async function create(libraryEntryPoint: string) {
-  const library = await createLibrary(libraryEntryPoint);
+const tree = await load("./examples/index.json");
+const { library, createCharacter } = createLibrary(tree);
 
-  return { createCharacter };
+console.log(library);
 
-  function createCharacter() {
-    return new Character(library);
-  }
-}
-
-const dnd = await create("./examples/index.json");
-const char = dnd.createCharacter()
+const char = createCharacter()
   .addClass("ranger")
   .setName("Vaas")
   .setAbilityBase("strength", 12)

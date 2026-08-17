@@ -4,6 +4,7 @@ import {
   getModifier,
   getProficiency,
   getProficiencyBonus,
+  is,
   resolveValue,
 } from "../lib/utils.ts";
 import { Class, Computed, iterate, Node, Store, Type, Value } from "./tree.ts";
@@ -65,6 +66,10 @@ export class Character {
                 type: "COMPUTED",
                 modifiers: [],
               }],
+              ["temp_hp", {
+                type: "COMPUTED",
+                modifiers: [],
+              }],
             ]),
           ],
         ]),
@@ -86,8 +91,20 @@ export class Character {
       .get("character")!
       .getOrInsert("classes", new NodeMap());
 
-    classes.set(className, { ...classValue, level: 1 } as Class);
-    this.applyTree();
+    const staticValues = new NodeMap();
+    if (is(classValue, "CLASS") && classValue.static) {
+      for (const [key, value] of Object.entries(classValue.static)) {
+        staticValues.set(key, value);
+      }
+    }
+
+    classes.set(
+      className,
+      { ...classValue, level: 1, static: staticValues } as Class & {
+        static: NodeMap;
+      },
+    );
+    this.update();
     return this;
   }
 
@@ -106,7 +123,7 @@ export class Character {
 
     classes.set(className, { ...classValue, level });
 
-    this.applyTree();
+    this.update();
     return this;
   }
 
@@ -124,7 +141,7 @@ export class Character {
     if (selected.has(key)) {
       selected.delete(key);
       open.add(key);
-      this.applyTree();
+      this.update();
       return this;
     }
 
@@ -135,7 +152,7 @@ export class Character {
     }
     selected.add(key);
     open.delete(key);
-    this.applyTree();
+    this.update();
     return this;
   }
 
@@ -148,7 +165,7 @@ export class Character {
     if (!option) return this;
 
     option.active = active;
-    this.applyTree();
+    this.update();
     return this;
   }
 
@@ -157,7 +174,7 @@ export class Character {
       .getOrThrow("character")
       .getOrThrow("info")
       .set("name", { type: "LITERAL", value: name });
-    this.applyTree();
+    this.update();
     return this;
   }
 
@@ -169,12 +186,12 @@ export class Character {
     if (!ability) return this;
 
     ability.base = { type: "LITERAL", value };
-    this.applyTree();
+    this.update();
     return this;
   }
 
   public get() {
-    const { result } = this.applyTree();
+    const { result } = this.update();
 
     const character = this.#store.getOrThrow("character");
     const classes = character
@@ -188,11 +205,13 @@ export class Character {
         ) => [name, (value.type === "CLASS" ? value.level : 0) ?? 0]),
     );
 
-    const characterLevel = classLevels.size > 0
+    const level = classLevels.size > 0
       ? classLevels.values().reduce((acc, curr) => acc + curr)
       : 0;
 
-    const proficiencyBonus = getProficiencyBonus(characterLevel);
+    const proficiencyBonus = character
+      .getOrThrow("stats")
+      .getNode("proficiency_bonus", "LITERAL")?.value as number ?? 0;
 
     const abilities = new CaseInsensitiveMap(
       character
@@ -338,6 +357,7 @@ export class Character {
       name: character
         .getOrThrow("info")
         .getNode("name", "LITERAL")?.value,
+      level,
       classes: classLevels,
       proficiencyBonus,
       abilities,
@@ -359,7 +379,7 @@ export class Character {
     };
   }
 
-  private applyTree() {
+  private update() {
     const character = this.#store
       .getOrThrow("character");
     const classes = character
@@ -377,6 +397,11 @@ export class Character {
     character.getOrThrow("info").set("characterlevel", {
       type: "LITERAL",
       value: characterLevel,
+    });
+
+    character.getOrThrow("stats").set("proficiency_bonus", {
+      type: "LITERAL",
+      value: getProficiencyBonus(characterLevel),
     });
 
     const tree = {

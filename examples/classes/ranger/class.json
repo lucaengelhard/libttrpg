@@ -106,7 +106,7 @@
                             "type": "DEPENDENCY",
                             "query": "character.stats.proficiency_bonus"
                           },
-                          "reset": "$LONG_REST"
+                          "resetTrigger": "LONG_REST"
                         },
                         {
                           "type": "ACTION",
@@ -131,7 +131,10 @@
                                   },
                                   "minimum": { "type": "LITERAL", "value": 1 }
                                 },
-                                "set": "character.stats.temp_hp"
+                                "set": {
+                                  "type": "DEPENDENCY",
+                                  "query": "character.stats.temp_hp"
+                                }
                               }
                             ]
                           }
@@ -279,7 +282,7 @@
               "count": { "type": "LITERAL", "value": 1 },
               "from": {
                 "type": "DEPENDENCY",
-                "query": "$STATIC.FIGHTING_STYLES"
+                "query": "STATIC.FIGHTING_STYLES"
               }
             }
           }
@@ -341,7 +344,7 @@
                   "castWithoutSpellSlot": {
                     "type": "RESOURCE",
                     "uses": { "type": "LITERAL", "value": 1 },
-                    "resetTrigger": "$LONG_REST"
+                    "resetTrigger": "LONG_REST"
                   }
                 },
                 "5": {
@@ -351,7 +354,7 @@
                   "castWithoutSpellSlot": {
                     "type": "RESOURCE",
                     "uses": { "type": "LITERAL", "value": 1 },
-                    "resetTrigger": "$LONG_REST"
+                    "resetTrigger": "LONG_REST"
                   }
                 },
                 "9": {
@@ -361,7 +364,7 @@
                   "castWithoutSpellSlot": {
                     "type": "RESOURCE",
                     "uses": { "type": "LITERAL", "value": 1 },
-                    "resetTrigger": "$LONG_REST"
+                    "resetTrigger": "LONG_REST"
                   }
                 },
                 "13": {
@@ -371,7 +374,7 @@
                   "castWithoutSpellSlot": {
                     "type": "RESOURCE",
                     "uses": { "type": "LITERAL", "value": 1 },
-                    "resetTrigger": "$LONG_REST"
+                    "resetTrigger": "LONG_REST"
                   }
                 },
                 "17": {
@@ -381,7 +384,7 @@
                   "castWithoutSpellSlot": {
                     "type": "RESOURCE",
                     "uses": { "type": "LITERAL", "value": 1 },
-                    "resetTrigger": "$LONG_REST"
+                    "resetTrigger": "LONG_REST"
                   }
                 }
               }
@@ -410,11 +413,14 @@
     },
     "5": { "type": "FEAT", "name": "Extra Attack" }
   },
-  "STATIC": {
-    "FIGHTING_STYLES": {
+  "static": {
+    "fighting_styles": {
       "type": "MULTIPLE",
-      "values": []
-    },
-    "SPELL_TABLE": {}
+      "values": [{
+        "type": "FEAT",
+        "name": "Archery",
+        "gives": {}
+      }]
+    }
   }
 }

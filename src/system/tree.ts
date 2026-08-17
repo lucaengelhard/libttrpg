@@ -3,6 +3,7 @@ import { CaseInsensitiveMap, NodeMap } from "../lib/map.ts";
 import {
   assert,
   caseInsensitiveGet,
+  exhaustiveUnionArray,
   expect,
   hasKeyOrValue,
   is,
@@ -67,6 +68,10 @@ export type Class = {
   name: string;
   levels: Record<string, Node>;
   level?: number;
+  hitDice: number;
+  asi: number[];
+  static?: Record<string, Node> | NodeMap;
+  // TODO make static optional for every node and the introduce some kind of scoping
 };
 
 export type Subclass = {
@@ -138,6 +143,7 @@ export type Resource = {
   type: "RESOURCE";
   name: string;
   uses: Node;
+  spent: Literal;
   resetTrigger: string;
 };
 
@@ -191,6 +197,32 @@ export type Store = CaseInsensitiveMap<
   string,
   CaseInsensitiveMap<string, NodeMap>
 >;
+
+export const NODE_TYPES = exhaustiveUnionArray<NodeType>()(
+  [
+    "ABILITY",
+    "ACTION",
+    "CHOOSE",
+    "CLASS",
+    "COMPUTED",
+    "DEPENDENCY",
+    "EMPTY",
+    "FEAT",
+    "IMPORT",
+    "LITERAL",
+    "MODIFIER",
+    "MULTIPLE",
+    "OPTIONAL",
+    "PROFICIENCY",
+    "RESOURCE",
+    "ROLL",
+    "SKILL",
+    "SPELL",
+    "SPELLCASTING",
+    "SUBCLASS",
+    "TYPE",
+  ] as const,
+);
 
 export function iterate(
   tree: Node,
@@ -344,7 +376,7 @@ function parse(
         };
       }
       case "DEPENDENCY": {
-        const result = lookup(ctx.store, node.query) ?? EMPTY;
+        const result = lookup(ctx.store, node.query, ctx) ?? EMPTY;
         const key = node.key ?? node.query;
         return { ...node, result, key };
       }
@@ -682,16 +714,30 @@ function parse(
         return { ...node, diceType, diceCount, modifier, minimum };
       }
       case "RESOURCE": {
-        log(node.type, ctx.log);
+        const uses = parse(node.uses, ctx);
 
-        return node;
+        const resources = ctx.store
+          .getOrThrow("character")
+          .getOrInsert("resources", new NodeMap());
+
+        if (!resources.has(ctx.nodePath)) {
+          resources.set(ctx.nodePath, {
+            ...node,
+            spent: { type: "LITERAL", value: 0 },
+          });
+        } else {
+          const current = resources.getNode(ctx.nodePath, "RESOURCE")!;
+          resources.set(ctx.nodePath, { ...node, spent: current.spent });
+        }
+
+        return { ...node, uses };
       }
       case "COMPUTED":
       case "ABILITY":
-      case "TYPE":
       case "EMPTY":
       case "LITERAL":
       case "SKILL":
+      case "TYPE":
         return node;
       case "IMPORT": {
         throw `Unexpected import at: ${ctx.nodePath}`;
@@ -699,7 +745,7 @@ function parse(
       default: {
         const unhandled = node as Node;
         log(unhandled.type, ctx.log);
-        break;
+        return unhandled;
       }
     }
   } catch (error) {
@@ -728,12 +774,36 @@ function parse(
   }
 }
 
-function lookup(store: Store, query: string): Node | undefined {
-  const category = getCategory(store, query);
+function lookup(store: Store, query: string, ctx: ParseCtx): Node | undefined {
+  const category = getCategory(store, query, ctx);
   if (!category) return;
 
   const [_, params] = getQueryParts(query);
-  const [_sectionKey, _categoryKey, entryKey] = getSelectorComponents(query);
+  const [sectionKey, categoryKey, entryKey] = getSelectorComponents(query);
+
+  if (sectionKey === "static") {
+    const staticEntry = category.get(categoryKey);
+    if (staticEntry === undefined) return;
+
+    if (is(staticEntry, "MULTIPLE")) {
+      return { ...staticEntry, values: staticEntry.values.filter(applyParams) };
+    }
+
+    const untypedStaticEntry = staticEntry as Record<string, unknown>;
+    if (
+      untypedStaticEntry === null ||
+      typeof untypedStaticEntry !== "object" ||
+      !(entryKey in untypedStaticEntry) ||
+      untypedStaticEntry[entryKey] === undefined ||
+      untypedStaticEntry[entryKey] === null ||
+      typeof untypedStaticEntry[entryKey] !== "object" ||
+      !("type" in untypedStaticEntry[entryKey]) ||
+      typeof untypedStaticEntry[entryKey].type !== "string" ||
+      !NODE_TYPES.includes(untypedStaticEntry[entryKey].type as NodeType)
+    ) return;
+
+    return untypedStaticEntry[entryKey] as Node;
+  }
 
   if (entryKey) {
     const entry = category.get(entryKey);
@@ -770,8 +840,15 @@ function cleanupQuery(query: string) {
   return query.toLowerCase();
 }
 
-function getCategory(store: Store, query: string) {
+function getCategory(store: Store, query: string, ctx: ParseCtx) {
   const [section, category] = getSelectorComponents(query);
+  if (section === "static") {
+    return store.getOrThrow("character")
+      .getOrThrow("classes")
+      .getNode(ctx.className!, "CLASS")!
+      .static! as NodeMap;
+  }
+
   if (!category) return;
   return store.get(section)?.get(category);
 }

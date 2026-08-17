@@ -191,3 +191,9 @@ export function log(input: unknown, active: boolean) {
 export function printNode(input: Node): string {
   return JSON.stringify(input, null, 1);
 }
+
+export function exhaustiveUnionArray<Union extends string>() {
+  return <T extends readonly Union[]>(
+    array: Exclude<Union, T[number]> extends never ? T : never,
+  ) => array;
+}
