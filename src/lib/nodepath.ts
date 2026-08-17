@@ -1,4 +1,4 @@
-import { Node } from "../system/tree.ts";
+import { Node } from "../system/tree/types.ts";
 
 export const PATH_SEPARATOR = "_/_";
 export const PATH_IDENTIFIER = "@";

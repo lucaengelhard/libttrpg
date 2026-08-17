@@ -1,4 +1,4 @@
-import { Node } from "../system/tree.ts";
+import { Node } from "../system/tree/types.ts";
 
 export class CaseInsensitiveMap<K, V> extends Map<K, V> {
   constructor(input?: Iterable<readonly [K, V]>) {

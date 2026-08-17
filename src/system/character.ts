@@ -7,8 +7,9 @@ import {
   is,
   resolveValue,
 } from "../lib/utils.ts";
-import { Class, Computed, iterate, Node, Store, Type, Value } from "./tree.ts";
 import { Library } from "./library.ts";
+import { iterate } from "./tree/iterate.ts";
+import { Class, Computed, Node, Store, Type, Value } from "./tree/types.ts";
 
 export class Character {
   #store: Store;

@@ -8,7 +8,7 @@ import {
   NodeWithName,
   ProficiencyValue,
   Value,
-} from "../system/tree.ts";
+} from "../system/tree/types.ts";
 
 export function getModifier(value: number): number {
   return Math.floor((value - 10) / 2);

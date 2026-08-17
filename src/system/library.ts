@@ -1,7 +1,7 @@
 import * as path from "@std/path";
-
 import { CaseInsensitiveMap, NodeMap } from "../lib/map.ts";
 import { readData } from "../lib/utils.ts";
+import { Character } from "./character.ts";
 import {
   EMPTY,
   Multiple,
@@ -10,8 +10,7 @@ import {
   NodeWithName,
   Resource,
   Value,
-} from "./tree.ts";
-import { Character } from "./character.ts";
+} from "./tree/types.ts";
 
 export async function load(entryPoint: string): Promise<Node> {
   const { data } = await readData("", entryPoint);
