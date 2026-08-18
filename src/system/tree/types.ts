@@ -175,13 +175,12 @@ export type Node =
   )
   & {
     key?: string;
+    name?: string;
     description?: string;
     static?: Record<string, Node>;
     disabled?: boolean;
   };
 
-export type NodeWithKey = Node & { key: string };
-export type NodeWithName = Node & { name: string };
 export type NodeType = Node["type"];
 export type NodeWithout<T extends NodeType> = Exclude<Node, { type: T }>;
 export type NodeWith<T extends NodeType> = Extract<Node, { type: T }>;

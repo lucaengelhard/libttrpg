@@ -1,7 +1,7 @@
 import type { ZodError } from "zod";
 import { CaseInsensitiveMap, NodeMap } from "../lib/map.ts";
 import { Character } from "./character.ts";
-import type { Node, NodeWithKey, NodeWithName } from "./tree/types.ts";
+import type { Node } from "./tree/types.ts";
 import { NodeSchema } from "./tree/validate.ts";
 
 export type Library = CaseInsensitiveMap<string, NodeMap>;
@@ -28,12 +28,8 @@ export function createLibrary(
 
   function build(node: Node) {
     if (!node) return;
-    if ("key" in node || "name" in node) {
-      const anyNode = node as NodeWithName;
-      appendToLib(
-        anyNode.key ?? anyNode.name,
-        node as NodeWithKey | NodeWithName,
-      );
+    if (node.key || node.name) {
+      appendToLib((node.key ?? node.name)!, node);
       return;
     }
     if ("name" in node || node.type === "IMPORT") return;
@@ -59,7 +55,7 @@ export function createLibrary(
         //console.log(node.type);
     }
 
-    function appendToLib(key: string, node: NodeWithKey | NodeWithName) {
+    function appendToLib(key: string, node: Node) {
       const category = library.getOrInsert(node.type, new NodeMap());
       if (category.has(key)) {
         throw `Duplicate Identifier in ${node.type}: ${key}`;

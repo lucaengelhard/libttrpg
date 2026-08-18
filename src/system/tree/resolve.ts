@@ -19,8 +19,6 @@ import {
   type Computed,
   EMPTY,
   type Node,
-  type NodeWithKey,
-  type NodeWithName,
   PROFICIENCY_NAME,
   type Store,
   type StoreKey,
@@ -336,7 +334,7 @@ function lookup(query: string, ctx: ResolveContext): Node | undefined {
     .filter(applyParams)
     .toArray();
 
-  return { type: "MULTIPLE", values: values as (NodeWithKey | NodeWithName)[] };
+  return { type: "MULTIPLE", values: values };
 
   function applyParams(node: Node): boolean {
     if (!params || params.length === 0) return true;

@@ -4,8 +4,6 @@ import {
   type Node,
   type NodeType,
   type NodeWith,
-  type NodeWithKey,
-  type NodeWithName,
   type NodeWithout,
   PROFICIENCY_NAME,
   type Store,

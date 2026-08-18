@@ -39,7 +39,7 @@ export function getNodeFromPath(node: Node, path: string): Node | undefined {
 
   if (tag === "ROOT") return getNodeFromPath(node, next);
   if (tag !== node.type) return undefined;
-  if ("name" in node && node.name.toUpperCase() !== identifer) return undefined;
+  if (node.name && node.name.toUpperCase() !== identifer) return undefined;
   if (node.key && node.key.toUpperCase() !== identifer) return undefined;
   if (!rest || rest.length === 0) return node;
 
