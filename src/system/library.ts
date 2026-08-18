@@ -3,6 +3,7 @@ import { CaseInsensitiveMap, NodeMap } from "../lib/map.ts";
 import { readData } from "../lib/utils.ts";
 import { Character } from "./character.ts";
 import {
+  Dependency,
   EMPTY,
   Multiple,
   Node,
@@ -54,12 +55,7 @@ export async function load(entryPoint: string): Promise<Node> {
         };
       }
       case "OPTIONAL": {
-        return {
-          ...node,
-          value: node.value
-            ? await resolveImports(node.value, filePath)
-            : undefined,
-        };
+        return { ...node, value: await resolveImports(node.value, filePath) };
       }
       case "CLASS": {
         return {
@@ -109,11 +105,11 @@ export async function load(entryPoint: string): Promise<Node> {
         const value = await resolveImports(node.value, filePath);
 
         const modify = node.modify
-          ? await resolveImports(node.modify, filePath)
+          ? await resolveImports(node.modify, filePath) as Dependency
           : undefined;
 
         const set = node.set
-          ? await resolveImports(node.set, filePath)
+          ? await resolveImports(node.set, filePath) as Dependency
           : undefined;
 
         return { ...node, value, modify, set };

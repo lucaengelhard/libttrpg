@@ -38,6 +38,15 @@ export type Computed = {
   overwrite?: Value[];
   modifiers: Value[];
 };
+
+export type Roll = {
+  type: "ROLL";
+  diceType: Node;
+  diceCount: Node;
+  minimum: Node;
+  modifier: Node;
+};
+
 export type Value = (Literal | Computed | Roll) & { source?: string };
 
 export type Dependency = {
@@ -112,14 +121,6 @@ export type Spellcasting = {
     string,
     { spells: number; slots: number[]; prepared?: number; cantrips?: number }
   >;
-};
-
-export type Roll = {
-  type: "ROLL";
-  diceType: Node;
-  diceCount: Node;
-  minimum: Node;
-  modifier: Node;
 };
 
 export type Resource = {

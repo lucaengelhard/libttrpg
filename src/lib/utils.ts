@@ -13,6 +13,7 @@ import {
   Value,
 } from "../system/tree/types.ts";
 import { CaseInsensitiveSet } from "./set.ts";
+import { getNodeSchema } from "../system/tree/validate.ts";
 
 export function getModifier(value: number): number {
   return Math.floor((value - 10) / 2);
@@ -34,9 +35,9 @@ export async function readData(currentPath: string, importPath: string) {
     return { data: cache.get(newAbsPath)!, newPath: newAbsPath };
   }
 
-  const data = await Deno.readTextFile(newAbsPath);
+  const fileContent = await Deno.readTextFile(newAbsPath);
 
-  const parsed = JSON.parse(data) as Node;
+  const parsed = JSON.parse(fileContent) as Node;
   cache.set(newAbsPath, parsed);
   return { data: parsed, newPath: newAbsPath };
 }

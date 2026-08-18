@@ -1,5 +1,7 @@
 {
   "tasks": {
+    "dev": "deno --allow-read src/main.ts",
+    "update-schema": "deno --allow-write src/system/tree/createSchema.ts"
   },
   "imports": {
     "@std/assert": "jsr:@std/assert@1",

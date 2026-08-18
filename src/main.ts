@@ -3,7 +3,7 @@ import { printNode } from "./lib/utils.ts";
 import { createLibrary, load } from "./system/library.ts";
 
 const tree = await load("./examples/index.json");
-const { createCharacter } = createLibrary(tree);
+/*const { createCharacter } = createLibrary(tree);
 
 const char = createCharacter()
   .setName("Vaas")
@@ -49,6 +49,6 @@ const char = createCharacter()
     true,
   );
 
-char.get();
+char.get(); */
 
-console.log(char.get().skills);
+//console.log(char.get().skills);
