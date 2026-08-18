@@ -35,7 +35,7 @@ const BaseComputedValue = BaseComputed.extend({
 });
 const BaseRollValue = BaseRoll.extend({ source: z.string().optional() });
 
-export const ValueSchema: z.ZodType<Value> = z.discriminatedUnion("type", [
+const ValueSchema: z.ZodType<Value> = z.discriminatedUnion("type", [
   BaseLiteralValue,
   BaseComputedValue,
   BaseRollValue,
@@ -198,7 +198,6 @@ const NodeBaseSchema = z.discriminatedUnion("type", [
   BaseAbility,
   BaseSkill,
   BaseType,
-  // Values:
   BaseLiteralValue,
   BaseComputedValue,
   BaseRollValue,
