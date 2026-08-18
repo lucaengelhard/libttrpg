@@ -1,20 +1,22 @@
 import { CaseInsensitiveMap, NodeMap } from "../lib/map.ts";
+import {
+  assert,
+  getMultipleKeys,
+  getNodeIdentifier,
+  getResource,
+  is,
+  unwrapDependency,
+  wrapInMultiple,
+} from "../lib/node.ts";
 import { CaseInsensitiveSet } from "../lib/set.ts";
 import {
   add,
   arrayCount,
-  assert,
   getModifier,
-  getMultipleKeys,
-  getNodeIdentifier,
   getProficiency,
   getProficiencyBonus,
-  getResource,
-  is,
-  resolveValue,
-  unwrapDependency,
-  wrapInMultiple,
 } from "../lib/utils.ts";
+import { resolveValue } from "../lib/value.ts";
 import type { Library } from "./library.ts";
 import { cycle } from "./tree/resolve.ts";
 import type { Modifier, Node, Store, Type, Value } from "./tree/types.ts";
@@ -337,7 +339,7 @@ export class Character {
         .get("choose")
         ?.entries()
         .map(([path, choice]) => {
-          assert(choice, "CHARACTER_GET", "CHOOSE");
+          assert(choice, "CHOOSE");
 
           const selected = choice.selected
             ? Array.from(getMultipleKeys(choice.selected))
@@ -356,7 +358,7 @@ export class Character {
         .get("optional")
         ?.entries()
         .map(([path, choice]) => {
-          assert(choice, "CHARACTER_GET", "OPTIONAL");
+          assert(choice, "OPTIONAL");
 
           const name = "name" in choice ? choice.name : choice.key ?? path;
 
@@ -402,9 +404,9 @@ export class Character {
           .get("spellcasting")
           ?.entries()
           .map(([className, value]) => {
-            assert(value, "CHARACTER_GET", "SPELLCASTING");
+            assert(value, "SPELLCASTING");
             const unwrapped = unwrapDependency(value.ability);
-            assert(unwrapped, "CHARACTER_GET", "ABILITY");
+            assert(unwrapped, "ABILITY");
 
             return [className, {
               ability: unwrapped.name,

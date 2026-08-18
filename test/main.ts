@@ -8,7 +8,7 @@ let character: Character;
 Deno.test.beforeAll(async () => {
   console.log("Importing library...");
   const tree = await import("../../data/build/library.json", {
-    with: { type: "json" },
+    with: { type: "json" }, // TODO make independent from data repo and make mocks simpler
   });
   const { createCharacter: createCharacterFn } = createLibrary(tree.default);
   assert(createCharacterFn !== undefined);

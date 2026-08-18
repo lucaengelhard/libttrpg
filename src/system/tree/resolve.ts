@@ -2,19 +2,7 @@ import deepEqual from "deep-equal";
 
 import { NodeMap } from "../../lib/map.ts";
 import { getNodePath, PATH_COUNTER } from "../../lib/nodepath.ts";
-import {
-  add,
-  arrayCount,
-  getMultipleKeys,
-  getNodeIdentifier,
-  is,
-  isSafeWrite,
-  normalizeValue,
-  resolveValue,
-  unwrapChoose,
-  unwrapDependency,
-  wrapInMultiple,
-} from "../../lib/utils.ts";
+import { add, arrayCount, normalizeValue } from "../../lib/utils.ts";
 import {
   type Computed,
   EMPTY,
@@ -24,6 +12,16 @@ import {
   type StoreKey,
   type Value,
 } from "./types.ts";
+import {
+  getMultipleKeys,
+  getNodeIdentifier,
+  is,
+  isSafeWrite,
+  unwrapChoose,
+  unwrapDependency,
+  wrapInMultiple,
+} from "../../lib/node.ts";
+import { resolveValue } from "../../lib/value.ts";
 
 export function cycle(
   tree: Node,
