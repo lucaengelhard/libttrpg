@@ -41,9 +41,9 @@ const ImportSchema: z.ZodType<Import> = z.object({
 
 const MultipleSchema: z.ZodType<Multiple> = z.object({
   type: z.literal("MULTIPLE"),
-  values: z.lazy(() =>
-    z.array(z.union([NodeWithKeySchema, NodeWithNameSchema]))
-  ),
+  get values() {
+    return z.array(z.union([NodeWithKeySchema, NodeWithNameSchema]));
+  },
 });
 
 const ChooseSchema: z.ZodType<Choose> = z.object({

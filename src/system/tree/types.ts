@@ -2,7 +2,6 @@ import { CaseInsensitiveMap, NodeMap } from "../../lib/map.ts";
 import { exhaustiveUnionArray } from "../../lib/utils.ts";
 import { Library } from "../library.ts";
 
-// OPERATORS
 export type Import = {
   type: "IMPORT";
   from: string;

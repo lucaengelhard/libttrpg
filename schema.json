@@ -1,1 +1,337 @@
-{"$schema":"https://json-schema.org/draft/2020-12/schema","allOf":[{"anyOf":[{"type":"object","properties":{"type":{"type":"string","const":"IMPORT"},"from":{"type":"string"}},"required":["type","from"],"additionalProperties":false},{"type":"object","properties":{"type":{"type":"string","const":"MULTIPLE"},"values":{"type":"array","items":{"anyOf":[{"allOf":[{"$ref":"#"},{"type":"object","properties":{"key":{"type":"string"}},"required":["key"],"additionalProperties":false}]},{"allOf":[{"$ref":"#"},{"type":"object","properties":{"name":{"type":"string"}},"required":["name"],"additionalProperties":false}]}]}}},"required":["type","values"],"additionalProperties":false},{"type":"object","properties":{"type":{"type":"string","const":"DEPENDENCY"},"query":{"type":"string"},"result":{"$ref":"#"}},"required":["type","query"],"additionalProperties":false},{"$ref":"#/$defs/__schema0"},{"type":"object","properties":{"type":{"type":"string","const":"CHOOSE"},"count":{"$ref":"#/$defs/__schema0"},"from":{"$ref":"#"},"selected":{"type":"object","properties":{"type":{"type":"string","const":"MULTIPLE"},"values":{"type":"array","items":{"anyOf":[{"allOf":[{"$ref":"#"},{"type":"object","properties":{"key":{"type":"string"}},"required":["key"],"additionalProperties":false}]},{"allOf":[{"$ref":"#"},{"type":"object","properties":{"name":{"type":"string"}},"required":["name"],"additionalProperties":false}]}]}}},"required":["type","values"],"additionalProperties":false},"open":{"type":"object","properties":{"type":{"type":"string","const":"MULTIPLE"},"values":{"type":"array","items":{"anyOf":[{"allOf":[{"$ref":"#"},{"type":"object","properties":{"key":{"type":"string"}},"required":["key"],"additionalProperties":false}]},{"allOf":[{"$ref":"#"},{"type":"object","properties":{"name":{"type":"string"}},"required":["name"],"additionalProperties":false}]}]}}},"required":["type","values"],"additionalProperties":false}},"required":["type","count","from"],"additionalProperties":false},{"type":"object","properties":{"type":{"type":"string","const":"OPTIONAL"},"value":{"$ref":"#"},"active":{"type":"boolean"}},"required":["type","value"],"additionalProperties":false},{"type":"object","properties":{"type":{"type":"string","const":"EMPTY"}},"required":["type"],"additionalProperties":false},{"type":"object","properties":{"type":{"type":"string","const":"CLASS"},"name":{"type":"string"},"levels":{"type":"object","propertyNames":{"type":"string"},"additionalProperties":{"$ref":"#"}},"level":{"type":"integer","minimum":0,"maximum":20},"hitDice":{"type":"integer","minimum":0,"maximum":9007199254740991},"asi":{"type":"array","items":{"type":"integer","minimum":0,"maximum":20}}},"required":["type","name","levels","hitDice","asi"],"additionalProperties":false},{"type":"object","properties":{"type":{"type":"string","const":"SUBCLASS"},"name":{"type":"string"},"for":{"type":"string"},"levels":{"type":"object","propertyNames":{"type":"string"},"additionalProperties":{"$ref":"#"}}},"required":["type","name","for","levels"],"additionalProperties":false},{"type":"object","properties":{"type":{"type":"string","const":"FEAT"},"name":{"type":"string"},"levels":{"type":"object","propertyNames":{"type":"string"},"additionalProperties":{"$ref":"#"}},"gives":{"type":"object","properties":{"type":{"type":"string","const":"MULTIPLE"},"values":{"type":"array","items":{"anyOf":[{"allOf":[{"$ref":"#"},{"type":"object","properties":{"key":{"type":"string"}},"required":["key"],"additionalProperties":false}]},{"allOf":[{"$ref":"#"},{"type":"object","properties":{"name":{"type":"string"}},"required":["name"],"additionalProperties":false}]}]}}},"required":["type","values"],"additionalProperties":false}},"required":["type","name"],"additionalProperties":false},{"type":"object","properties":{"type":{"type":"string","const":"PROFICIENCY"},"save":{"$ref":"#"},"skill":{"$ref":"#"},"armor":{"$ref":"#"},"weapon":{"$ref":"#"},"value":{"anyOf":[{"type":"number","const":0.5},{"type":"number","const":1},{"type":"number","const":2}]}},"required":["type","value"],"additionalProperties":false},{"type":"object","properties":{"type":{"type":"string","const":"MODIFIER"},"value":{"$ref":"#"},"modify":{"type":"object","properties":{"type":{"type":"string","const":"DEPENDENCY"},"query":{"type":"string"},"result":{"$ref":"#"}},"required":["type","query"],"additionalProperties":false},"set":{"type":"object","properties":{"type":{"type":"string","const":"DEPENDENCY"},"query":{"type":"string"},"result":{"$ref":"#"}},"required":["type","query"],"additionalProperties":false}},"required":["type","value"],"additionalProperties":false},{"type":"object","properties":{"type":{"type":"string","const":"ACTION"},"name":{"type":"string"},"time":{"type":"string"}},"required":["type","name","time"],"additionalProperties":false},{"type":"object","properties":{"type":{"type":"string","const":"SPELL"},"name":{"type":"string"},"alwaysPrepared":{"type":"boolean"},"castWithoutSpellSlot":{"type":"object","properties":{"type":{"type":"string","const":"RESOURCE"},"name":{"type":"string"},"uses":{"$ref":"#"},"spent":{"type":"object","properties":{"type":{"type":"string","const":"LITERAL"},"value":{"anyOf":[{"type":"string"},{"type":"number"},{"type":"boolean"}]}},"required":["type","value"],"additionalProperties":false},"resetTrigger":{"type":"string"}},"required":["type","name","uses","resetTrigger"],"additionalProperties":false},"level":{"type":"integer","minimum":0,"maximum":9},"upcast":{"type":"boolean"},"ability":{"$ref":"#"}},"required":["type","name","level"],"additionalProperties":false},{"type":"object","properties":{"type":{"type":"string","const":"SPELLCASTING"},"ability":{"$ref":"#"},"table":{"type":"object","propertyNames":{"type":"string"},"additionalProperties":{"type":"object","properties":{"spells":{"type":"integer","minimum":0,"maximum":9007199254740991},"slots":{"type":"array","items":{"type":"integer","minimum":0,"maximum":9007199254740991}},"prepared":{"type":"integer","minimum":0,"maximum":9007199254740991},"cantrips":{"type":"integer","minimum":0,"maximum":9007199254740991}},"required":["spells","slots"],"additionalProperties":false}}},"required":["type","ability","table"],"additionalProperties":false},{"type":"object","properties":{"type":{"type":"string","const":"ROLL"},"diceType":{"$ref":"#"},"diceCount":{"$ref":"#"},"minimum":{"$ref":"#"},"modifier":{"$ref":"#"}},"required":["type","diceType","diceCount","minimum","modifier"],"additionalProperties":false},{"type":"object","properties":{"type":{"type":"string","const":"RESOURCE"},"name":{"type":"string"},"uses":{"$ref":"#"},"spent":{"type":"object","properties":{"type":{"type":"string","const":"LITERAL"},"value":{"anyOf":[{"type":"string"},{"type":"number"},{"type":"boolean"}]}},"required":["type","value"],"additionalProperties":false},"resetTrigger":{"type":"string"}},"required":["type","name","uses","resetTrigger"],"additionalProperties":false},{"type":"object","properties":{"type":{"type":"string","const":"ABILITY"},"name":{"type":"string"}},"required":["type","name"],"additionalProperties":false},{"type":"object","properties":{"type":{"type":"string","const":"SKILL"},"name":{"type":"string"},"ability":{"type":"string"},"hasPassive":{"type":"boolean"}},"required":["type","name","ability"],"additionalProperties":false},{"type":"object","properties":{"type":{"type":"string","const":"TYPE"},"of":{"type":"string"},"name":{"type":"string"},"source":{}},"required":["type","of","name"],"additionalProperties":false}]},{"type":"object","properties":{"key":{"type":"string"},"description":{"type":"string"},"static":{"type":"object","propertyNames":{"type":"string"},"additionalProperties":{"$ref":"#"}},"disabled":{"type":"boolean"}},"additionalProperties":false}],"$defs":{"__schema0":{"allOf":[{"anyOf":[{"type":"object","properties":{"type":{"type":"string","const":"LITERAL"},"value":{"anyOf":[{"type":"string"},{"type":"number"},{"type":"boolean"}]}},"required":["type","value"],"additionalProperties":false},{"type":"object","properties":{"type":{"type":"string","const":"COMPUTED"},"base":{"$ref":"#/$defs/__schema0"},"overwrite":{"type":"array","items":{"$ref":"#/$defs/__schema0"}},"modifiers":{"type":"array","items":{"$ref":"#/$defs/__schema0"}}},"required":["type","modifiers"],"additionalProperties":false},{"type":"object","properties":{"type":{"type":"string","const":"ROLL"},"diceType":{"$ref":"#"},"diceCount":{"$ref":"#"},"minimum":{"$ref":"#"},"modifier":{"$ref":"#"}},"required":["type","diceType","diceCount","minimum","modifier"],"additionalProperties":false}]},{"type":"object","properties":{"source":{"type":"string"}},"additionalProperties":false}]}}}
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "const": "IMPORT" },
+            "from": { "type": "string" }
+          },
+          "required": ["type", "from"],
+          "additionalProperties": false
+        },
+        { "$ref": "#/$defs/__schema0" },
+        { "$ref": "#/$defs/__schema1" },
+        { "$ref": "#/$defs/__schema2" },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "const": "CHOOSE" },
+            "count": { "$ref": "#/$defs/__schema2" },
+            "from": { "$ref": "#" },
+            "selected": { "$ref": "#/$defs/__schema0" },
+            "open": { "$ref": "#/$defs/__schema0" }
+          },
+          "required": ["type", "count", "from"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "const": "OPTIONAL" },
+            "value": { "$ref": "#" },
+            "active": { "type": "boolean" }
+          },
+          "required": ["type", "value"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": { "type": { "type": "string", "const": "EMPTY" } },
+          "required": ["type"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "const": "CLASS" },
+            "name": { "type": "string" },
+            "levels": {
+              "type": "object",
+              "propertyNames": { "type": "string" },
+              "additionalProperties": { "$ref": "#" }
+            },
+            "level": { "$ref": "#/$defs/__schema5" },
+            "hitDice": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "asi": { "type": "array", "items": { "$ref": "#/$defs/__schema5" } }
+          },
+          "required": ["type", "name", "levels", "hitDice", "asi"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "const": "SUBCLASS" },
+            "name": { "type": "string" },
+            "for": { "type": "string" },
+            "levels": {
+              "type": "object",
+              "propertyNames": { "type": "string" },
+              "additionalProperties": { "$ref": "#" }
+            }
+          },
+          "required": ["type", "name", "for", "levels"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "const": "FEAT" },
+            "name": { "type": "string" },
+            "levels": {
+              "type": "object",
+              "propertyNames": { "type": "string" },
+              "additionalProperties": { "$ref": "#" }
+            },
+            "gives": { "$ref": "#/$defs/__schema0" }
+          },
+          "required": ["type", "name"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "const": "PROFICIENCY" },
+            "save": { "$ref": "#" },
+            "skill": { "$ref": "#" },
+            "armor": { "$ref": "#" },
+            "weapon": { "$ref": "#" },
+            "value": {
+              "anyOf": [
+                { "type": "number", "const": 0.5 },
+                { "type": "number", "const": 1 },
+                { "type": "number", "const": 2 }
+              ]
+            }
+          },
+          "required": ["type", "value"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "const": "MODIFIER" },
+            "value": { "$ref": "#" },
+            "modify": { "$ref": "#/$defs/__schema1" },
+            "set": { "$ref": "#/$defs/__schema1" }
+          },
+          "required": ["type", "value"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "const": "ACTION" },
+            "name": { "type": "string" },
+            "time": { "type": "string" }
+          },
+          "required": ["type", "name", "time"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "const": "SPELL" },
+            "name": { "type": "string" },
+            "alwaysPrepared": { "type": "boolean" },
+            "castWithoutSpellSlot": { "$ref": "#/$defs/__schema6" },
+            "level": { "type": "integer", "minimum": 0, "maximum": 9 },
+            "upcast": { "type": "boolean" },
+            "ability": { "$ref": "#" }
+          },
+          "required": ["type", "name", "level"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "const": "SPELLCASTING" },
+            "ability": { "$ref": "#" },
+            "table": {
+              "type": "object",
+              "propertyNames": { "type": "string" },
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "spells": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "slots": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "prepared": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "cantrips": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": ["spells", "slots"],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": ["type", "ability", "table"],
+          "additionalProperties": false
+        },
+        { "$ref": "#/$defs/__schema4" },
+        { "$ref": "#/$defs/__schema6" },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "const": "ABILITY" },
+            "name": { "type": "string" }
+          },
+          "required": ["type", "name"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "const": "SKILL" },
+            "name": { "type": "string" },
+            "ability": { "type": "string" },
+            "hasPassive": { "type": "boolean" }
+          },
+          "required": ["type", "name", "ability"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "const": "TYPE" },
+            "of": { "type": "string" },
+            "name": { "type": "string" },
+            "source": {}
+          },
+          "required": ["type", "of", "name"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "key": { "type": "string" },
+        "description": { "type": "string" },
+        "static": {
+          "type": "object",
+          "propertyNames": { "type": "string" },
+          "additionalProperties": { "$ref": "#" }
+        },
+        "disabled": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    }
+  ],
+  "$defs": {
+    "__schema0": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "const": "MULTIPLE" },
+        "values": { "type": "array", "items": { "$ref": "#" } }
+      },
+      "required": ["type", "values"],
+      "additionalProperties": false
+    },
+    "__schema1": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "const": "DEPENDENCY" },
+        "query": { "type": "string" },
+        "result": { "$ref": "#" }
+      },
+      "required": ["type", "query"],
+      "additionalProperties": false
+    },
+    "__schema2": {
+      "allOf": [
+        {
+          "anyOf": [
+            { "$ref": "#/$defs/__schema3" },
+            {
+              "type": "object",
+              "properties": {
+                "type": { "type": "string", "const": "COMPUTED" },
+                "base": { "$ref": "#/$defs/__schema2" },
+                "overwrite": {
+                  "type": "array",
+                  "items": { "$ref": "#/$defs/__schema2" }
+                },
+                "modifiers": {
+                  "type": "array",
+                  "items": { "$ref": "#/$defs/__schema2" }
+                }
+              },
+              "required": ["type", "modifiers"],
+              "additionalProperties": false
+            },
+            { "$ref": "#/$defs/__schema4" }
+          ]
+        },
+        {
+          "type": "object",
+          "properties": { "source": { "type": "string" } },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "__schema3": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "const": "LITERAL" },
+        "value": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "number" },
+            { "type": "boolean" }
+          ]
+        }
+      },
+      "required": ["type", "value"],
+      "additionalProperties": false
+    },
+    "__schema4": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "const": "ROLL" },
+        "diceType": { "$ref": "#" },
+        "diceCount": { "$ref": "#" },
+        "minimum": { "$ref": "#" },
+        "modifier": { "$ref": "#" }
+      },
+      "required": ["type", "diceType", "diceCount", "minimum", "modifier"],
+      "additionalProperties": false
+    },
+    "__schema5": { "type": "integer", "minimum": 0, "maximum": 20 },
+    "__schema6": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "const": "RESOURCE" },
+        "name": { "type": "string" },
+        "uses": { "$ref": "#" },
+        "spent": { "$ref": "#/$defs/__schema3" },
+        "resetTrigger": { "type": "string" }
+      },
+      "required": ["type", "name", "uses", "resetTrigger"],
+      "additionalProperties": false
+    }
+  }
+}
