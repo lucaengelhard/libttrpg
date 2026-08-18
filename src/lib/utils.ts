@@ -224,3 +224,14 @@ function isPrimitive(value: unknown) {
   return typeof value === "string" || typeof value === "number" ||
     typeof value === "boolean";
 }
+
+export function arrayCount<A>(
+  array: A[],
+  pred: (element: A) => boolean,
+): number {
+  let counter = 0;
+  for (const element of array) {
+    if (pred(element)) counter++;
+  }
+  return counter;
+}

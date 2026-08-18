@@ -18,9 +18,11 @@ export type Choose = {
   from: Node;
   selected?: Multiple;
   open?: Multiple;
-  chooseAdditionalAtLevel?: number[];
-  // TODO reimplement this with a dependency type that returns different values for different levels
-  // TODO correctly delete taken choices when decreasing level/decreasing count
+  chooseAdditionalAt?: {
+    level?: number[];
+    classLevel?: number[];
+  };
+  classLevel?: number;
 };
 
 export type Optional = {

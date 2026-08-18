@@ -2,6 +2,7 @@ import { CaseInsensitiveMap, NodeMap } from "../lib/map.ts";
 import { CaseInsensitiveSet } from "../lib/set.ts";
 import {
   add,
+  arrayCount,
   assert,
   getModifier,
   getMultipleKeys,
@@ -99,7 +100,28 @@ export class Character {
       ? getMultipleKeys(unwrappedFrom)
       : new CaseInsensitiveSet();
 
-    const maxCount = resolveValue(choice.count) as number;
+    const characterLevel = this.#store.character
+      ?.get("info")
+      ?.getNode("characterLevel", "LITERAL")
+      ?.value as number | undefined;
+
+    const additionalAtClassLevel =
+      choice.chooseAdditionalAt?.classLevel && choice.classLevel
+        ? arrayCount(
+          choice.chooseAdditionalAt.classLevel,
+          (l) => l <= (choice.classLevel ?? 0),
+        )
+        : 0;
+
+    const additionalAtLevel = choice.chooseAdditionalAt?.level && characterLevel
+      ? arrayCount(
+        choice.chooseAdditionalAt.level,
+        (l) => l <= characterLevel,
+      )
+      : 0;
+
+    const maxCount = resolveValue(choice.count) as number +
+      additionalAtClassLevel + additionalAtLevel;
 
     if (selectedKeys.has(key)) {
       selectedKeys.delete(key);

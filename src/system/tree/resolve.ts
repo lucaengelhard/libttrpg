@@ -4,11 +4,13 @@ import { NodeMap } from "../../lib/map.ts";
 import { getNodePath, PATH_COUNTER } from "../../lib/nodepath.ts";
 import {
   add,
+  arrayCount,
   getMultipleKeys,
   getNodeIdentifier,
   is,
   isSafeWrite,
   normalizeValue,
+  resolveValue,
   unwrapChoose,
   unwrapDependency,
   wrapInMultiple,
@@ -108,13 +110,40 @@ function resolve<N extends Node>(node: N, ctxInput: ResolveContext): N {
         return { ...node, from };
       }
 
+      const characterLevel = ctx.store.character
+        ?.get("info")
+        ?.getNode("characterLevel", "LITERAL")
+        ?.value as number | undefined;
+
+      const additionalAtClassLevel =
+        current.chooseAdditionalAt?.classLevel && ctx.classLevel
+          ? arrayCount(
+            current.chooseAdditionalAt.classLevel,
+            (l) => l <= (ctx.classLevel ?? 0),
+          )
+          : 0;
+
+      const additionalAtLevel =
+        current.chooseAdditionalAt?.level && characterLevel
+          ? arrayCount(
+            current.chooseAdditionalAt.level,
+            (l) => l <= characterLevel,
+          )
+          : 0;
+
+      const maxOptions = resolveValue(unwrappedCount) as number +
+        additionalAtClassLevel + additionalAtLevel;
+
       const currentSelectedKeys = current.selected
         ? getMultipleKeys(current.selected)
         : undefined;
 
       const selected = current && currentSelectedKeys
         ? wrapInMultiple(unwrappedFrom.values
-          .filter((v) => currentSelectedKeys.has(getNodeIdentifier(v) ?? "")))
+          .filter((v, i) =>
+            currentSelectedKeys.has(getNodeIdentifier(v) ?? "") &&
+            i < maxOptions
+          ))
         : undefined;
 
       const open = current && currentSelectedKeys
@@ -122,7 +151,7 @@ function resolve<N extends Node>(node: N, ctxInput: ResolveContext): N {
           .filter((v) => !currentSelectedKeys.has(getNodeIdentifier(v) ?? "")))
         : unwrappedFrom;
 
-      return { ...node, selected, open };
+      return { ...node, selected, open, classLevel: ctx.classLevel };
     }
     case "OPTIONAL": {
       const current = ctx.store.character
