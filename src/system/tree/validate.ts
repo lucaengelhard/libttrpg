@@ -13,7 +13,6 @@ import {
   Modifier,
   Multiple,
   Node,
-  NodeType,
   NodeWithKey,
   NodeWithName,
   Optional,
