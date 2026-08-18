@@ -1,5 +1,5 @@
 import * as z from "zod";
-import {
+import type {
   Ability,
   Action,
   Choose,

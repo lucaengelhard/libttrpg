@@ -1,16 +1,15 @@
-import * as path from "@std/path";
 import {
   EMPTY,
-  Multiple,
-  Node,
-  NodeType,
-  NodeWith,
-  NodeWithKey,
-  NodeWithName,
-  NodeWithout,
+  type Multiple,
+  type Node,
+  type NodeType,
+  type NodeWith,
+  type NodeWithKey,
+  type NodeWithName,
+  type NodeWithout,
   PROFICIENCY_NAME,
-  Store,
-  Value,
+  type Store,
+  type Value,
 } from "../system/tree/types.ts";
 import { CaseInsensitiveSet } from "./set.ts";
 
@@ -20,25 +19,6 @@ export function getModifier(value: number): number {
 
 export function getProficiencyBonus(level: number) {
   return Math.ceil(level / 4) + 1;
-}
-
-const cache = new Map<string, Node>();
-export async function readData(currentPath: string, importPath: string) {
-  let newAbsPath = path.resolve(path.dirname(currentPath), importPath);
-  const info = await Deno.stat(newAbsPath);
-  if (info.isDirectory) {
-    newAbsPath = path.join(newAbsPath, "index.json");
-  }
-
-  if (cache.has(newAbsPath)) {
-    return { data: cache.get(newAbsPath)!, newPath: newAbsPath };
-  }
-
-  const fileContent = await Deno.readTextFile(newAbsPath);
-
-  const parsed = JSON.parse(fileContent) as Node;
-  cache.set(newAbsPath, parsed);
-  return { data: parsed, newPath: newAbsPath };
 }
 
 export function expect<N extends NodeType>(

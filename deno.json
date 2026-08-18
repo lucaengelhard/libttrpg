@@ -1,11 +1,13 @@
 {
+  "name": "@lucaengelhard/lib5e",
+  "version": "0.0.1",
+  "exports": "./src/mod.ts",
   "tasks": {
-    "dev": "deno --allow-read src/main.ts",
+    "test": "deno --allow-read test/main.ts",
     "schema": "deno --allow-write src/system/tree/createSchema.ts"
   },
   "imports": {
     "@std/assert": "jsr:@std/assert@1",
-    "@std/path": "jsr:@std/path@^1.1.6",
     "deep-equal": "npm:deep-equal@^2.2.3",
     "zod": "npm:zod@^4.4.3"
   }

@@ -1,11 +1,11 @@
-import { getFromNodePath } from "./lib/nodepath.ts";
-import { printNode } from "./lib/utils.ts";
-import { createLibrary, load } from "./system/library.ts";
+import { createLibrary } from "../src/system/library.ts";
 
-const tree = await load("../data/index.json");
+const tree = await import("../../data/build/library.json", {
+  with: { type: "json" },
+});
 const { createCharacter } = createLibrary(tree);
 
-const char = createCharacter()
+const char = createCharacter!()
   .setName("Vaas")
   .setAbilityBase("strength", 12)
   .setAbilityBase("dexterity", 15)

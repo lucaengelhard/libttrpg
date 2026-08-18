@@ -1,6 +1,6 @@
-import { CaseInsensitiveMap, NodeMap } from "../../lib/map.ts";
+import type { CaseInsensitiveMap, NodeMap } from "../../lib/map.ts";
 import { exhaustiveUnionArray } from "../../lib/utils.ts";
-import { Library } from "../library.ts";
+import type { Library } from "../library.ts";
 
 export type Import = {
   type: "IMPORT";

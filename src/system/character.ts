@@ -15,9 +15,10 @@ import {
   unwrapDependency,
   wrapInMultiple,
 } from "../lib/utils.ts";
-import { Library } from "./library.ts";
+import type { Library } from "./library.ts";
 import { cycle } from "./tree/resolve.ts";
-import { Modifier, Node, Store, Type, Value, ZERO } from "./tree/types.ts";
+import type { Modifier, Node, Store, Type, Value } from "./tree/types.ts";
+import { ZERO } from "./tree/types.ts";
 
 export class Character {
   #store: Store;
