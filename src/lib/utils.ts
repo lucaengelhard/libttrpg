@@ -13,7 +13,6 @@ import {
   Value,
 } from "../system/tree/types.ts";
 import { CaseInsensitiveSet } from "./set.ts";
-import { getNodeSchema } from "../system/tree/validate.ts";
 
 export function getModifier(value: number): number {
   return Math.floor((value - 10) / 2);
