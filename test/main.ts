@@ -1,40 +1,45 @@
-import { assert } from "@std/assert";
-import type { Character } from "../src/system/character.ts";
+import { assert, assertEquals } from "@std/assert";
 import { createLibrary } from "../src/system/library.ts";
+import type { Node } from "../src/system/tree/types.ts";
+import { abilitySkillMock, classMock, combineMocks } from "./mocks.ts";
 
-let createCharacter: () => Character;
-let character: Character;
-
-Deno.test.beforeAll(async () => {
-  console.log("Importing library...");
-  const tree = await import("../../data/build/library.json", {
-    with: { type: "json" }, // TODO make independent from data repo and make mocks simpler
-  });
-  const { createCharacter: createCharacterFn } = createLibrary(tree.default);
-  assert(createCharacterFn !== undefined);
-  createCharacter = createCharacterFn;
-});
-
-Deno.test.beforeEach(() => {
-  character = createCharacter();
-});
+function createTestCharacter(mock: Node = { type: "MULTIPLE", values: [] }) {
+  const { createCharacter } = createLibrary(mock);
+  return createCharacter!();
+}
 
 Deno.test("Set name", () => {
+  const character = createTestCharacter();
   character.setName("Vaas");
-  assert(character.get().name === "Vaas");
+  assertEquals(character.name, "Vaas");
 });
 
 Deno.test("Set ability score", () => {
+  const character = createTestCharacter(abilitySkillMock);
   character.setAbilityBase("strength", 12);
-  const state = character.get();
 
-  assert(state.abilities.get("strength") === 12);
-  assert(state.saves.get("strength") === 1);
+  assertEquals(character.abilities.get("strength"), 12);
+  assertEquals(character.saves.get("strength"), 1);
+});
+
+Deno.test("Calculate skill value", () => {
+  const character = createTestCharacter(abilitySkillMock);
+  character.setAbilityBase("strength", 12);
+  assertEquals(character.skills.get("athletics"), 1);
+
+  character.setAbilityBase("strength", 8);
+  assertEquals(character.skills.get("athletics"), -1);
 });
 
 Deno.test("Add class", () => {
-  assert(character.get().level === 0);
-  character.addClass("ranger").setClassLevel("ranger", 10);
-  assert(character.get().level === 10);
-  assert(character.get().classes.has("ranger"));
+  const character = createTestCharacter(
+    combineMocks(abilitySkillMock, classMock),
+  );
+  assertEquals(character.level, 0);
+
+  character.addClass("mocked");
+  assert(character.classes.has("mocked"));
+
+  character.setClassLevel("mocked", 10);
+  assertEquals(character.level, 10);
 });

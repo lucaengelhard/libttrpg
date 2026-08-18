@@ -1,0 +1,62 @@
+import type { Class, Multiple, Node } from "../src/system/tree/types.ts";
+
+export function combineMocks(...mocks: Node[]): Multiple {
+  return { type: "MULTIPLE", values: [...mocks] };
+}
+
+export const abilitySkillMock: Node = {
+  type: "MULTIPLE",
+  values: [
+    { type: "ABILITY", name: "STRENGTH" },
+    { type: "ABILITY", name: "DEXTERITY" },
+    { type: "ABILITY", name: "CONSTITUTION" },
+    { type: "ABILITY", name: "INTELLIGENCE" },
+    { type: "ABILITY", name: "WISDOM" },
+    { type: "ABILITY", name: "CHARISMA" },
+    { type: "SKILL", name: "ACROBATICS", ability: "DEXTERITY" },
+    { type: "SKILL", name: "ANIMAL HANDLING", ability: "WISDOM" },
+    { type: "SKILL", name: "ARCANA", ability: "INTELLIGENCE" },
+    { type: "SKILL", name: "ATHLETICS", ability: "STRENGTH" },
+    { type: "SKILL", name: "DECEPTION", ability: "CHARISMA" },
+    { type: "SKILL", name: "HISTORY", ability: "INTELLIGENCE" },
+    {
+      type: "SKILL",
+      name: "INSIGHT",
+      ability: "WISDOM",
+      hasPassive: true,
+    },
+    { type: "SKILL", name: "INITIMIDATION", ability: "CHARISMA" },
+    {
+      type: "SKILL",
+      name: "INVESTIGATION",
+      ability: "INTELLIGENCE",
+      hasPassive: true,
+    },
+    { type: "SKILL", name: "MEDICINE", ability: "WISDOM" },
+    { type: "SKILL", name: "NATURE", ability: "INTELLIGENCE" },
+    {
+      type: "SKILL",
+      name: "PERCEPTION",
+      ability: "WISDOM",
+      hasPassive: true,
+    },
+    { type: "SKILL", name: "PERFORMANCE", ability: "CHARISMA" },
+    { type: "SKILL", name: "PERSUASION", ability: "CHARISMA" },
+    { type: "SKILL", name: "RELIGION", ability: "INTELLIGENCE" },
+    {
+      type: "SKILL",
+      name: "SLEIGHT OF HAND",
+      ability: "DEXTERITY",
+    },
+    { type: "SKILL", name: "STEALTH", ability: "DEXTERITY" },
+    { type: "SKILL", name: "SURVIVAL", ability: "WISDOM" },
+  ],
+};
+
+export const classMock: Class = {
+  type: "CLASS",
+  name: "Mocked",
+  levels: {},
+  hitDice: 0,
+  asi: [],
+};

@@ -19,7 +19,15 @@ import {
 import { resolveValue } from "../lib/value.ts";
 import type { Library } from "./library.ts";
 import { cycle } from "./tree/resolve.ts";
-import type { Modifier, Node, Store, Type, Value } from "./tree/types.ts";
+import type {
+  Modifier,
+  Node,
+  Spell,
+  Spellcasting,
+  Store,
+  Type,
+  Value,
+} from "./tree/types.ts";
 import { ZERO } from "./tree/types.ts";
 
 export class Character {
@@ -236,10 +244,7 @@ export class Character {
     return this;
   }
 
-  public get() {
-    // TODO make this private and make getters directly on the class
-    this.update();
-
+  private getClassLevels() {
     const character = this.#store.character;
     const classes = character.get("class");
 
@@ -251,15 +256,19 @@ export class Character {
         ) => [name, (value.type === "CLASS" ? value.level : 0) ?? 0]),
     );
 
-    const level = classLevels.size > 0 ? classLevels.values().reduce(add) : 0;
+    return classLevels;
+  }
 
-    const proficiencyBonus = character
+  private getProficiencyBonus() {
+    const character = this.#store.character;
+    return character
       .getOrInsert("info", new NodeMap())
       .getNode("proficiency_bonus", "LITERAL")?.value as number ?? 0;
+  }
 
-    const proficiencies = character.get("proficiency");
-
-    const abilities = new CaseInsensitiveMap(
+  private getAbilities() {
+    const character = this.#store.character;
+    return new CaseInsensitiveMap(
       character
         .get("ability")
         ?.entries()
@@ -267,30 +276,14 @@ export class Character {
           [name, value],
         ) => [name, resolveValue(value as Value) as number | undefined ?? 0]),
     );
+  }
 
-    const saves = new CaseInsensitiveMap(
-      character
-        .get("save")
-        ?.entries()
-        .map(([name, value]) => {
-          const modifier = getModifier(abilities.getOrThrow(name));
-          const bonus = resolveValue(value as Value) as number ?? 0;
+  private getSkills() {
+    const character = this.#store.character;
+    const abilities = this.getAbilities();
+    const proficiencyBonus = this.getProficiencyBonus();
 
-          const prof = getProficiency(this.#store, "ability", name) *
-            proficiencyBonus;
-
-          if (
-            "overwrite" in value && value.overwrite &&
-            value.overwrite.length > 0
-          ) {
-            return [name, bonus];
-          }
-
-          return [name, modifier + bonus + prof];
-        }),
-    );
-
-    const skills = new CaseInsensitiveMap(
+    return new CaseInsensitiveMap(
       character
         .get("skill")
         ?.entries()
@@ -314,8 +307,68 @@ export class Character {
           return [name, modifier + bonus + prof];
         }),
     );
+  }
 
-    const passives = new CaseInsensitiveMap(
+  public get name(): string | undefined {
+    return this.#store.character.get("info")?.getNode("name", "LITERAL")
+      ?.value as string;
+  }
+
+  public get classes(): CaseInsensitiveMap<string, number> {
+    this.update();
+    return this.getClassLevels();
+  }
+
+  public get level(): number {
+    this.update();
+    const classLevels = this.getClassLevels();
+    return classLevels.size > 0 ? classLevels.values().reduce(add) : 0;
+  }
+
+  public get abilities(): CaseInsensitiveMap<string, number> {
+    this.update();
+    return this.getAbilities();
+  }
+
+  public get saves(): CaseInsensitiveMap<string, number> {
+    this.update();
+    const character = this.#store.character;
+    const abilities = this.getAbilities();
+    const proficiencyBonus = this.getProficiencyBonus();
+
+    return new CaseInsensitiveMap(
+      character
+        .get("save")
+        ?.entries()
+        .map(([name, value]) => {
+          const modifier = getModifier(abilities.getOrThrow(name));
+          const bonus = resolveValue(value as Value) as number ?? 0;
+
+          const prof = getProficiency(this.#store, "ability", name) *
+            proficiencyBonus;
+
+          if (
+            "overwrite" in value && value.overwrite &&
+            value.overwrite.length > 0
+          ) {
+            return [name, bonus];
+          }
+
+          return [name, modifier + bonus + prof];
+        }),
+    );
+  }
+
+  public get skills(): CaseInsensitiveMap<string, number> {
+    this.update();
+    return this.getSkills();
+  }
+
+  public get passives(): CaseInsensitiveMap<string, number> {
+    this.update();
+    const character = this.#store.character;
+    const skills = this.getSkills();
+    return new CaseInsensitiveMap(
       character
         .get("passive")
         ?.entries()
@@ -333,8 +386,15 @@ export class Character {
           return [name, modifier + bonus];
         }),
     );
+  }
 
-    const choices = new CaseInsensitiveMap(
+  public get choices(): CaseInsensitiveMap<
+    string,
+    { count: number; selected: string[]; open: string[] }
+  > {
+    this.update();
+    const character = this.#store.character;
+    return new CaseInsensitiveMap(
       character
         .get("choose")
         ?.entries()
@@ -349,23 +409,43 @@ export class Character {
             ? Array.from(getMultipleKeys(choice.open))
             : [];
 
-          return [path, { count: resolveValue(choice.count), selected, open }];
+          return [path, {
+            count: resolveValue(choice.count) as number,
+            selected,
+            open,
+          }];
         }),
     );
+  }
 
-    const options = new CaseInsensitiveMap(
+  public get options(): CaseInsensitiveMap<
+    string,
+    { name: string; active: boolean }
+  > {
+    this.update();
+    const character = this.#store.character;
+    return new CaseInsensitiveMap(
       character
         .get("optional")
         ?.entries()
         .map(([path, choice]) => {
           assert(choice, "OPTIONAL");
 
-          const name = "name" in choice ? choice.name : choice.key ?? path;
+          const name = choice.name ? choice.name : choice.key ?? path;
 
           return [path, { name, active: choice.active ?? false }];
         }),
     );
+  }
 
+  public get proficiencies(): {
+    armor: string[];
+    weapon: string[];
+    language: string[];
+    tool: string[];
+  } {
+    this.update();
+    const proficiencies = this.#store.character.get("proficiency");
     const armorProfs = proficiencies
       ? proficiencies
         .values()
@@ -398,7 +478,23 @@ export class Character {
         .toArray()
       : [];
 
-    const spellcasting = character.has("spellcasting")
+    return {
+      armor: armorProfs,
+      weapon: weaponProfs,
+      language: languageProfs,
+      tool: toolProfs,
+    };
+  }
+
+  public get spellcasting():
+    | CaseInsensitiveMap<string, {
+      ability: string;
+      table: Spellcasting["table"];
+    }>
+    | undefined {
+    this.update();
+    const character = this.#store.character;
+    return character.has("spellcasting")
       ? new CaseInsensitiveMap(
         character
           .get("spellcasting")
@@ -415,8 +511,12 @@ export class Character {
           }),
       )
       : undefined;
+  }
 
-    const spells = new CaseInsensitiveMap(
+  public get spells() {
+    this.update();
+    const character = this.#store.character;
+    return new CaseInsensitiveMap(
       character.get("spell")?.values()
         .map((value) => {
           if (!is(value, "SPELL")) return;
@@ -438,17 +538,33 @@ export class Character {
           }] as const;
         }).filter((v) => v !== undefined),
     );
+  }
 
-    const actions = character.get("action");
+  public get actions(): NodeMap | undefined {
+    this.update();
+    return this.#store.character.get("action");
+  }
 
-    const resources = new CaseInsensitiveMap(
+  public get resources(): CaseInsensitiveMap<string, {
+    readonly uses: number;
+    readonly spent: number;
+    readonly resetTrigger: string;
+  }> {
+    this.update();
+    const character = this.#store.character;
+    return new CaseInsensitiveMap(
       character.get("resource")
         ?.values()
         .map(getResource)
         .filter((v) => v !== undefined),
     );
+  }
 
-    const stats = new CaseInsensitiveMap(
+  public get stats(): CaseInsensitiveMap<string, number> {
+    this.update();
+    const character = this.#store.character;
+
+    const map = new CaseInsensitiveMap(
       character
         .get("stats")
         ?.entries()
@@ -459,33 +575,13 @@ export class Character {
         .filter((v) => v !== undefined),
     );
 
-    return {
-      name: character
-        .get("info")
-        ?.getNode("name", "LITERAL")
-        ?.value,
-      level,
-      classes: classLevels,
-      proficiencyBonus,
-      abilities,
-      saves,
-      skills,
-      passives,
-      proficiencies: {
-        armor: armorProfs,
-        weapon: weaponProfs,
-        language: languageProfs,
-        tool: toolProfs,
-      },
-      stats,
-      spellcasting,
-      spells,
-      actions,
-      resources,
-      tree: this.#tree,
-      choices,
-      options,
-    };
+    map.set("proficiencyBonus", this.getProficiencyBonus());
+
+    return map;
+  }
+
+  public get tree(): Node | undefined {
+    return this.#tree;
   }
 
   private update() {
