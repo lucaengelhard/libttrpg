@@ -1,7 +1,0 @@
-{
-  "type": "MULTIPLE",
-  "values": [
-    { "type": "IMPORT", "from": "./rules" },
-    { "type": "IMPORT", "from": "./classes/ranger/" }
-  ]
-}
