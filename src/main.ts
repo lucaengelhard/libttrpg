@@ -2,7 +2,7 @@ import { getFromNodePath } from "./lib/nodepath.ts";
 import { printNode } from "./lib/utils.ts";
 import { createLibrary, load } from "./system/library.ts";
 
-const tree = await load("./examples/index.json");
+const tree = await load("../data/index.json");
 const { createCharacter } = createLibrary(tree);
 
 const char = createCharacter()
