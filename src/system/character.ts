@@ -1,27 +1,24 @@
 import { CaseInsensitiveMap, NodeMap } from "../lib/map.ts";
 import {
+  add,
   assert,
   getModifier,
+  getMultipleKeys,
+  getNodeIdentifier,
   getProficiency,
   getProficiencyBonus,
   is,
   resolveValue,
   unwrapDependency,
+  wrapInMultiple,
 } from "../lib/utils.ts";
 import { Library } from "./library.ts";
-import { iterate } from "./tree/iterate.ts";
-import {
-  Class,
-  Computed,
-  Node,
-  Store,
-  Type,
-  Value,
-  ZERO,
-} from "./tree/types.ts";
+import { cycle } from "./tree/resolve.ts";
+import { Computed, Node, Store, Type, Value, ZERO } from "./tree/types.ts";
 
 export class Character {
   #store: Store;
+  #tree?: Node;
   constructor(library: Library) {
     const abilities = library
       .getOrThrow("ability")
@@ -44,77 +41,47 @@ export class Character {
       .filter(([_, skill]) => "hasPassive" in skill && skill.hasPassive)
       .map(([name]) => [name, { type: "COMPUTED", modifiers: [] as Value[] }]);
 
-    this.#store = new CaseInsensitiveMap([
-      ["library", library],
-      [
-        "character",
-        new CaseInsensitiveMap([
-          ["abilities", new NodeMap(abilities as any)],
-          ["saves", new NodeMap(saves as any)],
-          ["skills", new NodeMap(skills as any)],
-          ["passives", new NodeMap(passives as any)],
-          ["info", new NodeMap()],
-          ["resources", new NodeMap()],
-          ["choices", new NodeMap()],
-          ["options", new NodeMap()],
-          ["proficiencies", new NodeMap()],
-          [
-            "stats",
-            new NodeMap([
-              ["walking_speed", {
-                type: "COMPUTED",
-                modifiers: [],
-              }],
-              ["swimming_speed", {
-                type: "COMPUTED",
-                modifiers: [],
-              }],
-              ["flying_speed", {
-                type: "COMPUTED",
-                modifiers: [],
-              }],
-              ["climbing_speed", {
-                type: "COMPUTED",
-                modifiers: [],
-              }],
-              ["temp_hp", {
-                type: "COMPUTED",
-                modifiers: [],
-              }],
-            ]),
-          ],
-        ]),
-      ],
-    ]);
+    this.#store = {
+      library,
+      character: new CaseInsensitiveMap([
+        ["ability", new NodeMap(abilities as any)],
+        ["save", new NodeMap(saves as any)],
+        ["skill", new NodeMap(skills as any)],
+        ["passive", new NodeMap(passives as any)],
+        [
+          "stats",
+          new NodeMap([
+            ["walking_speed", { type: "COMPUTED", modifiers: [] }],
+            ["swimming_speed", { type: "COMPUTED", modifiers: [] }],
+            ["climbing_speed", { type: "COMPUTED", modifiers: [] }],
+            ["flying_speed", { type: "COMPUTED", modifiers: [] }],
+          ]),
+        ],
+        ["info", new NodeMap()],
+      ]),
+    };
   }
 
   public addClass(className: string): this {
-    const classValue = this.#store.get("library")?.get("class")?.get(className);
+    const classValue = this.#store.library
+      ?.get("class")
+      ?.getNode(className, "CLASS");
+
     if (
       !classValue ||
-      this.#store.get("character")!.getOrInsert(
-        "classes",
-        new NodeMap(),
-      ).has(className)
+      this.#store.character
+        .getOrInsert("class", new NodeMap())
+        .has(className)
     ) return this;
 
-    const classes = this.#store
-      .get("character")!
-      .getOrInsert("classes", new NodeMap());
-
-    const staticValues = new NodeMap();
-    if (is(classValue, "CLASS") && classValue.static) {
-      for (const [key, value] of Object.entries(classValue.static)) {
-        staticValues.set(key, value);
-      }
-    }
+    const classes = this.#store.character
+      .getOrInsert("class", new NodeMap());
 
     classes.set(
       className,
-      { ...classValue, level: 1, static: staticValues } as Class & {
-        static: NodeMap;
-      },
+      { ...classValue, level: 1 },
     );
+
     this.update();
     return this;
   }
@@ -122,14 +89,11 @@ export class Character {
   public setClassLevel(className: string, level: number): this {
     if (level < 1 || level > 20 || !Number.isInteger(level)) return this;
 
-    const classes = this.#store
-      .getOrThrow("character")
-      .get("classes");
+    const classes = this.#store.character.get("class");
 
     if (!classes) return this;
 
-    const classValue = classes
-      .getNode(className, "CLASS");
+    const classValue = classes.getNode(className, "CLASS");
     if (!classValue) return this;
 
     classes.set(className, { ...classValue, level });
@@ -139,50 +103,71 @@ export class Character {
   }
 
   public setChoice(identifier: string, key: string): this {
-    const choice = this.#store
-      .getOrThrow("character")
-      .getOrThrow("choices")
-      .getNode(identifier, "CHOOSE");
+    const choices = this.#store.character.get("choose");
 
+    if (!choices) return this;
+
+    const choice = choices.getNode(identifier, "CHOOSE");
     if (!choice) return this;
 
-    const selected = choice.slectedKeys!;
-    const open = choice.openKeys!;
+    const unwrappedFrom = unwrapDependency(choice.from);
 
-    if (selected.has(key)) {
-      selected.delete(key);
-      open.add(key);
-      this.update();
-      return this;
+    const selectedKeys = choice.selected
+      ? getMultipleKeys(choice.selected)
+      : new Set<string>();
+
+    const openKeys = choice.open
+      ? getMultipleKeys(choice.open)
+      : is(unwrappedFrom, "MULTIPLE")
+      ? getMultipleKeys(unwrappedFrom)
+      : new Set<string>();
+
+    if (selectedKeys.has(key)) {
+      selectedKeys.delete(key);
+      openKeys.add(key);
+    } else if (selectedKeys.size < (resolveValue(choice.count) as number)) {
+      selectedKeys.add(key);
+      openKeys.delete(key);
     }
 
-    if (
-      !open.has(key) || selected.size >= (resolveValue(choice.count) as number)
-    ) {
-      return this;
-    }
-    selected.add(key);
-    open.delete(key);
+    const selected = wrapInMultiple(
+      is(unwrappedFrom, "MULTIPLE")
+        ? unwrappedFrom.values
+          .filter((v) => selectedKeys.has(getNodeIdentifier(v)))
+        : undefined,
+    );
+
+    const open = wrapInMultiple(
+      is(unwrappedFrom, "MULTIPLE")
+        ? unwrappedFrom.values
+          .filter((v) => !selectedKeys.has(getNodeIdentifier(v)))
+        : undefined,
+    );
+
+    choices.set(identifier, {
+      ...choice,
+      selected,
+      open,
+    });
+
     this.update();
     return this;
   }
 
   public setOption(identifier: string, active: boolean): this {
-    const option = this.#store
-      .getOrThrow("character")
-      .getOrThrow("options")
-      .getNode(identifier, "OPTIONAL");
+    const options = this.#store.character
+      .getOrThrow("optional");
+    const option = options.getNode(identifier, "OPTIONAL");
 
     if (!option) return this;
 
-    option.active = active;
+    options.set(identifier, { ...option, active });
     this.update();
     return this;
   }
 
   public setName(name: string): this {
-    this.#store
-      .getOrThrow("character")
+    this.#store.character
       .getOrThrow("info")
       .set("name", { type: "LITERAL", value: name });
     this.update();
@@ -190,9 +175,8 @@ export class Character {
   }
 
   public setAbilityBase(name: string, value: number): this {
-    const ability = this.#store
-      .getOrThrow("character")
-      .getOrThrow("abilities")
+    const ability = this.#store.character
+      .getOrThrow("ability")
       .get(name) as Computed | undefined;
     if (!ability) return this;
 
@@ -202,17 +186,17 @@ export class Character {
   }
 
   public useResource(name: string): this {
-    const resources = this.#store
-      .getOrThrow("character")
-      .getOrThrow("resources");
+    const resources = this.#store.character.get("resource");
+    if (!resources) return this;
     const resource = resources.getNode(name, "RESOURCE");
 
     if (!resource) return this;
 
     const usesNode = unwrapDependency(resource.uses);
-    assert(usesNode, "useResources", "LITERAL", "COMPUTED");
+    if (!is(usesNode, "LITERAL", "COMPUTED")) return this;
+
     const uses = resolveValue(usesNode) as number;
-    const spent = resolveValue(resource.spent) as number;
+    const spent = resource.spent ? resolveValue(resource.spent) as number : 0;
 
     if (spent < uses) {
       resources.set(name, {
@@ -226,12 +210,11 @@ export class Character {
   }
 
   public trigger(identifier: string): this {
-    const resources = this.#store
-      .getOrThrow("character")
-      .getOrThrow("resources");
+    const resources = this.#store.character.get("resource");
+    if (!resources) return this;
 
     for (const [key, resource] of resources) {
-      assert(resource, "TRIGGER", "RESOURCE");
+      if (!is(resource, "RESOURCE")) continue;
 
       if (identifier.toLowerCase() === resource.resetTrigger.toLowerCase()) {
         resources.set(key, { ...resource, spent: ZERO });
@@ -243,11 +226,10 @@ export class Character {
   }
 
   public get() {
-    const { result } = this.update();
+    this.update();
 
-    const character = this.#store.getOrThrow("character");
-    const classes = character
-      .get("classes");
+    const character = this.#store.character;
+    const classes = character.get("class");
 
     const classLevels = new CaseInsensitiveMap(
       classes
@@ -257,17 +239,17 @@ export class Character {
         ) => [name, (value.type === "CLASS" ? value.level : 0) ?? 0]),
     );
 
-    const level = classLevels.size > 0
-      ? classLevels.values().reduce((acc, curr) => acc + curr)
-      : 0;
+    const level = classLevels.size > 0 ? classLevels.values().reduce(add) : 0;
 
     const proficiencyBonus = character
       .getOrThrow("stats")
       .getNode("proficiency_bonus", "LITERAL")?.value as number ?? 0;
 
+    const proficiencies = character.get("proficiency");
+
     const abilities = new CaseInsensitiveMap(
       character
-        .getOrThrow("abilities")
+        .getOrThrow("ability")
         .entries()
         .map((
           [name, value],
@@ -276,16 +258,19 @@ export class Character {
 
     const saves = new CaseInsensitiveMap(
       character
-        .getOrThrow("saves")
+        .getOrThrow("save")
         .entries()
         .map(([name, value]) => {
           const modifier = getModifier(abilities.getOrThrow(name));
           const bonus = resolveValue(value as Value) as number ?? 0;
-          const prof = value.type === "COMPUTED" && value.proficiency
-            ? getProficiency(value.proficiency) * proficiencyBonus
-            : 0;
 
-          if ("overwrite" in value && value.overwrite!.length > 0) {
+          const prof = getProficiency(this.#store, "ability", name) *
+            proficiencyBonus;
+
+          if (
+            "overwrite" in value && value.overwrite &&
+            value.overwrite.length > 0
+          ) {
             return [name, bonus];
           }
 
@@ -295,21 +280,22 @@ export class Character {
 
     const skills = new CaseInsensitiveMap(
       character
-        .getOrThrow("skills")
+        .getOrThrow("skill")
         .entries()
         .map(([name, value]) => {
-          const libSkill = this.#store
-            .getOrThrow("library")
+          const libSkill = this.#store.library
             .getOrThrow("skill")
             .getNode(name, "SKILL")!;
 
           const modifier = getModifier(abilities.getOrThrow(libSkill.ability));
           const bonus = resolveValue(value as Value) as number ?? 0;
-          const prof = value.type === "COMPUTED" && value.proficiency
-            ? getProficiency(value.proficiency) * proficiencyBonus
-            : 0;
+          const prof = getProficiency(this.#store, "ability", name) *
+            proficiencyBonus;
 
-          if ("overwrite" in value && value.overwrite!.length > 0) {
+          if (
+            "overwrite" in value && value.overwrite &&
+            value.overwrite.length > 0
+          ) {
             return [name, bonus];
           }
 
@@ -319,26 +305,36 @@ export class Character {
 
     const passives = new CaseInsensitiveMap(
       character
-        .getOrThrow("passives")
+        .getOrThrow("passive")
         .entries()
         .map(([name, value]) => {
           const modifier = skills.getOrThrow(name);
           const bonus = resolveValue(value as Value) as number ?? 0;
+
+          if (
+            "overwrite" in value && value.overwrite &&
+            value.overwrite.length > 0
+          ) {
+            return [name, bonus];
+          }
+
           return [name, modifier + bonus];
         }),
     );
 
     const choices = new CaseInsensitiveMap(
       character
-        .getOrThrow("choices")
+        .getOrThrow("choose")
         .entries()
         .map(([path, choice]) => {
           assert(choice, "CHARACTER_GET", "CHOOSE");
-          const selected = choice.slectedKeys
-            ? Array.from(choice.slectedKeys)
+          const selected = choice.selected
+            ? Array.from(getMultipleKeys(choice.selected))
             : [];
 
-          const open = choice.openKeys ? Array.from(choice.openKeys) : [];
+          const open = choice.open
+            ? Array.from(getMultipleKeys(choice.open))
+            : [];
 
           return [path, { count: resolveValue(choice.count), selected, open }];
         }),
@@ -346,7 +342,7 @@ export class Character {
 
     const options = new CaseInsensitiveMap(
       character
-        .getOrThrow("options")
+        .getOrThrow("optional")
         .entries()
         .map(([path, choice]) => {
           assert(choice, "CHARACTER_GET", "OPTIONAL");
@@ -357,32 +353,37 @@ export class Character {
         }),
     );
 
-    const proficiencies = character
-      .getOrThrow("proficiencies");
-
     const armorProfs = proficiencies
-      .values()
-      .filter((v) => v.type === "TYPE" && v.of.toLowerCase() === "armor")
-      .map((v) => (v as Type).name)
-      .toArray();
+      ? proficiencies
+        .values()
+        .filter((v) => v.type === "TYPE" && v.of.toLowerCase() === "armor")
+        .map((v) => (v as Type).name)
+        .toArray()
+      : [];
 
     const weaponProfs = proficiencies
-      .values()
-      .filter((v) => v.type === "TYPE" && v.of.toLowerCase() === "weapon")
-      .map((v) => (v as Type).name)
-      .toArray();
+      ? proficiencies
+        .values()
+        .filter((v) => v.type === "TYPE" && v.of.toLowerCase() === "weapon")
+        .map((v) => (v as Type).name)
+        .toArray()
+      : [];
 
     const languageProfs = proficiencies
-      .values()
-      .filter((v) => v.type === "TYPE" && v.of.toLowerCase() === "language")
-      .map((v) => (v as Type).name)
-      .toArray();
+      ? proficiencies
+        .values()
+        .filter((v) => v.type === "TYPE" && v.of.toLowerCase() === "language")
+        .map((v) => (v as Type).name)
+        .toArray()
+      : [];
 
     const toolProfs = proficiencies
-      .values()
-      .filter((v) => v.type === "TYPE" && v.of.toLowerCase() === "tool")
-      .map((v) => (v as Type).name)
-      .toArray();
+      ? proficiencies
+        .values()
+        .filter((v) => v.type === "TYPE" && v.of.toLowerCase() === "tool")
+        .map((v) => (v as Type).name)
+        .toArray()
+      : [];
 
     const spellcasting = character.has("spellcasting")
       ? new CaseInsensitiveMap(
@@ -391,41 +392,45 @@ export class Character {
           .entries()
           .map(([className, value]) => {
             assert(value, "CHARACTER_GET", "SPELLCASTING");
-            assert(value.ability, "CHARACTER_GET", "ABILITY");
+            const unwrapped = unwrapDependency(value.ability);
+            assert(unwrapped, "CHARACTER_GET", "ABILITY");
 
             return [className, {
-              ability: value.ability.name,
+              ability: unwrapped.name,
               table: value.table,
             }];
           }),
       )
       : undefined;
 
-    const spells = character.get("spells");
-    const actions = character.get("actions");
+    const spells = character.get("spell");
+    const actions = character.get("action");
     const resources = new CaseInsensitiveMap(
-      character.getOrThrow("resources")
-        .values()
+      character.get("resource")
+        ?.values()
         .map((resource) => {
           assert(resource, "CHARACTER_GET", "RESOURCE");
-
           const usesNode = unwrapDependency(resource.uses);
-          assert(usesNode, "useResources", "LITERAL", "COMPUTED");
+          if (!is(usesNode, "LITERAL", "COMPUTED")) return;
           const uses = resolveValue(usesNode) as number;
-          const spent = resolveValue(resource.spent) as number;
+          const spent = resource.spent
+            ? resolveValue(resource.spent) as number
+            : 0;
 
           return [resource.name, {
             uses,
             spent,
             resetTrigger: resource.resetTrigger,
-          }];
-        }),
+          }] as const;
+        })
+        .filter((v) => v !== undefined),
     );
 
     return {
       name: character
-        .getOrThrow("info")
-        .getNode("name", "LITERAL")?.value,
+        .get("info")
+        ?.getNode("name", "LITERAL")
+        ?.value,
       level,
       classes: classLevels,
       proficiencyBonus,
@@ -443,25 +448,22 @@ export class Character {
       spells,
       actions,
       resources,
-      tree: result,
+      tree: this.#tree,
       choices,
       options,
     };
   }
 
   private update() {
-    const character = this.#store
-      .getOrThrow("character");
-    const classes = character
-      .get("classes");
+    const character = this.#store.character;
 
-    character.getOrThrow("proficiencies").clear(); // TODO Does this make sense?
+    const classes = character.get("class");
 
     const characterLevel = classes
       ? classes
         .values()
         .map((c) => c.type === "CLASS" ? c.level ?? 0 : 0)
-        .reduce((acc, curr) => acc + curr)
+        .reduce(add)
       : 0;
 
     character.getOrThrow("info").set("characterlevel", {
@@ -481,6 +483,9 @@ export class Character {
       ],
     } as Node;
 
-    return iterate(tree, { store: this.#store, log: true });
+    const { nextState, nextTree } = cycle(tree, this.#store);
+
+    this.#store = nextState;
+    this.#tree = nextTree;
   }
 }

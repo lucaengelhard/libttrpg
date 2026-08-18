@@ -1,13 +1,18 @@
 import { Node } from "../system/tree/types.ts";
+import deepEqual from "deep-equal";
 
 export class CaseInsensitiveMap<K, V> extends Map<K, V> {
-  constructor(input?: Iterable<readonly [K, V]>) {
+  #locked = false;
+
+  constructor(
+    input?: Iterable<readonly [K, V]>,
+  ) {
     super();
 
     if (!input) return;
 
     for (const [k, v] of input) {
-      this.set(k, v); // reuses your normalization
+      super.set(this.normalize(k), v);
     }
   }
 
@@ -20,6 +25,7 @@ export class CaseInsensitiveMap<K, V> extends Map<K, V> {
   }
 
   override set(key: K, value: V): this {
+    if (this.#locked) throw `Tried to set locked Map`;
     return super.set(this.normalize(key), value);
   }
 
@@ -28,6 +34,7 @@ export class CaseInsensitiveMap<K, V> extends Map<K, V> {
   }
 
   override delete(key: K): boolean {
+    if (this.#locked) throw `Tried to delete from locked Map`;
     return super.delete(this.normalize(key));
   }
 
@@ -38,10 +45,13 @@ export class CaseInsensitiveMap<K, V> extends Map<K, V> {
   }
 
   override getOrInsert(key: K, defaultValue: V): V {
+    if (this.#locked) throw `Tried to getOrInsert from locked Map`;
     return super.getOrInsert(this.normalize(key), defaultValue);
   }
 
   override getOrInsertComputed(key: K, callback: (key: K) => V): V {
+    if (this.#locked) throw `Tried to getOrInsertComputed from locked Map`;
+
     return super.getOrInsertComputed(this.normalize(key), callback);
   }
 
@@ -49,6 +59,31 @@ export class CaseInsensitiveMap<K, V> extends Map<K, V> {
     const res = this.get(key);
     if (res === undefined) throw `No "${key} in map"`;
     return res;
+  }
+
+  public lock() {
+    this.#locked = true;
+    return this;
+  }
+
+  public isSameAs(other: CaseInsensitiveMap<K, V>): boolean {
+    if (
+      !this.keys().every((k) => other.has(k)) &&
+      other.keys().every((k) => this.has(k))
+    ) return false;
+
+    for (const [key, value] of this) {
+      const otherValue = this.get(key)!;
+      if (typeof value !== typeof otherValue) return false;
+      if (
+        !(value instanceof CaseInsensitiveMap) ||
+        !(otherValue instanceof CaseInsensitiveMap) ||
+        !value.isSameAs(otherValue)
+      ) return false;
+      if (!deepEqual(value, otherValue)) return false;
+      // TODO are these enough checks?
+    }
+    return true;
   }
 }
 

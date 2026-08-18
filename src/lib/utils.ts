@@ -1,12 +1,15 @@
 import * as path from "@std/path";
 import {
   EMPTY,
+  Multiple,
   Node,
   NodeType,
   NodeWith,
   NodeWithKey,
   NodeWithName,
-  ProficiencyValue,
+  NodeWithout,
+  PROFICIENCY_NAME,
+  Store,
   Value,
 } from "../system/tree/types.ts";
 
@@ -73,23 +76,6 @@ export function is<T extends NodeType>(
   return types.some((t) => node.type === t);
 }
 
-export function isValue(node: Node | undefined): node is Value {
-  if (!node) return false;
-  return is(node, "LITERAL") || is(node, "COMPUTED");
-}
-
-export function hasKeyOrValue<N extends Node>(
-  node: N,
-  shouldLog = false,
-): node is N & (NodeWithKey | NodeWithName) {
-  if (!(node.key !== undefined || "name" in node) && shouldLog) {
-    console.warn("Missing key or name for node:");
-    console.log(node);
-  }
-
-  return node.key !== undefined || "name" in node;
-}
-
 export function resolveValue(
   node: Value,
 ): string | number | boolean | undefined {
@@ -140,52 +126,18 @@ export function getMaxValue(values: Value[]): Value {
   return current;
 }
 
-export function getProficiency(
-  input: { value: ProficiencyValue; source: string }[],
-): number {
-  let max: number | null = null;
-  for (const value of input) {
-    if (max === null || value.value > max) max = value.value;
-  }
-
-  return max === null ? 0 : max;
-}
-
-export function unwrapDependency(node: Node): Node {
+export function unwrapDependency(node: Node): NodeWithout<"DEPENDENCY"> {
   if (node.type !== "DEPENDENCY") return node;
-  return node.result ?? EMPTY;
+  return node.result ? unwrapDependency(node.result) : EMPTY;
 }
 
-type CaseInsensitiveKey<R, K extends string> = {
-  [P in keyof R & string]: Lowercase<P> extends Lowercase<K> ? P : never;
-}[keyof R & string];
-
-export function caseInsensitiveGet<
-  R extends Record<string, unknown>,
-  K extends string,
->(
-  record: R,
-  key: K,
-): R[CaseInsensitiveKey<R, K>] | undefined {
-  if (key in record) {
-    return record[key as keyof R] as R[CaseInsensitiveKey<R, K>];
+export function unwrapChoose(node: Node) {
+  if (!is(node, "CHOOSE")) {
+    return is(node, "MULTIPLE") ? node : wrapInMultiple([]);
   }
+  if (!node.selected) return wrapInMultiple([]);
 
-  const upper = key.toUpperCase() as keyof R;
-  if (upper in record) {
-    return record[upper] as R[CaseInsensitiveKey<R, K>];
-  }
-
-  const lower = key.toLowerCase() as keyof R;
-  if (lower in record) {
-    return record[lower] as R[CaseInsensitiveKey<R, K>];
-  }
-
-  return undefined;
-}
-
-export function log(input: unknown, active: boolean) {
-  if (active) console.log(input);
+  return node.selected;
 }
 
 export function printNode(input: Node): string {
@@ -196,4 +148,43 @@ export function exhaustiveUnionArray<Union extends string>() {
   return <T extends readonly Union[]>(
     array: Exclude<Union, T[number]> extends never ? T : never,
   ) => array;
+}
+
+export function getNodeIdentifier(node: NodeWithName | NodeWithKey): string {
+  if ("name" in node) return node.name;
+  else return node.key;
+}
+
+export function getMultipleKeys(node: Multiple): Set<string> {
+  return new Set(node.values.map(getNodeIdentifier));
+}
+
+export function add(a: number, b: number) {
+  return a + b;
+}
+
+export function wrapInMultiple(
+  values: (NodeWithName | NodeWithKey)[] = [],
+): Multiple {
+  return { type: "MULTIPLE", values };
+}
+
+export function isSafeWrite(node: Node): boolean {
+  return is(node, "DEPENDENCY") &&
+    node.query.toLowerCase().startsWith("character");
+}
+
+export function getProficiency(
+  store: Store,
+  category: string,
+  name: string,
+): number {
+  const proficiencies = store.character.get("proficiency");
+  if (!proficiencies) return 0;
+  for (const value of [0.5, 1, 2] as const) {
+    const identifier = `${category}.${name}@${PROFICIENCY_NAME[value]}`;
+    if (proficiencies.has(identifier)) return value;
+  }
+
+  return 0;
 }

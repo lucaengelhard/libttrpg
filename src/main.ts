@@ -6,7 +6,6 @@ const tree = await load("./examples/index.json");
 const { createCharacter } = createLibrary(tree);
 
 const char = createCharacter()
-  .addClass("ranger")
   .setName("Vaas")
   .setAbilityBase("strength", 12)
   .setAbilityBase("dexterity", 15)
@@ -14,49 +13,31 @@ const char = createCharacter()
   .setAbilityBase("intelligence", 13)
   .setAbilityBase("wisdom", 13)
   .setAbilityBase("charisma", 8)
-  .setChoice(
-    "root_/_multiple_/_class@ranger#1_/_multiple_/_feat@proficiencies#1_/_proficiency_/_choose",
-    "PERCEPTION",
-  )
-  .setChoice(
-    "root_/_multiple_/_class@ranger#1_/_multiple_/_feat@proficiencies#1_/_proficiency_/_choose",
-    "ATHLETICS",
-  )
-  .setChoice(
-    "root_/_multiple_/_class@ranger#1_/_multiple_/_feat@proficiencies#1_/_proficiency_/_choose",
-    "NATURE",
-  )
-  .setChoice(
-    "root_/_multiple_/_class@ranger#1_/_multiple_/_feat@proficiencies#1_/_proficiency_/_choose",
-    "PERCEPTION",
-  )
+  .addClass("ranger")
   .setClassLevel("ranger", 10)
+  .setChoice(
+    "root_/_multiple_/_class@ranger#1_/_multiple_/_choose@natural_deft_explorer",
+    "Deft Explorer",
+  )
+  .setChoice(
+    "root_/_multiple_/_class@ranger#1_/_multiple_/_choose@favored_enemy",
+    "Favored Enemy",
+  ).setChoice(
+    "root_/_multiple_/_class@ranger#1_/_multiple_/_choose@favored_enemy_/_multiple_/_feat@favored enemy#1_/_multiple_/_choose@favored_enemy_creature",
+    "humanoid",
+  ).setChoice(
+    "root_/_multiple_/_class@ranger#3_/_multiple_/_choose@primeval_primal_awareness",
+    "Primal Awareness",
+  )
   .setOption(
     "root_/_multiple_/_class@ranger#2_/_multiple_/_optional@additional ranger spells",
     true,
   ).setOption(
     "root_/_multiple_/_class@ranger#2_/_multiple_/_optional@spellcasting focus",
     true,
-  ).setChoice(
-    "root_/_multiple_/_class@ranger#1_/_multiple_/_choose@natural_deft_explorer",
-    "Deft Explorer",
-  ).setChoice(
-    "root_/_multiple_/_class@ranger#1_/_multiple_/_choose@favored_enemy",
-    "Favored Enemy",
-  ).setChoice(
-    "root_/_multiple_/_class@ranger#3_/_multiple_/_feat@ranger archetype#3_/_choose",
-    "Beast Master",
-  ).setChoice(
-    "root_/_multiple_/_class@ranger#3_/_multiple_/_choose@primeval_primal_awareness",
-    "Primal Awareness",
+  ).setOption(
+    "root_/_multiple_/_class@ranger#4_/_optional@martial versatility",
+    true,
   );
 
-console.log(char.get().resources);
-
-char.setClassLevel("ranger", 3);
-console.log(char.get().resources);
-
-char.setClassLevel("ranger", 2);
-console.log(char.get().resources);
-
-//console.log(printNode(char.get().tree));
+console.log(char.get());

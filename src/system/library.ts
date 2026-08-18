@@ -54,7 +54,12 @@ export async function load(entryPoint: string): Promise<Node> {
         };
       }
       case "OPTIONAL": {
-        return { ...node, value: await resolveImports(node.value, filePath) };
+        return {
+          ...node,
+          value: node.value
+            ? await resolveImports(node.value, filePath)
+            : undefined,
+        };
       }
       case "CLASS": {
         return {
@@ -186,6 +191,7 @@ export type Library = CaseInsensitiveMap<string, NodeMap>;
 export function createLibrary(tree: Node) {
   const library: Library = new CaseInsensitiveMap();
   build(tree);
+  library.lock();
 
   return { createCharacter, library };
 

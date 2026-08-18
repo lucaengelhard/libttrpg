@@ -1,5 +1,6 @@
 import { CaseInsensitiveMap, NodeMap } from "../../lib/map.ts";
 import { exhaustiveUnionArray } from "../../lib/utils.ts";
+import { Library } from "../library.ts";
 
 // OPERATORS
 export type Import = {
@@ -17,14 +18,12 @@ export type Choose = {
   count: Value;
   from: Node;
   selected?: Multiple;
-  slectedKeys?: Set<string>;
   open?: Multiple;
-  openKeys?: Set<string>;
 };
 
 export type Optional = {
   type: "OPTIONAL";
-  value: Node;
+  value?: Node;
   active?: boolean;
 };
 
@@ -38,7 +37,6 @@ export type Computed = {
   base?: Value;
   overwrite?: Value[];
   modifiers: Value[];
-  proficiency?: { value: ProficiencyValue; source: string }[];
 };
 export type Value = (Literal | Computed | Roll) & { source?: string };
 
@@ -58,8 +56,6 @@ export type Class = {
   level?: number;
   hitDice: number;
   asi: number[];
-  static?: Record<string, Node> | NodeMap;
-  // TODO make static optional for every node and the introduce some kind of scoping
 };
 
 export type Subclass = {
@@ -130,7 +126,7 @@ export type Resource = {
   type: "RESOURCE";
   name: string;
   uses: Node;
-  spent: Literal;
+  spent?: Literal;
   resetTrigger: string;
 };
 
@@ -172,7 +168,12 @@ export type Node =
     | Skill
     | Type
   )
-  & { key?: string; description?: string };
+  & {
+    key?: string;
+    description?: string;
+    static?: Record<string, Node>;
+  };
+
 export type NodeWithKey = Node & { key: string };
 export type NodeWithName = Node & { name: string };
 export type NodeType = Node["type"];
@@ -180,10 +181,16 @@ export type NodeWithout<T extends NodeType> = Exclude<Node, { type: T }>;
 export type NodeWith<T extends NodeType> = Extract<Node, { type: T }>;
 export type ProficiencyValue = 0.5 | 1 | 2;
 
-export type Store = CaseInsensitiveMap<
-  string,
-  CaseInsensitiveMap<string, NodeMap>
->;
+export type StoreKey =
+  | (NodeType | Lowercase<NodeType>)
+  | "info"
+  | "stats"
+  | "passive"
+  | "save";
+export type Store = {
+  library: Library;
+  character: CaseInsensitiveMap<StoreKey, NodeMap>;
+};
 
 export const NODE_TYPES = exhaustiveUnionArray<NodeType>()(
   [
@@ -213,3 +220,9 @@ export const NODE_TYPES = exhaustiveUnionArray<NodeType>()(
 
 export const EMPTY = { type: "EMPTY" } as const;
 export const ZERO: Literal = { type: "LITERAL", value: 0 } as const;
+
+export const PROFICIENCY_NAME = {
+  0.5: "half",
+  1: "full",
+  2: "expertise",
+} as const satisfies Record<ProficiencyValue, string>;

@@ -33,7 +33,7 @@
                             "count": { "type": "LITERAL", "value": 1 },
                             "from": {
                               "type": "DEPENDENCY",
-                              "query": "character.skills?proficient=true"
+                              "query": "character.skill?proficient=true"
                             }
                           }
                         },
