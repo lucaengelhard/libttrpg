@@ -12,6 +12,7 @@ import {
   Store,
   Value,
 } from "../system/tree/types.ts";
+import { CaseInsensitiveSet } from "./set.ts";
 
 export function getModifier(value: number): number {
   return Math.floor((value - 10) / 2);
@@ -150,13 +151,15 @@ export function exhaustiveUnionArray<Union extends string>() {
   ) => array;
 }
 
-export function getNodeIdentifier(node: NodeWithName | NodeWithKey): string {
+export function getNodeIdentifier(node: Node): string | undefined {
   if ("name" in node) return node.name;
   else return node.key;
 }
 
-export function getMultipleKeys(node: Multiple): Set<string> {
-  return new Set(node.values.map(getNodeIdentifier));
+export function getMultipleKeys(node: Multiple) {
+  return new CaseInsensitiveSet(
+    node.values.map(getNodeIdentifier).filter((v) => v !== undefined),
+  );
 }
 
 export function add(a: number, b: number) {

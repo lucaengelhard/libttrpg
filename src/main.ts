@@ -7,12 +7,12 @@ const { createCharacter } = createLibrary(tree);
 
 const char = createCharacter()
   .setName("Vaas")
-  /*   .setAbilityBase("strength", 12)
+  .setAbilityBase("strength", 12)
   .setAbilityBase("dexterity", 15)
   .setAbilityBase("constitution", 14)
   .setAbilityBase("intelligence", 13)
   .setAbilityBase("wisdom", 13)
-  .setAbilityBase("charisma", 8) */
+  .setAbilityBase("charisma", 8)
   .addClass("ranger")
   .setClassLevel("ranger", 10)
   .setChoice(
@@ -28,6 +28,15 @@ const char = createCharacter()
   ).setChoice(
     "root_/_multiple_/_class@ranger#3_/_multiple_/_choose@primeval_primal_awareness",
     "Primal Awareness",
+  ).setChoice(
+    "root_/_multiple_/_class@ranger#1_/_multiple_/_feat@proficiencies#1_/_proficiency_/_choose",
+    "Nature",
+  ).setChoice(
+    "root_/_multiple_/_class@ranger#1_/_multiple_/_feat@proficiencies#1_/_proficiency_/_choose",
+    "Insight",
+  ).setChoice(
+    "root_/_multiple_/_class@ranger#1_/_multiple_/_feat@proficiencies#1_/_proficiency_/_choose",
+    "perception",
   )
   .setOption(
     "root_/_multiple_/_class@ranger#2_/_multiple_/_optional@additional ranger spells",
@@ -42,4 +51,4 @@ const char = createCharacter()
 
 char.get();
 
-//console.log(char.get().stats);
+console.log(char.get().skills);

@@ -1,6 +1,6 @@
 import deepEqual from "deep-equal";
 
-import { CaseInsensitiveMap, NodeMap } from "../../lib/map.ts";
+import { NodeMap } from "../../lib/map.ts";
 import { getNodePath, PATH_COUNTER } from "../../lib/nodepath.ts";
 import {
   add,
@@ -34,16 +34,12 @@ export function cycle(
     scope: new NodeMap(),
   });
 
-  if (deepEqual(tree, nextTree)) {
-    return { nextTree, nextState: store };
-  }
-
-  const character: Store["character"] = new CaseInsensitiveMap();
+  const character: Store["character"] = store.character.keep("info");
   store.character.lock();
 
   apply(nextTree, { path: "ROOT", next: character });
 
-  if (!store.character.isSameAs(character)) {
+  if (!deepEqual(tree, nextTree) && !store.character.isSameAs(character)) {
     return cycle(nextTree, { ...store, character });
   }
 
@@ -117,12 +113,12 @@ function resolve<N extends Node>(node: N, ctxInput: ResolveContext): N {
 
       const selected = current && currentSelectedKeys
         ? wrapInMultiple(unwrappedFrom.values
-          .filter((v) => currentSelectedKeys.has(getNodeIdentifier(v))))
+          .filter((v) => currentSelectedKeys.has(getNodeIdentifier(v) ?? "")))
         : undefined;
 
       const open = current && currentSelectedKeys
         ? wrapInMultiple(unwrappedFrom.values
-          .filter((v) => !currentSelectedKeys.has(getNodeIdentifier(v))))
+          .filter((v) => !currentSelectedKeys.has(getNodeIdentifier(v) ?? "")))
         : unwrappedFrom;
 
       return { ...node, selected, open };
@@ -364,7 +360,9 @@ function apply(node: Node, ctxInput: ApplyContext): void {
       const nextProficiencies = next.getOrInsert(node.type, new NodeMap());
 
       const armor = node.armor ? unwrapDependency(node.armor) : undefined;
+      if (armor) apply(armor, ctx);
       const weapon = node.weapon ? unwrapDependency(node.weapon) : undefined;
+      if (weapon) apply(weapon, ctx);
 
       const armorValues = armor ? unwrapChoose(armor).values : [];
       const weaponValues = weapon ? unwrapChoose(weapon).values : [];
@@ -380,9 +378,11 @@ function apply(node: Node, ctxInput: ApplyContext): void {
       }
 
       const skill = node.skill ? unwrapDependency(node.skill) : undefined;
+      if (skill) apply(skill, ctx);
       const skillValues = skill ? unwrapChoose(skill).values : [];
 
       const save = node.save ? unwrapDependency(node.save) : undefined;
+      if (save) apply(save, ctx);
       const saveValues = save ? unwrapChoose(save).values : [];
 
       const numberValues = skillValues.concat(saveValues);
@@ -555,7 +555,9 @@ function setValue(query: string, ctx: ApplyContext, value: Node) {
   const [accessor] = query.toLowerCase().split("?");
   const [section, category, selector] = accessor.split(".");
 
-  if (section !== "character" || selector === undefined) return;
+  if (
+    section !== "character" || category === "info" || selector === undefined
+  ) return;
   const map = ctx.next
     .getOrInsert(category as StoreKey, new NodeMap());
 

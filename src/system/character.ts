@@ -1,4 +1,5 @@
 import { CaseInsensitiveMap, NodeMap } from "../lib/map.ts";
+import { CaseInsensitiveSet } from "../lib/set.ts";
 import {
   add,
   assert,
@@ -9,56 +10,25 @@ import {
   getProficiencyBonus,
   getResource,
   is,
-  printNode,
   resolveValue,
   unwrapDependency,
   wrapInMultiple,
 } from "../lib/utils.ts";
 import { Library } from "./library.ts";
 import { cycle } from "./tree/resolve.ts";
-import { Computed, Node, Store, Type, Value, ZERO } from "./tree/types.ts";
+import { Modifier, Node, Store, Type, Value, ZERO } from "./tree/types.ts";
 
 export class Character {
   #store: Store;
   #tree?: Node;
+
+  #abilityBase = new CaseInsensitiveMap<string, number>();
+
   constructor(library: Library) {
-    const saves = library
-      .getOrThrow("ability")
-      .keys()
-      .map((name) => [name, { type: "COMPUTED", modifiers: [] as Value[] }]);
-
-    const skills = library
-      .getOrThrow("skill")
-      .keys()
-      .map((name) => [name, { type: "COMPUTED", modifiers: [] as Value[] }]);
-
-    const passives = library
-      .getOrThrow("skill")
-      .entries()
-      .filter(([_, skill]) => "hasPassive" in skill && skill.hasPassive)
-      .map(([name]) => [name, { type: "COMPUTED", modifiers: [] as Value[] }]);
-
     this.#store = {
       library,
       character: new CaseInsensitiveMap(),
     };
-
-    /* [
-        ["ability", new NodeMap(abilities as any)],
-        ["save", new NodeMap(saves as any)],
-        ["skill", new NodeMap(skills as any)],
-        ["passive", new NodeMap(passives as any)],
-        [
-          "stats",
-          new NodeMap([
-            ["walking_speed", { type: "COMPUTED", modifiers: [] }],
-            ["swimming_speed", { type: "COMPUTED", modifiers: [] }],
-            ["climbing_speed", { type: "COMPUTED", modifiers: [] }],
-            ["flying_speed", { type: "COMPUTED", modifiers: [] }],
-          ]),
-        ],
-        ["info", new NodeMap()],
-      ] */
   }
 
   public addClass(className: string): this {
@@ -121,13 +91,13 @@ export class Character {
 
     const selectedKeys = choice.selected
       ? getMultipleKeys(choice.selected)
-      : new Set<string>();
+      : new CaseInsensitiveSet();
 
     const openKeys = choice.open
       ? getMultipleKeys(choice.open)
       : is(unwrappedFrom, "MULTIPLE")
       ? getMultipleKeys(unwrappedFrom)
-      : new Set<string>();
+      : new CaseInsensitiveSet();
 
     if (selectedKeys.has(key)) {
       selectedKeys.delete(key);
@@ -140,14 +110,14 @@ export class Character {
     const selected = wrapInMultiple(
       is(unwrappedFrom, "MULTIPLE")
         ? unwrappedFrom.values
-          .filter((v) => selectedKeys.has(getNodeIdentifier(v)))
+          .filter((v) => selectedKeys.has(getNodeIdentifier(v) ?? ""))
         : undefined,
     );
 
     const open = wrapInMultiple(
       is(unwrappedFrom, "MULTIPLE")
         ? unwrappedFrom.values
-          .filter((v) => !selectedKeys.has(getNodeIdentifier(v)))
+          .filter((v) => !selectedKeys.has(getNodeIdentifier(v) ?? ""))
         : undefined,
     );
 
@@ -177,20 +147,22 @@ export class Character {
 
   public setName(name: string): this {
     this.#store.character
-      .get("info")
-      ?.set("name", { type: "LITERAL", value: name });
+      .getOrInsert("info", new NodeMap())
+      .set("name", { type: "LITERAL", value: name });
+
     this.update();
     return this;
   }
 
   public setAbilityBase(name: string, value: number): this {
-    // TODO: Do this differently by attaching values to tree
     const ability = this.#store.character
       .get("ability")
-      ?.get(name) as Computed | undefined;
+      ?.get(name);
+
     if (!ability) return this;
 
-    ability.base = { type: "LITERAL", value };
+    this.#abilityBase.set(name, value);
+
     this.update();
     return this;
   }
@@ -252,8 +224,8 @@ export class Character {
     const level = classLevels.size > 0 ? classLevels.values().reduce(add) : 0;
 
     const proficiencyBonus = character
-      .get("stats")
-      ?.getNode("proficiency_bonus", "LITERAL")?.value as number ?? 0;
+      .getOrInsert("info", new NodeMap())
+      .getNode("proficiency_bonus", "LITERAL")?.value as number ?? 0;
 
     const proficiencies = character.get("proficiency");
 
@@ -299,7 +271,7 @@ export class Character {
 
           const modifier = getModifier(abilities.getOrThrow(libSkill.ability));
           const bonus = resolveValue(value as Value) as number ?? 0;
-          const prof = getProficiency(this.#store, "ability", name) *
+          const prof = getProficiency(this.#store, "skill", name) *
             proficiencyBonus;
 
           if (
@@ -490,6 +462,7 @@ export class Character {
     const { character, library } = this.#store;
 
     const abilities = library.get("ability");
+
     const skills = library.get("skill");
 
     const classes = character.get("class");
@@ -501,20 +474,33 @@ export class Character {
         .reduce(add)
       : 0;
 
-    character.get("info")?.set("characterlevel", {
+    character.getOrInsert("info", new NodeMap()).set("characterlevel", {
       type: "LITERAL",
       value: characterLevel,
     });
 
-    character.get("stats")?.set("proficiency_bonus", {
+    character.getOrInsert("info", new NodeMap()).set("proficiency_bonus", {
       type: "LITERAL",
       value: getProficiencyBonus(characterLevel),
     });
+
+    const abilityBases: Modifier[] = this.#abilityBase
+      .entries()
+      .map(([ability, value]) => ({
+        type: "MODIFIER",
+        value: { type: "LITERAL", value },
+        modify: {
+          type: "DEPENDENCY",
+          query: `character.ability.${ability}`,
+        },
+      } as const))
+      .toArray();
 
     const tree = {
       type: "MULTIPLE",
       values: [
         ...(abilities?.values().toArray() ?? []),
+        ...abilityBases,
         ...(skills?.values().toArray() ?? []),
         ...(classes?.values().toArray() ?? []),
       ],
