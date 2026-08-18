@@ -1,15 +1,23 @@
+import type { ZodError } from "zod";
 import { CaseInsensitiveMap, NodeMap } from "../lib/map.ts";
 import { Character } from "./character.ts";
 import type { Node, NodeWithKey, NodeWithName } from "./tree/types.ts";
+import { NodeSchema } from "./tree/validate.ts";
 
 export type Library = CaseInsensitiveMap<string, NodeMap>;
 export function createLibrary(
   tree: unknown,
-): { createCharacter?: () => Character; library?: Library } {
-  if (!checkInputTree(tree)) return {};
+): {
+  createCharacter?: () => Character;
+  library?: Library;
+  error?: ZodError<Node>;
+} {
+  const { data, error, success } = NodeSchema.safeParse(tree);
+
+  if (!success) return { error };
 
   const library: Library = new CaseInsensitiveMap();
-  build(tree);
+  build(data);
   library.lock();
 
   return { createCharacter, library };
@@ -59,9 +67,4 @@ export function createLibrary(
       category.set(key, structuredClone(node));
     }
   }
-}
-
-function checkInputTree(input: unknown): input is Node {
-  // TODO
-  return true;
 }

@@ -9,7 +9,7 @@ export type Import = {
 
 export type Multiple = {
   type: "MULTIPLE";
-  values: (NodeWithKey | NodeWithName)[];
+  values: Node[];
 };
 
 export type Choose = {
@@ -61,7 +61,6 @@ export type Dependency = {
 
 export type Empty = typeof EMPTY;
 
-// VALUES
 export type Class = {
   type: "CLASS";
   name: string;
@@ -82,7 +81,7 @@ export type Feat = {
   type: "FEAT";
   name: string;
   levels?: Record<string, Node>;
-  gives?: Multiple;
+  gives?: Node;
 };
 
 export type Proficiency = {

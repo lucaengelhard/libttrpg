@@ -1,286 +1,215 @@
-import * as z from "zod";
-import type {
-  Ability,
-  Action,
-  Choose,
-  Class,
-  Computed,
-  Dependency,
-  Empty,
-  Feat,
-  Import,
-  Literal,
-  Modifier,
-  Multiple,
-  Node,
-  NodeWithKey,
-  NodeWithName,
-  Optional,
-  Proficiency,
-  Resource,
-  Roll,
-  Skill,
-  Spell,
-  Spellcasting,
-  Subclass,
-  Type,
-  Value,
-} from "./types.ts";
+import { z } from "zod";
+import type { Node, Value } from "./types.ts";
 
-const LevelSchema = z.number().int().gte(0).lte(20);
-const ProficiencyValueSchema = z.union([
-  z.literal(0.5),
-  z.literal(1),
-  z.literal(2),
-]);
+// 1. Define Lazy references to break cyclic dependency loops in TypeScript/Zod
+const LazyNode: z.ZodType<Node> = z.lazy(() => NodeSchema);
+const LazyValue: z.ZodType<Value> = z.lazy(() => ValueSchema);
 
-const ImportSchema: z.ZodType<Import> = z.object({
-  type: z.literal("IMPORT"),
-  from: z.string(),
-});
-
-const MultipleSchema: z.ZodType<Multiple> = z.object({
-  type: z.literal("MULTIPLE"),
-  get values() {
-    return z.array(z.union([NodeWithKeySchema, NodeWithNameSchema]));
-  },
-});
-
-const ChooseSchema: z.ZodType<Choose> = z.object({
-  type: z.literal("CHOOSE"),
-  count: z.lazy(() => ValueSchema),
-  from: z.lazy(() => NodeSchema),
-  selected: z.optional(MultipleSchema),
-  open: z.optional(MultipleSchema),
-});
-
-const OptionalSchema: z.ZodType<Optional> = z.object({
-  type: z.literal("OPTIONAL"),
-  value: z.lazy(() => NodeSchema),
-  active: z.optional(z.boolean()),
-});
-
-const DependencySchema: z.ZodType<Dependency> = z.object({
-  type: z.literal("DEPENDENCY"),
-  query: z.string(), // TODO QuerySchema,
-  result: z.optional(z.lazy(() => NodeSchema)),
-});
-
-const LiteralSchema: z.ZodType<Literal> = z.object({
+// 2. Base types (No source extensions yet)
+const LiteralSchema = z.object({
   type: z.literal("LITERAL"),
   value: z.union([z.string(), z.number(), z.boolean()]),
 });
 
-const ComputedSchema: z.ZodType<Computed> = z.object({
+const BaseComputed = z.object({
   type: z.literal("COMPUTED"),
-  base: z.lazy(() => z.optional(ValueSchema)),
-  overwrite: z.lazy(() => z.optional(z.array(ValueSchema))),
-  modifiers: z.lazy(() => z.array(ValueSchema)),
+  base: LazyValue.optional(),
+  overwrite: z.array(LazyValue).optional(),
+  modifiers: z.array(LazyValue),
 });
 
-const RollSchema: z.ZodType<Roll> = z.object({
+const BaseRoll = z.object({
   type: z.literal("ROLL"),
-  diceType: z.lazy(() => NodeSchema),
-  diceCount: z.lazy(() => NodeSchema),
-  minimum: z.lazy(() => NodeSchema),
-  modifier: z.lazy(() => NodeSchema),
+  diceType: LazyNode,
+  diceCount: LazyNode,
+  minimum: LazyNode,
+  modifier: LazyNode,
 });
 
-const ValueSchema: z.ZodType<Value> = z.union([
-  LiteralSchema,
-  ComputedSchema,
-  RollSchema,
-]).and(z.object({ source: z.optional(z.string()) }));
+// `Value` explicitly adds { source?: string } to these three types
+const BaseLiteralValue = LiteralSchema.extend({
+  source: z.string().optional(),
+});
+const BaseComputedValue = BaseComputed.extend({
+  source: z.string().optional(),
+});
+const BaseRollValue = BaseRoll.extend({ source: z.string().optional() });
 
-const EmptySchema: z.ZodType<Empty> = z.object({
+export const ValueSchema: z.ZodType<Value> = z.discriminatedUnion("type", [
+  BaseLiteralValue,
+  BaseComputedValue,
+  BaseRollValue,
+]);
+
+// 3. Independent Object Schemas
+const BaseImport = z.object({
+  type: z.literal("IMPORT"),
+  from: z.string(),
+});
+
+const BaseMultiple = z.object({
+  type: z.literal("MULTIPLE"),
+  values: z.array(LazyNode),
+});
+
+const BaseChoose = z.object({
+  type: z.literal("CHOOSE"),
+  count: LazyValue,
+  from: LazyNode,
+  selected: BaseMultiple.optional(),
+  open: BaseMultiple.optional(),
+  chooseAdditionalAt: z.object({
+    level: z.array(z.number()).optional(),
+    classLevel: z.array(z.number()).optional(),
+  }).optional(),
+  classLevel: z.number().optional(),
+});
+
+const BaseOptional = z.object({
+  type: z.literal("OPTIONAL"),
+  value: LazyNode,
+  active: z.boolean().optional(),
+});
+
+const BaseDependency = z.object({
+  type: z.literal("DEPENDENCY"),
+  query: z.string(),
+  result: LazyNode.optional(),
+});
+
+const BaseEmpty = z.object({
   type: z.literal("EMPTY"),
 });
 
-const ClassSchema: z.ZodType<Class> = z.object({
+const BaseClass = z.object({
   type: z.literal("CLASS"),
   name: z.string(),
-  levels: z.record(z.string(), z.lazy(() => NodeSchema)),
-  level: z.optional(LevelSchema),
-  hitDice: z.number().int().gte(0),
-  asi: z.array(LevelSchema),
+  levels: z.record(z.string(), LazyNode),
+  level: z.number().optional(),
+  hitDice: z.number(),
+  asi: z.array(z.number()),
 });
 
-const SubclassSchema: z.ZodType<Subclass> = z.object({
+const BaseSubclass = z.object({
   type: z.literal("SUBCLASS"),
   name: z.string(),
   for: z.string(),
-  levels: z.record(z.string(), z.lazy(() => NodeSchema)),
+  levels: z.record(z.string(), LazyNode),
 });
 
-const FeatSchema: z.ZodType<Feat> = z.object({
+const BaseFeat = z.object({
   type: z.literal("FEAT"),
   name: z.string(),
-  levels: z.optional(z.record(z.string(), z.lazy(() => NodeSchema))),
-  gives: z.optional(MultipleSchema),
+  levels: z.record(z.string(), LazyNode).optional(),
+  gives: LazyNode.optional(),
 });
 
-const ProficiencySchema: z.ZodType<Proficiency> = z.object({
+const BaseProficiency = z.object({
   type: z.literal("PROFICIENCY"),
-  save: z.optional(z.lazy(() => NodeSchema)),
-  skill: z.optional(z.lazy(() => NodeSchema)),
-  armor: z.optional(z.lazy(() => NodeSchema)),
-  weapon: z.optional(z.lazy(() => NodeSchema)),
-  value: ProficiencyValueSchema,
+  save: LazyNode.optional(),
+  skill: LazyNode.optional(),
+  armor: LazyNode.optional(),
+  weapon: LazyNode.optional(),
+  value: z.union([z.literal(0.5), z.literal(1), z.literal(2)]).optional(),
 });
 
-const ModifierSchema: z.ZodType<Modifier> = z.object({
+const BaseModifier = z.object({
   type: z.literal("MODIFIER"),
-  value: z.lazy(() => NodeSchema),
-  modify: z.optional(DependencySchema),
-  set: z.optional(DependencySchema),
+  value: LazyNode,
+  modify: BaseDependency.optional(),
+  set: BaseDependency.optional(),
 });
 
-const ActionSchema: z.ZodType<Action> = z.object({
+const BaseAction = z.object({
   type: z.literal("ACTION"),
   name: z.string(),
   time: z.string(),
 });
 
-const SpellSchema: z.ZodType<Spell> = z.object({
-  type: z.literal("SPELL"),
+const BaseResource = z.object({
+  type: z.literal("RESOURCE"),
   name: z.string(),
-  alwaysPrepared: z.optional(z.boolean()),
-  castWithoutSpellSlot: z.optional(z.lazy(() => ResourceSchema)),
-  level: z.number().int().gte(0).lte(9),
-  upcast: z.optional(z.boolean()),
-  ability: z.optional(z.lazy(() => NodeSchema)),
+  uses: LazyNode,
+  spent: LiteralSchema.optional(), // strictly Literal, not Value
+  resetTrigger: z.string(),
 });
 
-const SpellCastingSchema: z.ZodType<Spellcasting> = z.object({
+const BaseSpell = z.object({
+  type: z.literal("SPELL"),
+  name: z.string(),
+  alwaysPrepared: z.boolean().optional(),
+  castWithoutSpellSlot: BaseResource.optional(),
+  level: z.number(),
+  upcast: z.boolean().optional(),
+  ability: LazyNode.optional(),
+  class: z.array(z.string()).optional(),
+});
+
+const BaseSpellcasting = z.object({
   type: z.literal("SPELLCASTING"),
-  ability: z.lazy(() => NodeSchema),
+  ability: LazyNode,
   table: z.record(
     z.string(),
     z.object({
-      spells: z.number().int().gte(0),
-      slots: z.array(z.number().int().gte(0)),
-      prepared: z.optional(z.number().int().gte(0)),
-      cantrips: z.optional(z.number().int().gte(0)),
+      spells: z.number(),
+      slots: z.array(z.number()),
+      prepared: z.number().optional(),
+      cantrips: z.number().optional(),
     }),
   ),
 });
 
-const ResourceSchema: z.ZodType<Resource> = z.object({
-  type: z.literal("RESOURCE"),
-  name: z.string(),
-  uses: z.lazy(() => NodeSchema),
-  spent: z.optional(LiteralSchema),
-  resetTrigger: z.string(),
-});
-
-const AbilitySchema: z.ZodType<Ability> = z.object({
+const BaseAbility = z.object({
   type: z.literal("ABILITY"),
   name: z.string(),
 });
 
-const SkillSchema: z.ZodType<Skill> = z.object({
+const BaseSkill = z.object({
   type: z.literal("SKILL"),
   name: z.string(),
   ability: z.string(),
-  hasPassive: z.optional(z.boolean()),
+  hasPassive: z.boolean().optional(),
 });
 
-const TypeSchema: z.ZodType<Type> = z.object({
+const BaseType = z.object({
   type: z.literal("TYPE"),
   of: z.string(),
   name: z.string(),
-  source: z.optional(z.set(z.string())),
+  source: z.set(z.string()).optional(), // NOTE: In JSON payloads this needs to be an array, but z.set strictly validates JS Set instances.
 });
 
-export const NodeSchema: z.ZodType<Node> = z.union([
-  ImportSchema,
-  MultipleSchema,
-  DependencySchema,
-  ValueSchema,
-  ChooseSchema,
-  OptionalSchema,
-  EmptySchema,
-  ClassSchema,
-  SubclassSchema,
-  FeatSchema,
-  ProficiencySchema,
-  ModifierSchema,
-  ActionSchema,
-  SpellSchema,
-  SpellCastingSchema,
-  RollSchema,
-  ResourceSchema,
-  AbilitySchema,
-  SkillSchema,
-  TypeSchema,
-]).and(
-  z.object({
-    key: z.optional(z.string()),
-    description: z.optional(z.string()),
-    static: z.optional(z.record(z.string(), z.lazy(() => NodeSchema))),
-    disabled: z.optional(z.boolean()),
-  }),
-);
+// 4. Combine into an ultra-fast discriminated union
+const NodeBaseSchema = z.discriminatedUnion("type", [
+  BaseImport,
+  BaseMultiple,
+  BaseChoose,
+  BaseOptional,
+  BaseDependency,
+  BaseEmpty,
+  BaseClass,
+  BaseSubclass,
+  BaseFeat,
+  BaseProficiency,
+  BaseModifier,
+  BaseAction,
+  BaseResource,
+  BaseSpell,
+  BaseSpellcasting,
+  BaseAbility,
+  BaseSkill,
+  BaseType,
+  // Values:
+  BaseLiteralValue,
+  BaseComputedValue,
+  BaseRollValue,
+]);
 
-const NodeWithKeySchema: z.ZodType<NodeWithKey> = NodeSchema.and(
-  z.object({ key: z.string() }),
-);
-const NodeWithNameSchema: z.ZodType<NodeWithName> = NodeSchema.and(
-  z.object({ name: z.string() }),
-);
+// 5. Append shared `Node` extensions globally via intersection
+const NodeExtensions = z.object({
+  key: z.string().optional(),
+  description: z.string().optional(),
+  static: z.record(z.string(), LazyNode).optional(),
+  disabled: z.boolean().optional(),
+});
 
-/* export function getNodeSchema(node: { type: NodeType }) {
-  return getSchema(node).and(z.object({
-    key: z.optional(z.string()),
-    description: z.optional(z.string()),
-    static: z.optional(z.record(z.string(), z.lazy(() => NodeSchema))),
-    disabled: z.optional(z.boolean()),
-  }));
-}
-
-function getSchema(node: { type: NodeType }) {
-  switch (node.type) {
-    case "IMPORT":
-      return ImportSchema;
-    case "MULTIPLE":
-      return MultipleSchema;
-    case "EMPTY":
-      return EmptySchema;
-    case "CHOOSE":
-      return ChooseSchema;
-    case "OPTIONAL":
-      return OptionalSchema;
-    case "DEPENDENCY":
-      return DependencySchema;
-    case "LITERAL":
-      return LiteralSchema;
-    case "COMPUTED":
-      return ComputedSchema;
-    case "ROLL":
-      return RollSchema;
-    case "CLASS":
-      return ClassSchema;
-    case "SUBCLASS":
-      return SubclassSchema;
-    case "FEAT":
-      return FeatSchema;
-    case "PROFICIENCY":
-      return ProficiencySchema;
-    case "MODIFIER":
-      return ModifierSchema;
-    case "ACTION":
-      return ActionSchema;
-    case "SPELL":
-      return SpellSchema;
-    case "SPELLCASTING":
-      return SpellCastingSchema;
-    case "RESOURCE":
-      return ResourceSchema;
-    case "ABILITY":
-      return AbilitySchema;
-    case "SKILL":
-      return SkillSchema;
-    case "TYPE":
-      return TypeSchema;
-  }
-} */
+export const NodeSchema: z.ZodType<Node> = NodeBaseSchema.and(NodeExtensions);

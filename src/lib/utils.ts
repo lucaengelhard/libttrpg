@@ -147,7 +147,7 @@ export function add(a: number, b: number) {
 }
 
 export function wrapInMultiple(
-  values: (NodeWithName | NodeWithKey)[] = [],
+  values: Node[] = [],
 ): Multiple {
   return { type: "MULTIPLE", values };
 }
