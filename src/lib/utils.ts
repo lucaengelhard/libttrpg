@@ -207,3 +207,20 @@ export function getResource(node: Node) {
     }] as const;
   }
 }
+
+export function normalizeValue(value: unknown): string | string[] | undefined {
+  if (isPrimitive(value)) {
+    return value.toString().toLowerCase();
+  }
+
+  if (Array.isArray(value) && value.every(isPrimitive)) {
+    return value.map(normalizeValue).filter((e) =>
+      e !== undefined && e !== null && !Array.isArray(e)
+    ) as string | string[] | undefined;
+  }
+}
+
+function isPrimitive(value: unknown) {
+  return typeof value === "string" || typeof value === "number" ||
+    typeof value === "boolean";
+}

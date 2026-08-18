@@ -8,6 +8,7 @@ import {
   getNodeIdentifier,
   is,
   isSafeWrite,
+  normalizeValue,
   unwrapChoose,
   unwrapDependency,
   wrapInMultiple,
@@ -314,14 +315,8 @@ function lookup(query: string, ctx: ResolveContext): Node | undefined {
     const normalizedNode = Object.fromEntries(
       Object.entries(node).map((
         [key, value],
-      ) => {
-        if (
-          typeof value === "string" || typeof value === "number" ||
-          typeof value === "boolean"
-        ) {
-          return [key.toLowerCase(), value.toString().toLowerCase()];
-        }
-      }).filter((v) => v !== undefined),
+      ) => [key.toLowerCase(), normalizeValue(value)] as const)
+        .filter(([_, value]) => value !== undefined),
     );
 
     for (const segment of paramsSegments) {
@@ -331,7 +326,16 @@ function lookup(query: string, ctx: ResolveContext): Node | undefined {
       const values = options.split("|");
       const nodeValue = normalizedNode[category];
 
-      if (nodeValue === undefined || !values.includes(nodeValue.toString())) {
+      if (
+        Array.isArray(nodeValue) &&
+        !values.every((v) => nodeValue.includes(v))
+      ) {
+        return false;
+      } else if (
+        !Array.isArray(nodeValue) &&
+        (nodeValue === undefined ||
+          !values.includes(nodeValue.toString()))
+      ) {
         return false;
       }
     }

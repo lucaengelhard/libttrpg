@@ -99,10 +99,12 @@ export class Character {
       ? getMultipleKeys(unwrappedFrom)
       : new CaseInsensitiveSet();
 
+    const maxCount = resolveValue(choice.count) as number;
+
     if (selectedKeys.has(key)) {
       selectedKeys.delete(key);
       openKeys.add(key);
-    } else if (selectedKeys.size < (resolveValue(choice.count) as number)) {
+    } else if (selectedKeys.size < maxCount) {
       selectedKeys.add(key);
       openKeys.delete(key);
     }
