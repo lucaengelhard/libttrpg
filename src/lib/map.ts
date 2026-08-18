@@ -1,4 +1,4 @@
-import { Node } from "../system/tree/types.ts";
+import type { Node } from "../system/tree/types.ts";
 import deepEqual from "deep-equal";
 
 export class CaseInsensitiveMap<K, V> extends Map<K, V> {
@@ -61,7 +61,7 @@ export class CaseInsensitiveMap<K, V> extends Map<K, V> {
     return res;
   }
 
-  public lock() {
+  public lock(): this {
     this.#locked = true;
     return this;
   }

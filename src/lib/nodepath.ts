@@ -1,4 +1,4 @@
-import { Node } from "../system/tree/types.ts";
+import type { Node } from "../system/tree/types.ts";
 
 export const PATH_SEPARATOR = "_/_";
 export const PATH_IDENTIFIER = "@";
@@ -28,7 +28,7 @@ export function getPathComponents(
   ) as [string, string | undefined, string | undefined];
 }
 
-export function getFromNodePath(node: Node, path: string): Node | undefined {
+export function getNodeFromPath(node: Node, path: string): Node | undefined {
   const [current, ...rest] = path
     .split(PATH_SEPARATOR)
     .map((s) => s.toUpperCase());
@@ -37,7 +37,7 @@ export function getFromNodePath(node: Node, path: string): Node | undefined {
 
   const [tag, identifer, counter] = getPathComponents(current);
 
-  if (tag === "ROOT") return getFromNodePath(node, next);
+  if (tag === "ROOT") return getNodeFromPath(node, next);
   if (tag !== node.type) return undefined;
   if ("name" in node && node.name.toUpperCase() !== identifer) return undefined;
   if (node.key && node.key.toUpperCase() !== identifer) return undefined;
@@ -46,18 +46,18 @@ export function getFromNodePath(node: Node, path: string): Node | undefined {
   switch (node.type) {
     case "MULTIPLE": {
       return node.values
-        .map((v) => getFromNodePath(v, next))
+        .map((v) => getNodeFromPath(v, next))
         .find((v) => v !== undefined);
     }
     case "CLASS": {
       if (!counter) return;
       const level = node.levels[counter];
-      return getFromNodePath(level, next);
+      return getNodeFromPath(level, next);
     }
 
     case "FEAT": {
       if (counter && node.levels) {
-        return getFromNodePath(node.levels[counter], next);
+        return getNodeFromPath(node.levels[counter], next);
       }
 
       return;

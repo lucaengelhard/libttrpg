@@ -3,9 +3,11 @@
 ## Planned API
 
 ```ts
-import { create } from "lib5e";
+import { createLibrary } from "@lucaengelhard/lib5e";
 
-const instance = create("./data.json");
+// ... import and parse JSON beforehand!
 
-const char = instance.createCharacter().name("Vaas").addClass("Ranger");
+const { createCharacter, library } = createLibrary(imported_data);
+
+const character = createCharacter().name("Vaas").addClass("Ranger");
 ```
