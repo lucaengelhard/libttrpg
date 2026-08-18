@@ -8,3 +8,4 @@ export type {
 export { EMPTY, NODE_TYPES, PROFICIENCY_NAME } from "./system/tree/types.ts";
 export { createLibrary } from "./system/library.ts";
 export { getNodeFromPath } from "./lib/nodepath.ts";
+export { NodeSchema } from "./system/tree/validate.ts";
