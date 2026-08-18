@@ -57,13 +57,21 @@ export class CaseInsensitiveMap<K, V> extends Map<K, V> {
 
   public getOrThrow(key: K): V {
     const res = this.get(key);
-    if (res === undefined) throw `No "${key} in map"`;
+    if (res === undefined) throw `No "${key}" in map`;
     return res;
   }
 
   public lock() {
     this.#locked = true;
     return this;
+  }
+
+  public keep(...keys: K[]): CaseInsensitiveMap<K, V> {
+    const result = new CaseInsensitiveMap<K, V>(
+      this.entries().filter(([key]) => keys.includes(key)),
+    );
+
+    return result;
   }
 
   public isSameAs(other: CaseInsensitiveMap<K, V>): boolean {

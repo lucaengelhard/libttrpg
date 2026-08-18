@@ -7,12 +7,12 @@ const { createCharacter } = createLibrary(tree);
 
 const char = createCharacter()
   .setName("Vaas")
-  .setAbilityBase("strength", 12)
+  /*   .setAbilityBase("strength", 12)
   .setAbilityBase("dexterity", 15)
   .setAbilityBase("constitution", 14)
   .setAbilityBase("intelligence", 13)
   .setAbilityBase("wisdom", 13)
-  .setAbilityBase("charisma", 8)
+  .setAbilityBase("charisma", 8) */
   .addClass("ranger")
   .setClassLevel("ranger", 10)
   .setChoice(
@@ -42,4 +42,4 @@ const char = createCharacter()
 
 char.get();
 
-console.log(char.get());
+//console.log(char.get().stats);

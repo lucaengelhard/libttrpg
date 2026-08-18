@@ -256,7 +256,7 @@
               "count": { "type": "LITERAL", "value": 1 },
               "from": {
                 "type": "DEPENDENCY",
-                "query": "STATIC.FIGHTING_STYLES"
+                "query": "static.fighting_styles"
               }
             }
           }
@@ -398,6 +398,41 @@
       "values": [{
         "type": "FEAT",
         "name": "Archery",
+        "gives": {
+          "type": "MULTIPLE",
+          "values": []
+        }
+      }, {
+        "type": "FEAT",
+        "name": "Blind Fighting",
+        "gives": {
+          "type": "MULTIPLE",
+          "values": []
+        }
+      }, {
+        "type": "FEAT",
+        "name": "Druidic Warrior",
+        "gives": {
+          "type": "MULTIPLE",
+          "values": []
+        }
+      }, {
+        "type": "FEAT",
+        "name": "Dueling",
+        "gives": {
+          "type": "MULTIPLE",
+          "values": []
+        }
+      }, {
+        "type": "FEAT",
+        "name": "Thrown Weapon Fighting",
+        "gives": {
+          "type": "MULTIPLE",
+          "values": []
+        }
+      }, {
+        "type": "FEAT",
+        "name": "Two-Weapon Fighting",
         "gives": {
           "type": "MULTIPLE",
           "values": []

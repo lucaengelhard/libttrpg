@@ -23,7 +23,7 @@ export type Choose = {
 
 export type Optional = {
   type: "OPTIONAL";
-  value?: Node;
+  value: Node;
   active?: boolean;
 };
 
@@ -84,8 +84,8 @@ export type Proficiency = {
 export type Modifier = {
   type: "MODIFIER";
   value: Node;
-  modify?: Node;
-  set?: Node;
+  modify?: Dependency;
+  set?: Dependency;
   // TODO add conditional setting and modifying
 };
 
@@ -172,6 +172,7 @@ export type Node =
     key?: string;
     description?: string;
     static?: Record<string, Node>;
+    disabled?: boolean;
   };
 
 export type NodeWithKey = Node & { key: string };

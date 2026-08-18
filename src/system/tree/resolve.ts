@@ -13,12 +13,12 @@ import {
   wrapInMultiple,
 } from "../../lib/utils.ts";
 import {
+  Computed,
   EMPTY,
   Node,
   NodeWithKey,
   NodeWithName,
   PROFICIENCY_NAME,
-  Spellcasting,
   Store,
   StoreKey,
   Value,
@@ -38,20 +38,16 @@ export function cycle(
     return { nextTree, nextState: store };
   }
 
-  const nextState: Store["character"] = new CaseInsensitiveMap(store.character);
-
+  const character: Store["character"] = new CaseInsensitiveMap();
   store.character.lock();
-  apply(nextTree, {
-    path: "ROOT",
-    current: store,
-    next: nextState,
-  });
 
-  if (!store.character.isSameAs(nextState)) {
-    return cycle(nextTree, { ...store, character: nextState });
+  apply(nextTree, { path: "ROOT", next: character });
+
+  if (!store.character.isSameAs(character)) {
+    return cycle(nextTree, { ...store, character });
   }
 
-  return { nextTree, nextState: { ...store, character: nextState } };
+  return { nextTree, nextState: { ...store, character } };
 }
 
 type ResolveContext = {
@@ -136,13 +132,15 @@ function resolve<N extends Node>(node: N, ctxInput: ResolveContext): N {
         ?.get("optional")
         ?.getNode(ctx.path, "OPTIONAL");
 
-      const { value, ...rest } = node;
-
       if (!current || !current.active) {
-        return { ...rest } as N;
+        return { ...node, active: false } as N;
       }
 
-      return { ...node, value: value ? resolve(value, ctx) : undefined };
+      return {
+        ...node,
+        value: resolve(node.value, ctx),
+        active: true,
+      };
     }
     case "CLASS": {
       const classLevel = ctx.store.character
@@ -156,6 +154,7 @@ function resolve<N extends Node>(node: N, ctxInput: ResolveContext): N {
 
       return {
         ...node,
+        level: classLevel,
         levels: resolveLevels(levels, classLevel, {
           ...ctx,
           classLevel,
@@ -264,12 +263,14 @@ function resolveLevels(
 ): Record<string, Node> {
   const result = Object.entries(levels)
     .map(([level, node]) => {
-      if (parseInt(level) > currentLevel) return;
       return [
         level,
-        resolve(node, { ...ctx, path: `${ctx.path}${PATH_COUNTER}${level}` }),
+        resolve(
+          { ...node, disabled: parseInt(level) > currentLevel },
+          { ...ctx, path: `${ctx.path}${PATH_COUNTER}${level}` },
+        ),
       ];
-    }).filter((v) => v !== undefined);
+    });
 
   return Object.fromEntries(result);
 }
@@ -278,7 +279,7 @@ function createScope(
   node: Node,
   ctx: ResolveContext,
 ): NodeMap {
-  if (!("static" in node) || node.static !== undefined) return ctx.scope;
+  if (!("static" in node) || node.static === undefined) return ctx.scope;
 
   const scope = new NodeMap(ctx.scope);
 
@@ -343,7 +344,6 @@ function lookup(query: string, ctx: ResolveContext): Node | undefined {
 }
 
 type ApplyContext = {
-  current: Store;
   next: Store["character"];
   path: string;
   className?: string;
@@ -351,14 +351,17 @@ type ApplyContext = {
   subclassName?: string;
 };
 function apply(node: Node, ctxInput: ApplyContext): void {
+  if (node.disabled) return;
   const ctx: ApplyContext = {
     ...ctxInput,
     path: getNodePath(node, ctxInput.path),
   };
 
+  const { next } = ctx;
+
   switch (node.type) {
     case "PROFICIENCY": {
-      const proficiencies = ctx.next.getOrInsert(node.type, new NodeMap());
+      const nextProficiencies = next.getOrInsert(node.type, new NodeMap());
 
       const armor = node.armor ? unwrapDependency(node.armor) : undefined;
       const weapon = node.weapon ? unwrapDependency(node.weapon) : undefined;
@@ -371,8 +374,8 @@ function apply(node: Node, ctxInput: ApplyContext): void {
       for (const value of typeValues) {
         if (!is(value, "TYPE")) continue;
         const identifier = `${value.of}.${value.name}`;
-        if (!proficiencies.has(identifier)) {
-          proficiencies.set(identifier, value);
+        if (!nextProficiencies.has(identifier)) {
+          nextProficiencies.set(identifier, value);
         }
       }
 
@@ -390,21 +393,23 @@ function apply(node: Node, ctxInput: ApplyContext): void {
           PROFICIENCY_NAME[node.value ?? 1]
         }`;
 
-        if (!proficiencies.has(identifier)) {
-          proficiencies.set(identifier, value);
+        if (!nextProficiencies.has(identifier)) {
+          nextProficiencies.set(identifier, value);
         }
       }
 
       return;
     }
     case "MODIFIER": {
+      // TODO don't modify node, but push new value to next
       const value = unwrapDependency(node.value);
       const modify = node.modify && isSafeWrite(node.modify)
-        ? unwrapDependency(node.modify)
+        ? node.modify
         : undefined;
-      const set = node.set && isSafeWrite(node.set)
-        ? unwrapDependency(node.set)
-        : undefined;
+      const unwrappedModify = modify ? unwrapDependency(modify) : undefined;
+
+      const set = node.set && isSafeWrite(node.set) ? node.set : undefined;
+      const unwrappedSet = set ? unwrapDependency(set) : undefined;
 
       if (!is(value, "LITERAL", "COMPUTED")) return;
 
@@ -413,25 +418,40 @@ function apply(node: Node, ctxInput: ApplyContext): void {
         source: ctx.path,
       };
 
-      if (modify && is(modify, "COMPUTED")) {
-        const existingIndex = modify.modifiers.findIndex((element) =>
+      if (modify && unwrappedModify) {
+        const computed: Computed = is(unwrappedModify, "COMPUTED")
+          ? unwrappedModify
+          : { type: "COMPUTED", modifiers: [] };
+
+        const modifiers = [...computed.modifiers];
+
+        const existingIndex = modifiers.findIndex((element) =>
           element.source === ctx.path
         );
 
         if (existingIndex !== -1) {
-          modify.modifiers[existingIndex] = { ...valueObject };
-        } else modify.modifiers.push({ ...valueObject });
+          modifiers[existingIndex] = { ...valueObject };
+        } else modifiers.push({ ...valueObject });
+
+        setValue(modify.query, ctx, { ...computed, modifiers });
       }
 
-      if (set && is(set, "COMPUTED")) {
-        if (!set.overwrite) set.overwrite = [];
-        const existingIndex = set.overwrite.findIndex((element) =>
+      if (set && unwrappedSet) {
+        const computed: Computed = is(unwrappedSet, "COMPUTED")
+          ? unwrappedSet
+          : { type: "COMPUTED", modifiers: [] };
+
+        const overwrite = [...computed.overwrite ?? []];
+
+        const existingIndex = overwrite.findIndex((element) =>
           element.source === ctx.path
         );
 
         if (existingIndex !== -1) {
-          set.overwrite[existingIndex] = { ...valueObject };
-        } else set.overwrite.push({ ...valueObject });
+          overwrite[existingIndex] = { ...valueObject };
+        } else overwrite.push({ ...valueObject });
+
+        setValue(set.query, ctx, { ...computed, overwrite });
       }
 
       return;
@@ -445,15 +465,15 @@ function apply(node: Node, ctxInput: ApplyContext): void {
     case "CHOOSE": {
       if (node.selected) apply(node.selected, ctx);
       applyNode(node, ctx);
-
       return;
     }
     case "OPTIONAL": {
-      if (node.value) apply(node.value, ctx);
+      if (node.active) apply(node.value, ctx);
       applyNode(node, ctx);
       return;
     }
     case "CLASS": {
+      applyNode(node, ctx, node.name);
       applyLevels(node.levels, { ...ctx, className: node.name });
       // TODO apply other class properties (asi, ...)
       return;
@@ -483,6 +503,28 @@ function apply(node: Node, ctxInput: ApplyContext): void {
       applyNode(node, ctx);
       return;
     }
+    case "ABILITY": {
+      ctx.next.getOrInsert(node.type, new NodeMap()).set(node.name, {
+        type: "COMPUTED",
+        modifiers: [],
+      });
+
+      return;
+    }
+    case "SKILL": {
+      ctx.next.getOrInsert(node.type, new NodeMap()).set(node.name, {
+        type: "COMPUTED",
+        modifiers: [],
+        base: { type: "LITERAL", value: 10 },
+      });
+      if (node.hasPassive) {
+        ctx.next.getOrInsert("passive", new NodeMap()).set(node.name, {
+          type: "COMPUTED",
+          modifiers: [],
+        });
+      }
+      return;
+    }
 
     case "EMPTY":
     case "LITERAL":
@@ -490,8 +532,6 @@ function apply(node: Node, ctxInput: ApplyContext): void {
     case "ROLL":
     case "DEPENDENCY":
     case "TYPE":
-    case "SKILL":
-    case "ABILITY":
       return;
     case "IMPORT": {
       throw `Unexpected import at: ${ctx.path}`;
@@ -506,60 +546,21 @@ function applyLevels(levels: Record<string, Node>, ctx: ApplyContext): void {
 }
 
 function applyNode(node: Node, ctx: ApplyContext, identifer?: string) {
-  const current = ctx.next.get(node.type);
-
-  if (!current) {
-    ctx.next.set(node.type, new NodeMap([[identifer ?? ctx.path, node]]));
-    return;
-  }
-
-  const currentNode = current.getNode(identifer ?? ctx.path, node.type);
-  if (deepEqual(currentNode, node)) return;
-  if (!currentNode) {
-    ctx.next.getOrInsert(node.type, new NodeMap()).set(
-      identifer ?? ctx.path,
-      node,
-    );
-    return;
-  }
-
-  const merged = merge(currentNode, node);
-  if (deepEqual(currentNode, merged)) return;
-  ctx.next.getOrInsert(node.type, new NodeMap()).set(
-    identifer ?? ctx.path,
-    merged,
-  );
+  ctx.next
+    .getOrInsert(node.type, new NodeMap())
+    .set(identifer ?? ctx.path, node);
 }
 
-function merge<N extends Node>(current: N, next: N): N {
-  switch (current.type) {
-    case "OPTIONAL": {
-      return { ...current, ...next };
-    }
-    case "CHOOSE": {
-      return { ...current, ...next };
-    }
+function setValue(query: string, ctx: ApplyContext, value: Node) {
+  const [accessor] = query.toLowerCase().split("?");
+  const [section, category, selector] = accessor.split(".");
 
-    case "EMPTY":
-    case "CLASS":
-    case "SUBCLASS":
-    case "FEAT":
-    case "ACTION":
-    case "SPELL":
-    case "RESOURCE":
-    case "ABILITY":
-    case "SKILL":
-    case "TYPE":
-    case "IMPORT":
-    case "MULTIPLE":
-    case "DEPENDENCY":
-    case "ROLL":
-    case "LITERAL":
-    case "COMPUTED":
-    case "PROFICIENCY":
-    case "MODIFIER":
-    case "SPELLCASTING":
-      console.log(`TODO: Merge ${current.type}`);
-      return { ...current, ...next };
-  }
+  if (section !== "character" || selector === undefined) return;
+  const map = ctx.next
+    .getOrInsert(category as StoreKey, new NodeMap());
+
+  // TODO what happens when value already has been changed in
+  // this cycle: const existing = map.get(selector);
+
+  map.set(selector, value);
 }

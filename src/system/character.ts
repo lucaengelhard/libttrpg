@@ -9,6 +9,7 @@ import {
   getProficiencyBonus,
   getResource,
   is,
+  printNode,
   resolveValue,
   unwrapDependency,
   wrapInMultiple,
@@ -21,11 +22,6 @@ export class Character {
   #store: Store;
   #tree?: Node;
   constructor(library: Library) {
-    const abilities = library
-      .getOrThrow("ability")
-      .keys()
-      .map((name) => [name, { type: "COMPUTED", modifiers: [] as Value[] }]);
-
     const saves = library
       .getOrThrow("ability")
       .keys()
@@ -44,7 +40,10 @@ export class Character {
 
     this.#store = {
       library,
-      character: new CaseInsensitiveMap([
+      character: new CaseInsensitiveMap(),
+    };
+
+    /* [
         ["ability", new NodeMap(abilities as any)],
         ["save", new NodeMap(saves as any)],
         ["skill", new NodeMap(skills as any)],
@@ -59,8 +58,7 @@ export class Character {
           ]),
         ],
         ["info", new NodeMap()],
-      ]),
-    };
+      ] */
   }
 
   public addClass(className: string): this {
@@ -97,7 +95,15 @@ export class Character {
     const classValue = classes.getNode(className, "CLASS");
     if (!classValue) return this;
 
-    classes.set(className, { ...classValue, level });
+    const levels = this.#store.library
+      .getOrThrow("class")
+      .getNode(className, "CLASS")!
+      .levels;
+    classes.set(className, {
+      ...classValue,
+      level,
+      levels: { ...levels, ...classValue.levels },
+    });
 
     this.update();
     return this;
@@ -157,7 +163,9 @@ export class Character {
 
   public setOption(identifier: string, active: boolean): this {
     const options = this.#store.character
-      .getOrThrow("optional");
+      .get("optional");
+
+    if (!options) return this;
     const option = options.getNode(identifier, "OPTIONAL");
 
     if (!option) return this;
@@ -169,16 +177,17 @@ export class Character {
 
   public setName(name: string): this {
     this.#store.character
-      .getOrThrow("info")
-      .set("name", { type: "LITERAL", value: name });
+      .get("info")
+      ?.set("name", { type: "LITERAL", value: name });
     this.update();
     return this;
   }
 
   public setAbilityBase(name: string, value: number): this {
+    // TODO: Do this differently by attaching values to tree
     const ability = this.#store.character
-      .getOrThrow("ability")
-      .get(name) as Computed | undefined;
+      .get("ability")
+      ?.get(name) as Computed | undefined;
     if (!ability) return this;
 
     ability.base = { type: "LITERAL", value };
@@ -243,15 +252,15 @@ export class Character {
     const level = classLevels.size > 0 ? classLevels.values().reduce(add) : 0;
 
     const proficiencyBonus = character
-      .getOrThrow("stats")
-      .getNode("proficiency_bonus", "LITERAL")?.value as number ?? 0;
+      .get("stats")
+      ?.getNode("proficiency_bonus", "LITERAL")?.value as number ?? 0;
 
     const proficiencies = character.get("proficiency");
 
     const abilities = new CaseInsensitiveMap(
       character
-        .getOrThrow("ability")
-        .entries()
+        .get("ability")
+        ?.entries()
         .map((
           [name, value],
         ) => [name, resolveValue(value as Value) as number | undefined ?? 0]),
@@ -259,8 +268,8 @@ export class Character {
 
     const saves = new CaseInsensitiveMap(
       character
-        .getOrThrow("save")
-        .entries()
+        .get("save")
+        ?.entries()
         .map(([name, value]) => {
           const modifier = getModifier(abilities.getOrThrow(name));
           const bonus = resolveValue(value as Value) as number ?? 0;
@@ -281,8 +290,8 @@ export class Character {
 
     const skills = new CaseInsensitiveMap(
       character
-        .getOrThrow("skill")
-        .entries()
+        .get("skill")
+        ?.entries()
         .map(([name, value]) => {
           const libSkill = this.#store.library
             .getOrThrow("skill")
@@ -306,8 +315,8 @@ export class Character {
 
     const passives = new CaseInsensitiveMap(
       character
-        .getOrThrow("passive")
-        .entries()
+        .get("passive")
+        ?.entries()
         .map(([name, value]) => {
           const modifier = skills.getOrThrow(name);
           const bonus = resolveValue(value as Value) as number ?? 0;
@@ -325,10 +334,11 @@ export class Character {
 
     const choices = new CaseInsensitiveMap(
       character
-        .getOrThrow("choose")
-        .entries()
+        .get("choose")
+        ?.entries()
         .map(([path, choice]) => {
           assert(choice, "CHARACTER_GET", "CHOOSE");
+
           const selected = choice.selected
             ? Array.from(getMultipleKeys(choice.selected))
             : [];
@@ -343,8 +353,8 @@ export class Character {
 
     const options = new CaseInsensitiveMap(
       character
-        .getOrThrow("optional")
-        .entries()
+        .get("optional")
+        ?.entries()
         .map(([path, choice]) => {
           assert(choice, "CHARACTER_GET", "OPTIONAL");
 
@@ -389,8 +399,8 @@ export class Character {
     const spellcasting = character.has("spellcasting")
       ? new CaseInsensitiveMap(
         character
-          .getOrThrow("spellcasting")
-          .entries()
+          .get("spellcasting")
+          ?.entries()
           .map(([className, value]) => {
             assert(value, "CHARACTER_GET", "SPELLCASTING");
             const unwrapped = unwrapDependency(value.ability);
@@ -436,6 +446,17 @@ export class Character {
         .filter((v) => v !== undefined),
     );
 
+    const stats = new CaseInsensitiveMap(
+      character
+        .get("stats")
+        ?.entries()
+        .map(([key, value]) => {
+          if (!is(value, "COMPUTED", "LITERAL")) return;
+          return [key, resolveValue(value) as number] as const;
+        })
+        .filter((v) => v !== undefined),
+    );
+
     return {
       name: character
         .get("info")
@@ -454,6 +475,7 @@ export class Character {
         language: languageProfs,
         tool: toolProfs,
       },
+      stats,
       spellcasting,
       spells,
       actions,
@@ -465,7 +487,10 @@ export class Character {
   }
 
   private update() {
-    const character = this.#store.character;
+    const { character, library } = this.#store;
+
+    const abilities = library.get("ability");
+    const skills = library.get("skill");
 
     const classes = character.get("class");
 
@@ -476,12 +501,12 @@ export class Character {
         .reduce(add)
       : 0;
 
-    character.getOrThrow("info").set("characterlevel", {
+    character.get("info")?.set("characterlevel", {
       type: "LITERAL",
       value: characterLevel,
     });
 
-    character.getOrThrow("stats").set("proficiency_bonus", {
+    character.get("stats")?.set("proficiency_bonus", {
       type: "LITERAL",
       value: getProficiencyBonus(characterLevel),
     });
@@ -489,6 +514,8 @@ export class Character {
     const tree = {
       type: "MULTIPLE",
       values: [
+        ...(abilities?.values().toArray() ?? []),
+        ...(skills?.values().toArray() ?? []),
         ...(classes?.values().toArray() ?? []),
       ],
     } as Node;
