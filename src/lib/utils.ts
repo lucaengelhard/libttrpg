@@ -188,3 +188,19 @@ export function getProficiency(
 
   return 0;
 }
+
+export function getResource(node: Node) {
+  {
+    if (!is(node, "RESOURCE")) return;
+    const usesNode = unwrapDependency(node.uses);
+    if (!is(usesNode, "LITERAL", "COMPUTED")) return;
+    const uses = resolveValue(usesNode) as number;
+    const spent = node.spent ? resolveValue(node.spent) as number : 0;
+
+    return [node.name, {
+      uses,
+      spent,
+      resetTrigger: node.resetTrigger,
+    }] as const;
+  }
+}

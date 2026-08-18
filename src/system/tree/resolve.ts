@@ -18,6 +18,7 @@ import {
   NodeWithKey,
   NodeWithName,
   PROFICIENCY_NAME,
+  Spellcasting,
   Store,
   StoreKey,
   Value,
@@ -57,6 +58,9 @@ type ResolveContext = {
   store: Store;
   path: string;
   classLevel?: number;
+  className?: string;
+  featName?: string;
+  subclassName?: string;
   scope: NodeMap;
 };
 function resolve<N extends Node>(node: N, ctxInput: ResolveContext): N {
@@ -152,13 +156,23 @@ function resolve<N extends Node>(node: N, ctxInput: ResolveContext): N {
 
       return {
         ...node,
-        levels: resolveLevels(levels, classLevel, { ...ctx, classLevel }),
+        levels: resolveLevels(levels, classLevel, {
+          ...ctx,
+          classLevel,
+          className: node.name,
+        }),
       };
     }
     case "SUBCLASS": {
       const { levels, ...rest } = node;
       if (ctx.classLevel === undefined) return { ...rest, levels: {} } as N;
-      return { ...node, levels: resolveLevels(levels, ctx.classLevel, ctx) };
+      return {
+        ...node,
+        levels: resolveLevels(levels, ctx.classLevel, {
+          ...ctx,
+          subclassName: node.name,
+        }),
+      };
     }
     case "FEAT": {
       const gives = node.gives ? resolve(node.gives, ctx) : undefined;
@@ -171,7 +185,7 @@ function resolve<N extends Node>(node: N, ctxInput: ResolveContext): N {
           .reduce(add);
 
       const levels = node.levels && level
-        ? resolveLevels(node.levels, level, ctx)
+        ? resolveLevels(node.levels, level, { ...ctx, featName: node.name })
         : undefined;
 
       return { ...node, gives, levels };
@@ -197,7 +211,21 @@ function resolve<N extends Node>(node: N, ctxInput: ResolveContext): N {
         ? resolve(node.castWithoutSpellSlot, ctx)
         : undefined;
 
-      const ability = node.ability ? resolve(node.ability, ctx) : undefined;
+      const spellcasting = ctx.store.character.get("spellcasting");
+
+      const selectedSpellcasting = spellcasting
+        ? ctx.className
+          ? spellcasting.getNode(ctx.className, "SPELLCASTING")
+          : ctx.subclassName
+          ? spellcasting.getNode(ctx.subclassName, "SPELLCASTING")
+          : ctx.featName
+          ? spellcasting.getNode(ctx.featName, "SPELLCASTING")
+          : undefined
+        : undefined;
+
+      const ability = node.ability
+        ? resolve(node.ability, ctx)
+        : selectedSpellcasting?.ability;
 
       return { ...node, ability, castWithoutSpellSlot };
     }
@@ -318,6 +346,9 @@ type ApplyContext = {
   current: Store;
   next: Store["character"];
   path: string;
+  className?: string;
+  featName?: string;
+  subclassName?: string;
 };
 function apply(node: Node, ctxInput: ApplyContext): void {
   const ctx: ApplyContext = {
@@ -423,23 +454,32 @@ function apply(node: Node, ctxInput: ApplyContext): void {
       return;
     }
     case "CLASS": {
-      applyLevels(node.levels, ctx);
+      applyLevels(node.levels, { ...ctx, className: node.name });
       // TODO apply other class properties (asi, ...)
       return;
     }
     case "SUBCLASS": {
-      applyLevels(node.levels, ctx);
+      applyLevels(node.levels, { ...ctx, subclassName: node.name });
       return;
     }
     case "FEAT": {
-      if (node.levels) applyLevels(node.levels, ctx);
-      if (node.gives) apply(node.gives, ctx);
+      if (node.levels) {
+        applyLevels(node.levels, { ...ctx, featName: node.name });
+      }
+      if (node.gives) apply(node.gives, { ...ctx, featName: node.name });
       return;
     }
-    case "SPELLCASTING":
-    case "RESOURCE":
-    case "ACTION":
     case "SPELL": {
+      if (node.castWithoutSpellSlot) apply(node.castWithoutSpellSlot, ctx);
+      applyNode(node, ctx);
+      return;
+    }
+    case "SPELLCASTING": {
+      applyNode(node, ctx, ctx.className ?? ctx.featName);
+      return;
+    }
+    case "RESOURCE":
+    case "ACTION": {
       applyNode(node, ctx);
       return;
     }
@@ -465,24 +505,30 @@ function applyLevels(levels: Record<string, Node>, ctx: ApplyContext): void {
   }
 }
 
-function applyNode(node: Node, ctx: ApplyContext) {
+function applyNode(node: Node, ctx: ApplyContext, identifer?: string) {
   const current = ctx.next.get(node.type);
 
   if (!current) {
-    ctx.next.set(node.type, new NodeMap([[ctx.path, node]]));
+    ctx.next.set(node.type, new NodeMap([[identifer ?? ctx.path, node]]));
     return;
   }
 
-  const currentNode = current.getNode(ctx.path, node.type);
+  const currentNode = current.getNode(identifer ?? ctx.path, node.type);
   if (deepEqual(currentNode, node)) return;
   if (!currentNode) {
-    ctx.next.getOrInsert(node.type, new NodeMap()).set(ctx.path, node);
+    ctx.next.getOrInsert(node.type, new NodeMap()).set(
+      identifer ?? ctx.path,
+      node,
+    );
     return;
   }
 
   const merged = merge(currentNode, node);
   if (deepEqual(currentNode, merged)) return;
-  ctx.next.getOrInsert(node.type, new NodeMap()).set(ctx.path, merged);
+  ctx.next.getOrInsert(node.type, new NodeMap()).set(
+    identifer ?? ctx.path,
+    merged,
+  );
 }
 
 function merge<N extends Node>(current: N, next: N): N {

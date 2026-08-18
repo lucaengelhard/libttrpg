@@ -40,4 +40,6 @@ const char = createCharacter()
     true,
   );
 
+char.get();
+
 console.log(char.get());

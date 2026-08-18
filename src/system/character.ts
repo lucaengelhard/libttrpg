@@ -7,6 +7,7 @@ import {
   getNodeIdentifier,
   getProficiency,
   getProficiencyBonus,
+  getResource,
   is,
   resolveValue,
   unwrapDependency,
@@ -403,26 +404,35 @@ export class Character {
       )
       : undefined;
 
-    const spells = character.get("spell");
+    const spells = new CaseInsensitiveMap(
+      character.get("spell")?.values()
+        .map((value) => {
+          if (!is(value, "SPELL")) return;
+
+          const resource = value.castWithoutSpellSlot
+            ? getResource(value.castWithoutSpellSlot)
+            : undefined;
+
+          const ability = value.ability
+            ? unwrapDependency(value.ability)
+            : undefined;
+
+          return [value.name, {
+            ...value,
+            castWithoutSpellSlot: resource ? resource[1] : undefined,
+            ability: ability && is(ability, "ABILITY")
+              ? ability.name
+              : undefined,
+          }] as const;
+        }).filter((v) => v !== undefined),
+    );
+
     const actions = character.get("action");
+
     const resources = new CaseInsensitiveMap(
       character.get("resource")
         ?.values()
-        .map((resource) => {
-          assert(resource, "CHARACTER_GET", "RESOURCE");
-          const usesNode = unwrapDependency(resource.uses);
-          if (!is(usesNode, "LITERAL", "COMPUTED")) return;
-          const uses = resolveValue(usesNode) as number;
-          const spent = resource.spent
-            ? resolveValue(resource.spent) as number
-            : 0;
-
-          return [resource.name, {
-            uses,
-            spent,
-            resetTrigger: resource.resetTrigger,
-          }] as const;
-        })
+        .map(getResource)
         .filter((v) => v !== undefined),
     );
 
