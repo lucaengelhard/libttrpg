@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "exports": "./src/mod.ts",
   "tasks": {
-    "test": "deno --allow-read test/main.ts",
+    "test": "deno test test/main.ts",
     "schema": "deno --allow-write src/system/tree/createSchema.ts"
   },
   "imports": {

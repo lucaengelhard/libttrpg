@@ -16,15 +16,15 @@ import {
   wrapInMultiple,
 } from "../../lib/utils.ts";
 import {
-  Computed,
+  type Computed,
   EMPTY,
-  Node,
-  NodeWithKey,
-  NodeWithName,
+  type Node,
+  type NodeWithKey,
+  type NodeWithName,
   PROFICIENCY_NAME,
-  Store,
-  StoreKey,
-  Value,
+  type Store,
+  type StoreKey,
+  type Value,
 } from "./types.ts";
 
 export function cycle(
@@ -541,6 +541,10 @@ function apply(node: Node, ctxInput: ApplyContext): void {
         type: "COMPUTED",
         modifiers: [],
       });
+      ctx.next.getOrInsert("save", new NodeMap()).set(node.name, {
+        type: "COMPUTED",
+        modifiers: [],
+      });
 
       return;
     }
@@ -548,7 +552,6 @@ function apply(node: Node, ctxInput: ApplyContext): void {
       ctx.next.getOrInsert(node.type, new NodeMap()).set(node.name, {
         type: "COMPUTED",
         modifiers: [],
-        base: { type: "LITERAL", value: 10 },
       });
       if (node.hasPassive) {
         ctx.next.getOrInsert("passive", new NodeMap()).set(node.name, {

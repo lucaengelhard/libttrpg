@@ -31,6 +31,8 @@ export class Character {
       library,
       character: new CaseInsensitiveMap(),
     };
+
+    this.update();
   }
 
   public addClass(className: string): this {
@@ -233,6 +235,7 @@ export class Character {
   }
 
   public get() {
+    // TODO make this private and make getters directly on the class
     this.update();
 
     const character = this.#store.character;

@@ -1,54 +1,40 @@
+import { assert } from "@std/assert";
+import type { Character } from "../src/system/character.ts";
 import { createLibrary } from "../src/system/library.ts";
 
-const tree = await import("../../data/build/library.json", {
-  with: { type: "json" },
+let createCharacter: () => Character;
+let character: Character;
+
+Deno.test.beforeAll(async () => {
+  console.log("Importing library...");
+  const tree = await import("../../data/build/library.json", {
+    with: { type: "json" },
+  });
+  const { createCharacter: createCharacterFn } = createLibrary(tree.default);
+  assert(createCharacterFn !== undefined);
+  createCharacter = createCharacterFn;
 });
-const { createCharacter } = createLibrary(tree);
 
-const char = createCharacter!()
-  .setName("Vaas")
-  .setAbilityBase("strength", 12)
-  .setAbilityBase("dexterity", 15)
-  .setAbilityBase("constitution", 14)
-  .setAbilityBase("intelligence", 13)
-  .setAbilityBase("wisdom", 13)
-  .setAbilityBase("charisma", 8)
-  .addClass("ranger")
-  .setClassLevel("ranger", 10)
-  .setChoice(
-    "root_/_multiple_/_class@ranger#1_/_multiple_/_choose@natural_deft_explorer",
-    "Deft Explorer",
-  )
-  .setChoice(
-    "root_/_multiple_/_class@ranger#1_/_multiple_/_choose@favored_enemy",
-    "Favored Enemy",
-  ).setChoice(
-    "root_/_multiple_/_class@ranger#1_/_multiple_/_choose@favored_enemy_/_multiple_/_feat@favored enemy#1_/_multiple_/_choose@favored_enemy_creature",
-    "humanoid",
-  ).setChoice(
-    "root_/_multiple_/_class@ranger#3_/_multiple_/_choose@primeval_primal_awareness",
-    "Primal Awareness",
-  ).setChoice(
-    "root_/_multiple_/_class@ranger#1_/_multiple_/_feat@proficiencies#1_/_proficiency_/_choose",
-    "Nature",
-  ).setChoice(
-    "root_/_multiple_/_class@ranger#1_/_multiple_/_feat@proficiencies#1_/_proficiency_/_choose",
-    "Insight",
-  ).setChoice(
-    "root_/_multiple_/_class@ranger#1_/_multiple_/_feat@proficiencies#1_/_proficiency_/_choose",
-    "perception",
-  )
-  .setOption(
-    "root_/_multiple_/_class@ranger#2_/_multiple_/_optional@additional ranger spells",
-    true,
-  ).setOption(
-    "root_/_multiple_/_class@ranger#2_/_multiple_/_optional@spellcasting focus",
-    true,
-  ).setOption(
-    "root_/_multiple_/_class@ranger#4_/_optional@martial versatility",
-    true,
-  );
+Deno.test.beforeEach(() => {
+  character = createCharacter();
+});
 
-char.get();
+Deno.test("Set name", () => {
+  character.setName("Vaas");
+  assert(character.get().name === "Vaas");
+});
 
-//console.log(char.get().skills);
+Deno.test("Set ability score", () => {
+  character.setAbilityBase("strength", 12);
+  const state = character.get();
+
+  assert(state.abilities.get("strength") === 12);
+  assert(state.saves.get("strength") === 1);
+});
+
+Deno.test("Add class", () => {
+  assert(character.get().level === 0);
+  character.addClass("ranger").setClassLevel("ranger", 10);
+  assert(character.get().level === 10);
+  assert(character.get().classes.has("ranger"));
+});
