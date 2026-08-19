@@ -147,7 +147,6 @@ export type Type = {
   type: "TYPE";
   of: string;
   name: string;
-  source?: Set<string>;
 };
 
 export type Node =
