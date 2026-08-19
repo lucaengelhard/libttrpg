@@ -6,6 +6,7 @@ import { add, arrayCount, normalizeValue } from "../../lib/utils.ts";
 import {
   type Computed,
   EMPTY,
+  Multiple,
   type Node,
   PROFICIENCY_NAME,
   type Store,
@@ -24,9 +25,9 @@ import {
 import { resolveValue } from "../../lib/value.ts";
 
 export function cycle(
-  tree: Node,
+  tree: Multiple,
   store: Store,
-): { nextTree: Node; nextState: Store } {
+): { nextTree: Multiple; nextState: Store } {
   const nextTree = resolve(tree, {
     store,
     path: "ROOT",
@@ -165,19 +166,12 @@ function resolve<N extends Node>(node: N, ctxInput: ResolveContext): N {
       };
     }
     case "CLASS": {
-      const classLevel = ctx.store.character
-        ?.get("class")
-        ?.getNode(node.name, "CLASS")
-        ?.level;
-
-      const { levels, ...rest } = node;
-
-      if (classLevel === undefined) return { ...rest, levels: {} } as N;
+      const classLevel = node.level ?? 0;
 
       return {
         ...node,
         level: classLevel,
-        levels: resolveLevels(levels, classLevel, {
+        levels: resolveLevels(node.levels, classLevel, {
           ...ctx,
           classLevel,
           className: node.name,

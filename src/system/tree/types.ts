@@ -135,12 +135,18 @@ export type Resource = {
   resetTrigger: string;
 };
 
-export type Ability = { type: "ABILITY"; name: string };
+export type Ability = {
+  type: "ABILITY";
+  name: string;
+  value?: Value;
+};
+
 export type Skill = {
   type: "SKILL";
   name: string;
   ability: string;
   hasPassive?: boolean;
+  value?: Value;
 };
 
 export type Type = {

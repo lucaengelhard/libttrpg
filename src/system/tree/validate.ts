@@ -162,6 +162,7 @@ const BaseSpellcasting = z.object({
 const BaseAbility = z.object({
   type: z.literal("ABILITY"),
   name: z.string(),
+  value: LazyValue,
 });
 
 const BaseSkill = z.object({
@@ -169,6 +170,7 @@ const BaseSkill = z.object({
   name: z.string(),
   ability: z.string(),
   hasPassive: z.boolean().optional(),
+  value: LazyValue,
 });
 
 const BaseType = z.object({
@@ -212,3 +214,9 @@ const NodeExtensions = z.object({
 });
 
 export const NodeSchema: z.ZodType<Node> = NodeBaseSchema.and(NodeExtensions);
+
+export const SerializedCharacterSchema = z.object({
+  tree: NodeSchema.and(BaseMultiple),
+  info: z.record(z.string(), NodeSchema).optional(),
+});
+export type SerializedCharacter = z.infer<typeof SerializedCharacterSchema>;

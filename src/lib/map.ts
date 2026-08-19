@@ -108,4 +108,8 @@ export class NodeMap extends CaseInsensitiveMap<string, Node> {
     if (!node || !type.some((t) => t === node.type)) return undefined;
     return node as Extract<Node, { type: T }>;
   }
+
+  public toRecord(): Record<string, Node> {
+    return Object.fromEntries(this.entries());
+  }
 }

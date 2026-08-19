@@ -20,27 +20,43 @@ import { resolveValue } from "../lib/value.ts";
 import type { Library } from "./library.ts";
 import { cycle } from "./tree/resolve.ts";
 import type {
+  Class,
   Modifier,
+  Multiple,
   Node,
-  Spell,
   Spellcasting,
   Store,
   Type,
   Value,
 } from "./tree/types.ts";
 import { ZERO } from "./tree/types.ts";
+import {
+  type SerializedCharacter,
+  SerializedCharacterSchema,
+} from "./tree/validate.ts";
+
+type Config = {
+  tree?: Multiple;
+  info?: Record<string, Node>;
+};
 
 export class Character {
   #store: Store;
-  #tree?: Node;
+  #tree: Multiple;
 
   #abilityBase = new CaseInsensitiveMap<string, number>();
 
-  constructor(library: Library) {
+  constructor(library: Library, { tree, info }: Config = {}) {
     this.#store = {
       library,
       character: new CaseInsensitiveMap(),
     };
+
+    this.#tree = tree ?? { type: "MULTIPLE", values: [] };
+
+    if (info) {
+      this.#store.character.set("info", new NodeMap(Object.entries(info)));
+    }
 
     this.update();
   }
@@ -52,18 +68,12 @@ export class Character {
 
     if (
       !classValue ||
-      this.#store.character
-        .getOrInsert("class", new NodeMap())
-        .has(className)
+      this.#tree.values.some((v) =>
+        v.type === "CLASS" && v.name.toLowerCase() === className.toLowerCase()
+      )
     ) return this;
 
-    const classes = this.#store.character
-      .getOrInsert("class", new NodeMap());
-
-    classes.set(
-      className,
-      { ...classValue, level: 1 },
-    );
+    this.#tree.values.push({ ...classValue, level: 1 });
 
     this.update();
     return this;
@@ -72,22 +82,19 @@ export class Character {
   public setClassLevel(className: string, level: number): this {
     if (level < 1 || level > 20 || !Number.isInteger(level)) return this;
 
-    const classes = this.#store.character.get("class");
+    const classNode = this.#tree.values.find((n) =>
+      n.type === "CLASS" && n.name.toLowerCase() === className.toLowerCase()
+    ) as Class | undefined;
 
-    if (!classes) return this;
-
-    const classValue = classes.getNode(className, "CLASS");
-    if (!classValue) return this;
+    if (!classNode) return this;
 
     const levels = this.#store.library
       .getOrThrow("class")
       .getNode(className, "CLASS")!
       .levels;
-    classes.set(className, {
-      ...classValue,
-      level,
-      levels: { ...levels, ...classValue.levels },
-    });
+
+    classNode.level = level;
+    classNode.levels = { ...levels, ...classNode.levels };
 
     this.update();
     return this;
@@ -580,14 +587,14 @@ export class Character {
     return map;
   }
 
-  public get tree(): Node | undefined {
+  public get tree(): Node {
     return this.#tree;
   }
 
   private update() {
-    const { character, library } = this.#store;
+    //const { character, library } = this.#store;
 
-    const abilities = library.get("ability");
+    /* const abilities = library.get("ability");
 
     const skills = library.get("skill");
 
@@ -628,13 +635,54 @@ export class Character {
         ...(abilities?.values().toArray() ?? []),
         ...abilityBases,
         ...(skills?.values().toArray() ?? []),
-        ...(classes?.values().toArray() ?? []),
       ],
-    } as Node;
+    } as Multiple; */
+
+    const { library } = this.#store;
+    const abilities = library.get("ability")
+      ?.values()
+      .filter((a) =>
+        !(a.type === "ABILITY" &&
+          this.#tree.values.some((v) =>
+            v.type === "ABILITY" && v.name === a.name
+          ))
+      );
+    const skills = library.get("skill")
+      ?.values()
+      .filter((a) =>
+        !(a.type === "SKILL" &&
+          this.#tree.values.some((v) =>
+            v.type === "SKILL" && v.name === a.name
+          ))
+      );
+
+    const tree: Multiple = {
+      type: "MULTIPLE",
+      values: [
+        ...this.#tree.values,
+        ...(abilities?.toArray() ?? []),
+        ...(skills?.toArray() ?? []),
+      ],
+    };
 
     const { nextState, nextTree } = cycle(tree, this.#store);
 
     this.#store = nextState;
     this.#tree = nextTree;
+  }
+
+  public getSerializeable(): SerializedCharacter {
+    const tree = this.#tree;
+    const info = this.#store.character.get("info")?.toRecord();
+    return { tree, info };
+  }
+
+  static fromSerializable(
+    library: Library,
+    input: unknown,
+  ): Character | undefined {
+    const { data } = SerializedCharacterSchema.safeParse(input);
+    if (!data) return;
+    return new Character(library, { ...data });
   }
 }
