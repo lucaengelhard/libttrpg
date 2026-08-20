@@ -1,21 +1,32 @@
+import deepEqual from "deep-equal";
 import { CaseInsensitiveMap } from "../../lib/map.ts";
-import { add, id } from "../../lib/utils.ts";
-import type { Node, Query, StoreKey, Value } from "../tree/types.ts";
+import { add, getModifier } from "../../lib/utils.ts";
+import type {
+  Node,
+  ProficiencyValue,
+  Query,
+  StoreKey,
+  Value,
+} from "../tree/types.ts";
 import { applyParams } from "./applyParams.ts";
 
 import { Signal } from "./signal.ts";
 
-type Literal = string | number | boolean | Literal[];
-type CharacterValue = { value: number; params?: Record<string, Literal> };
+type Score = {
+  type: "SCORE";
+  base: number;
+  modifiers?: Map<symbol, number>;
+  overwrite?: number;
+  proficiency?: number;
+}; // TODO max: number
+
+type CharacterValue = Signal<Score>;
 
 type QueryResult = CharacterValue | null;
-type Queries = CaseInsensitiveMap<string, Signal<QueryResult>>;
-
-const Queries: Queries = new CaseInsensitiveMap();
 
 type Store = CaseInsensitiveMap<
-  string,
-  CaseInsensitiveMap<StoreKey, Signal<CharacterValue>>
+  StoreKey,
+  Signal<CaseInsensitiveMap<string, CharacterValue>>
 >;
 
 const Store: Store = new CaseInsensitiveMap();
@@ -35,22 +46,175 @@ export function apply(node: Node) {
       break;
     }
     case "MODIFIER": {
-      const value = getValue(node.value);
-      if (!value) break;
-
-      /* for (const toModify of lookup(node.modify)) {
-        toModify.deriveFrom(value, id);
-      }
-
-      for (const toSet of lookup(node.set)) {
-        value.listen((next) => toSet.set(next));
-        toSet.set(value.value);
-      } */
+      if (node.set) set(node.set, node.value);
+      if (node.modify) set(node.modify, node.value, true);
 
       break;
     }
+
+    case "ABILITY": {
+      const abilityMapSignal = Store
+        .getOrInsert(node.type, Signal(new CaseInsensitiveMap()));
+
+      const newAbilityMap = new CaseInsensitiveMap(abilityMapSignal.value);
+      const ability = newAbilityMap.getOrInsert(
+        node.name,
+        Signal({
+          type: "SCORE",
+          base: node.value ?? 0,
+        }),
+      );
+
+      if (ability.value.base !== (node.value ?? 0)) {
+        ability.value = {
+          ...ability.value,
+          base: node.value ?? 0,
+        };
+      }
+
+      abilityMapSignal.value = newAbilityMap;
+
+      const saveMapSignal = Store
+        .getOrInsert("save", Signal(new CaseInsensitiveMap()));
+
+      const setBase = (
+        abilityScore: Score,
+        currentMap: CaseInsensitiveMap<string, Signal<Score>>,
+      ) => {
+        if (abilityScore === null) return;
+
+        const newMap = new CaseInsensitiveMap(currentMap);
+        const characterValue = newMap.getOrInsert(
+          node.name,
+          Signal({
+            type: "SCORE",
+            base: getModifier(getScoreValue(abilityScore)),
+          }),
+        );
+
+        const newValue = getModifier(getScoreValue(abilityScore));
+
+        if (characterValue.value.base !== newValue) {
+          characterValue.value = {
+            ...characterValue.value,
+            base: newValue,
+          };
+        }
+
+        saveMapSignal.value = newMap;
+      };
+
+      setBase(ability.value, saveMapSignal.value);
+      ability.dependency(saveMapSignal, setBase);
+
+      break;
+    }
+
+    case "SKILL": {
+      const ability = lookup(node.ability);
+      const skillMapSignal = Store
+        .getOrInsert(node.type, Signal(new CaseInsensitiveMap()));
+
+      const setBase = (
+        queryResult: QueryResult,
+        currentMap: CaseInsensitiveMap<string, Signal<Score>>,
+      ) => {
+        if (queryResult === null) return;
+
+        const newMap = new CaseInsensitiveMap(currentMap);
+        const characterValue = newMap.getOrInsert(
+          node.name,
+          Signal({
+            type: "SCORE",
+            base: getModifier(getScoreValue(queryResult.value)),
+          }),
+        );
+
+        const newValue = getModifier(getScoreValue(queryResult.value));
+
+        if (characterValue.value.base !== newValue) {
+          characterValue.value = {
+            ...characterValue.value,
+            base: newValue,
+          };
+        }
+
+        skillMapSignal.value = newMap;
+      };
+
+      setBase(ability.value, skillMapSignal.value);
+      ability.dependency(skillMapSignal, setBase);
+
+      const skill = lookup(`character.skill.${node.name}`);
+
+      const passiveMapSignal = Store
+        .getOrInsert("passive", Signal(new CaseInsensitiveMap()));
+
+      const setPassiveBase = (
+        queryResult: QueryResult,
+        currentMap: CaseInsensitiveMap<string, Signal<Score>>,
+      ) => {
+        if (queryResult === null) return;
+
+        const newMap = new CaseInsensitiveMap(currentMap);
+        const characterValue = newMap.getOrInsert(
+          node.name,
+          Signal({
+            type: "SCORE",
+            base: getModifier(getScoreValue(queryResult.value)) + 10,
+          }),
+        );
+
+        const newValue = getModifier(getScoreValue(queryResult.value)) + 10;
+
+        if (characterValue.value.base !== newValue) {
+          characterValue.value = {
+            ...characterValue.value,
+            base: newValue,
+          };
+        }
+
+        passiveMapSignal.value = newMap;
+      };
+
+      setPassiveBase(skill.value, passiveMapSignal.value);
+      skill.dependency(passiveMapSignal, setPassiveBase);
+
+      break;
+    }
+
+    case "PROFICIENCY": {
+      const value = Signal(node.value);
+      const skill = lookup(node.skill);
+
+      const applyScoreProficiency = (
+        proficiency: ProficiencyValue | undefined,
+        score: QueryResult,
+      ) => {
+        if (
+          proficiency === undefined || score === null || skill.value === null
+        ) {
+          return;
+        }
+
+        if (
+          score.value.proficiency === undefined ||
+          proficiency > score.value.proficiency
+        ) {
+          skill.value.value = { ...score.value, proficiency: proficiency };
+        }
+      };
+
+      skill.dependency(value, (updated, current) => {
+        applyScoreProficiency(current, updated);
+      });
+
+      applyScoreProficiency(value.value, skill.value);
+
+      break;
+    }
+
     case "RESOURCE": {
-      singleLookup(`%[]`);
       break;
     }
 
@@ -66,65 +230,135 @@ export function apply(node: Node) {
     case "CLASS":
     case "SUBCLASS":
     case "FEAT":
-    case "PROFICIENCY":
     case "SPELL":
     case "SPELLCASTING":
-    case "ABILITY":
-    case "SKILL":
     case "ACTION":
     case "TYPE":
     case "IMPORT":
   }
 }
 
-function getValue(value: Value) {
-  return typeof value === "number"
-    ? DynamicValue(value, add)
-    : singleLookup(value);
-}
-
 function lookup(query?: Query) {
-  if (!query) return [];
-  const [accessor, params] = query.toLowerCase().split("?");
+  const resultValue = Signal<QueryResult>(null);
+
+  if (!query) return resultValue;
+
+  const [accessor] = query.toLowerCase().split("?");
   const [section, category, selector] = accessor.split(".");
-  if (section !== "character") return [];
-  const resultValue = Queries
-    .getOrInsert(
-      query.toLowerCase(),
-      Signal(null),
-    );
+  if (
+    section !== "character" || category === undefined || selector === undefined
+  ) return resultValue;
+  const categorySignal = Store
+    .getOrInsert(category, Signal(new CaseInsensitiveMap()));
 
-  const map = Store.getOrInsert(category, new CaseInsensitiveMap());
+  categorySignal.listen((updated) => {
+    const selectedValue = updated.get(selector);
+    if (!selectedValue) return;
+    if (resultValue.value === null) {
+      resultValue.value = selectedValue;
+      return;
+    }
 
-  if (selector) {
-    const selectedValue = map.getOrInsert(
-      selector,
-      Signal<CharacterValue>({ value: 0 }),
-    );
+    if (!compare(selectedValue, resultValue.value)) return;
+    resultValue.value = selectedValue;
+  });
 
-    selectedValue.listen((updated) => resultValue.value = updated);
-    resultValue.value = selectedValue.value;
-    return resultValue;
+  const currentValue = categorySignal.value.get(selector);
+  if (currentValue) {
+    resultValue.value = currentValue;
   }
 
-  const executeQuery = () =>
-    map.values()
-      .filter((value) => applyParams(value.value.params ?? {}, params))
-      .toArray();
-
-  /*
-
-  // TODO
-  const executeQuery = () =>
-    map.values()
-      .filter((value) => applyParams(value, params))
-      .toArray();
-
-  return executeQuery(); */
+  return resultValue;
 }
 
-function singleLookup(query?: Query) {
-  const res = lookup(query);
-  if (res.length === 0) return undefined;
-  return res[0];
+function set(query: Query, value: Value, modify = false) {
+  const valueSignal = typeof value === "number" ? Signal(value) : lookup(value);
+
+  const [accessor, params] = query.toLowerCase().split("?");
+  const [section, category, selector] = accessor.split(".");
+  if (section !== "character" || category === undefined) return;
+
+  const categorySignal = Store
+    .getOrInsert(category, Signal(new CaseInsensitiveMap()));
+
+  const setValue = (
+    updated: number | QueryResult,
+    current: CaseInsensitiveMap<string, Signal<Score>>,
+  ) => {
+    if (updated === null) return;
+
+    const updatedValue = typeof updated === "number"
+      ? updated
+      : getScoreValue(updated.value);
+
+    for (const [key, value] of current.entries()) {
+      if ((selector && selector !== key) || !applyParams(value, params)) {
+        continue;
+      }
+
+      switch (value.value.type) {
+        case "SCORE": {
+          if (modify) {
+            const modifiers = new Map(value.value.modifiers);
+            modifiers.set(valueSignal.symbol, updatedValue);
+            value.value = { ...value.value, modifiers };
+          } else {
+            value.value = { ...value.value, overwrite: updatedValue };
+            // TODO only overwrite if bigger
+          }
+          break;
+        }
+      }
+    }
+
+    categorySignal.value = categorySignal.value; // Force update
+  };
+
+  setValue(valueSignal.value, categorySignal.value);
+  valueSignal.dependency<CaseInsensitiveMap<string, CharacterValue>>(
+    categorySignal,
+    setValue,
+  );
+
+  valueSignal.pull(categorySignal, (value, current) => {
+    setValue(current, value);
+  });
 }
+
+function getScoreValue(score: Score): number {
+  if (score.overwrite !== undefined) return score.overwrite;
+  const modifiers = score.modifiers && score.modifiers.size > 0
+    ? score.modifiers.values().reduce(add)
+    : 0;
+
+  return score.base + modifiers;
+}
+
+function compare(a: CharacterValue, b: CharacterValue): boolean {
+  return deepEqual(a, b); // TODO replace with lighter own function
+}
+
+apply({
+  type: "MULTIPLE",
+  values: [
+    { type: "MODIFIER", value: 14, set: "character.ability.wisdom" },
+    { type: "SKILL", name: "Perception", ability: "character.ability.wisdom" },
+    { type: "PROFICIENCY", skill: "character.skill.perception", value: 2 },
+    { type: "ABILITY", name: "Wisdom" },
+  ],
+});
+
+console.log(
+  new Map(
+    Store
+      .entries()
+      .map(([key, value]) => [
+        key,
+        new Map(
+          value.value
+            .entries()
+            .map(([k, v]) => [k, v.value]),
+        ),
+      ]),
+  ),
+);

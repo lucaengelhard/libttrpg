@@ -128,7 +128,6 @@ export type Skill = {
   name: string;
   ability: string;
   hasPassive?: boolean;
-  value?: number;
 };
 
 export type Action = {
