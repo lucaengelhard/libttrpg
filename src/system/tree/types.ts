@@ -2,11 +2,19 @@ import type { CaseInsensitiveMap, NodeMap } from "../../lib/map.ts";
 import { exhaustiveUnionArray } from "../../lib/utils.ts";
 import type { Library } from "../library.ts";
 
+// Resolvers
 export type Import = {
   type: "IMPORT";
   from: string;
 };
 
+export type Lookup = {
+  type: "LOOKUP";
+  query: string;
+  result?: Node;
+};
+
+// Operators
 export type Multiple = {
   type: "MULTIPLE";
   values: Node[];
@@ -15,14 +23,12 @@ export type Multiple = {
 export type Choose = {
   type: "CHOOSE";
   count: Value;
-  from: Node;
-  selected?: Multiple;
-  open?: Multiple;
+  from: Multiple | Lookup;
+  selected?: string[];
   chooseAdditionalAt?: {
     level?: number[];
     classLevel?: number[];
   };
-  classLevel?: number;
 };
 
 export type Optional = {
@@ -31,43 +37,40 @@ export type Optional = {
   active?: boolean;
 };
 
-export type Literal = {
-  type: "LITERAL";
-  value: string | number | boolean;
-};
+export type Empty = typeof EMPTY;
 
-export type Computed = {
-  type: "COMPUTED";
-  base?: Value;
-  overwrite?: Value[];
-  modifiers: Value[];
+export type Modifier = {
+  type: "MODIFIER";
+  value: Value;
+  modify?: Query;
+  set?: Query;
+  // TODO add conditional setting and modifying
 };
 
 export type Roll = {
   type: "ROLL";
-  diceType: Node;
-  diceCount: Node;
-  minimum: Node;
-  modifier: Node;
+  diceType: Value;
+  diceCount: Value;
+  minimum: Value;
+  modifier: Value;
 };
 
-export type Value = (Literal | Computed | Roll) & { source?: string };
-
-export type Dependency = {
-  type: "DEPENDENCY";
-  query: string;
-  result?: Node;
+export type Resource = {
+  type: "RESOURCE";
+  name: string;
+  uses: Value;
+  resetTrigger: string;
+  spent?: number;
 };
 
-export type Empty = typeof EMPTY;
-
+// Character Values
 export type Class = {
   type: "CLASS";
   name: string;
-  levels: Record<string, Node>;
-  level?: number;
   hitDice: number;
   asi: number[];
+  levels: Record<string, Node>;
+  level?: number;
 };
 
 export type Subclass = {
@@ -81,30 +84,17 @@ export type Feat = {
   type: "FEAT";
   name: string;
   levels?: Record<string, Node>;
+  useClassLevel?: boolean;
   gives?: Node;
 };
 
 export type Proficiency = {
   type: "PROFICIENCY";
-  save?: Node;
-  skill?: Node;
-  armor?: Node;
-  weapon?: Node;
+  save?: Query;
+  skill?: Query;
+  armor?: Multiple | Lookup;
+  weapon?: Multiple | Lookup;
   value?: ProficiencyValue;
-};
-
-export type Modifier = {
-  type: "MODIFIER";
-  value: Node;
-  modify?: Dependency;
-  set?: Dependency;
-  // TODO add conditional setting and modifying
-};
-
-export type Action = {
-  type: "ACTION";
-  name: string;
-  time: string;
 };
 
 export type Spell = {
@@ -114,7 +104,7 @@ export type Spell = {
   castWithoutSpellSlot?: Resource;
   level: number;
   upcast?: boolean;
-  ability?: Node;
+  ability?: Query;
   class?: string[];
 };
 
@@ -127,18 +117,10 @@ export type Spellcasting = {
   >;
 };
 
-export type Resource = {
-  type: "RESOURCE";
-  name: string;
-  uses: Node;
-  spent?: Literal;
-  resetTrigger: string;
-};
-
 export type Ability = {
   type: "ABILITY";
   name: string;
-  value?: Value;
+  value?: number;
 };
 
 export type Skill = {
@@ -146,7 +128,13 @@ export type Skill = {
   name: string;
   ability: string;
   hasPassive?: boolean;
-  value?: Value;
+  value?: number;
+};
+
+export type Action = {
+  type: "ACTION";
+  name: string;
+  time: string;
 };
 
 export type Type = {
@@ -158,24 +146,23 @@ export type Type = {
 export type Node =
   & (
     | Import
+    | Lookup
     | Multiple
-    | Dependency
-    | Value
     | Choose
     | Optional
     | Empty
+    | Modifier
+    | Roll
+    | Resource
     | Class
     | Subclass
     | Feat
     | Proficiency
-    | Modifier
-    | Action
     | Spell
     | Spellcasting
-    | Roll
-    | Resource
     | Ability
     | Skill
+    | Action
     | Type
   )
   & {
@@ -183,53 +170,57 @@ export type Node =
     name?: string;
     description?: string;
     static?: Record<string, Node>;
-    disabled?: boolean;
+    within?: { class?: string; subclass?: string; feat?: string };
   };
 
 export type NodeType = Node["type"];
 export type NodeWithout<T extends NodeType> = Exclude<Node, { type: T }>;
 export type NodeWith<T extends NodeType> = Extract<Node, { type: T }>;
-export type ProficiencyValue = 0.5 | 1 | 2;
 
+export type Value = number | Query;
+export type ProficiencyValue = 0.5 | 1 | 2;
+export type Query = string;
+
+type AdditonalStoreKey =
+  | "INFO"
+  | "STATS"
+  | "PASSIVE"
+  | "SAVE";
 export type StoreKey =
   | (NodeType | Lowercase<NodeType>)
-  | "info"
-  | "stats"
-  | "passive"
-  | "save";
+  | (AdditonalStoreKey | Lowercase<AdditonalStoreKey>)
+  // deno-lint-ignore ban-types
+  | (string & {});
 export type Store = {
   library: Library;
   character: CaseInsensitiveMap<StoreKey, NodeMap>;
 };
 
-export const NODE_TYPES = exhaustiveUnionArray<NodeType>()(
+export const NODE_TYPES: readonly NodeType[] = exhaustiveUnionArray<NodeType>()(
   [
-    "ABILITY",
-    "ACTION",
-    "CHOOSE",
-    "CLASS",
-    "COMPUTED",
-    "DEPENDENCY",
-    "EMPTY",
-    "FEAT",
     "IMPORT",
-    "LITERAL",
-    "MODIFIER",
+    "LOOKUP",
     "MULTIPLE",
+    "CHOOSE",
     "OPTIONAL",
-    "PROFICIENCY",
-    "RESOURCE",
+    "EMPTY",
+    "MODIFIER",
     "ROLL",
-    "SKILL",
+    "RESOURCE",
+    "CLASS",
+    "SUBCLASS",
+    "FEAT",
+    "PROFICIENCY",
     "SPELL",
     "SPELLCASTING",
-    "SUBCLASS",
+    "ABILITY",
+    "SKILL",
+    "ACTION",
     "TYPE",
   ] as const,
 );
 
 export const EMPTY = { type: "EMPTY" } as const;
-export const ZERO: Literal = { type: "LITERAL", value: 0 } as const;
 
 export const PROFICIENCY_NAME = {
   0.5: "half",

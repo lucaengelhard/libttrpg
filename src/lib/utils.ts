@@ -12,7 +12,11 @@ export function add(a: number, b: number) {
   return a + b;
 }
 
-function isPrimitive(value: unknown) {
+export function id<T>(a: T) {
+  return a;
+}
+
+export function isPrimitive(value: unknown) {
   return typeof value === "string" || typeof value === "number" ||
     typeof value === "boolean";
 }
@@ -36,18 +40,6 @@ export function getProficiency(
   }
 
   return 0;
-}
-
-export function normalizeValue(value: unknown): string | string[] | undefined {
-  if (isPrimitive(value)) {
-    return value.toString().toLowerCase();
-  }
-
-  if (Array.isArray(value) && value.every(isPrimitive)) {
-    return value.map(normalizeValue).filter((e) =>
-      e !== undefined && e !== null && !Array.isArray(e)
-    ) as string | string[] | undefined;
-  }
 }
 
 export function arrayCount<A>(
