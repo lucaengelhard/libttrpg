@@ -1,5 +1,5 @@
 import { CaseInsensitiveMap } from "../../lib/map.ts";
-import { add, getModifier } from "../../lib/utils.ts";
+import { add, getModifier, id } from "../../lib/utils.ts";
 import type {
   Node,
   ProficiencyValue,
@@ -52,132 +52,26 @@ export function apply(node: Node) {
     }
 
     case "ABILITY": {
-      const abilityMapSignal = Store
-        .getOrInsert(node.type, Signal(new CaseInsensitiveMap()));
-
-      const newAbilityMap = new CaseInsensitiveMap(abilityMapSignal.value);
-      const ability = newAbilityMap.getOrInsert(
+      setBase(
+        node.type,
         node.name,
-        Signal({
-          type: "SCORE",
-          base: node.value ?? 0,
-        }),
+        Signal(Signal<Score>({ type: "SCORE", base: node.value ?? 0 })),
       );
 
-      if (ability.value.base !== (node.value ?? 0)) {
-        ability.value = {
-          ...ability.value,
-          base: node.value ?? 0,
-        };
-      }
-
-      abilityMapSignal.value = newAbilityMap;
-
-      const saveMapSignal = Store
-        .getOrInsert("save", Signal(new CaseInsensitiveMap()));
-
-      const setBase = (
-        abilityScore: Score,
-        currentMap: CaseInsensitiveMap<string, Signal<Score>>,
-      ) => {
-        if (abilityScore === null) return;
-
-        const newMap = new CaseInsensitiveMap(currentMap);
-        const characterValue = newMap.getOrInsert(
-          node.name,
-          Signal({
-            type: "SCORE",
-            base: getModifier(getScoreValue(abilityScore)),
-          }),
-        );
-
-        const newValue = getModifier(getScoreValue(abilityScore));
-
-        if (characterValue.value.base !== newValue) {
-          characterValue.value = {
-            ...characterValue.value,
-            base: newValue,
-          };
-        }
-
-        saveMapSignal.value = newMap;
-      };
-
-      setBase(ability.value, saveMapSignal.value);
-      ability.dependency(saveMapSignal, setBase);
+      const ability = singleLookup(`character.ability.${node.name}`);
+      setBase("save", node.name, ability, getModifier);
 
       break;
     }
 
     case "SKILL": {
       const ability = singleLookup(node.ability);
-      const skillMapSignal = Store
-        .getOrInsert(node.type, Signal(new CaseInsensitiveMap()));
+      setBase(node.type, node.name, ability, getModifier);
 
-      const setBase = (
-        queryResult: CharacterValue | null,
-        currentMap: CaseInsensitiveMap<string, Signal<Score>>,
-      ) => {
-        if (queryResult === null) return;
-
-        const newMap = new CaseInsensitiveMap(currentMap);
-        const characterValue = newMap.getOrInsert(
-          node.name,
-          Signal({
-            type: "SCORE",
-            base: getModifier(getScoreValue(queryResult.value)),
-          }),
-        );
-
-        const newValue = getModifier(getScoreValue(queryResult.value));
-
-        if (characterValue.value.base !== newValue) {
-          characterValue.value = {
-            ...characterValue.value,
-            base: newValue,
-          };
-        }
-
-        skillMapSignal.value = newMap;
-      };
-
-      setBase(ability.value, skillMapSignal.value);
-      ability.dependency(skillMapSignal, setBase);
-
-      const skill = singleLookup(`character.skill.${node.name}`);
-
-      const passiveMapSignal = Store
-        .getOrInsert("passive", Signal(new CaseInsensitiveMap()));
-
-      const setPassiveBase = (
-        queryResult: CharacterValue | null,
-        currentMap: CaseInsensitiveMap<string, Signal<Score>>,
-      ) => {
-        if (queryResult === null) return;
-
-        const newMap = new CaseInsensitiveMap(currentMap);
-        const characterValue = newMap.getOrInsert(
-          node.name,
-          Signal({
-            type: "SCORE",
-            base: getModifier(getScoreValue(queryResult.value)) + 10,
-          }),
-        );
-
-        const newValue = getModifier(getScoreValue(queryResult.value)) + 10;
-
-        if (characterValue.value.base !== newValue) {
-          characterValue.value = {
-            ...characterValue.value,
-            base: newValue,
-          };
-        }
-
-        passiveMapSignal.value = newMap;
-      };
-
-      setPassiveBase(skill.value, passiveMapSignal.value);
-      skill.dependency(passiveMapSignal, setPassiveBase);
+      if (node.hasPassive) {
+        const skill = singleLookup(`character.skill.${node.name}`);
+        setBase("passive", node.name, skill, (modifier) => modifier + 10);
+      }
 
       break;
     }
@@ -342,6 +236,37 @@ function set(query: Query, value: Value, modify = false) {
   });
 }
 
+function setBase(
+  key: StoreKey,
+  name: string,
+  dependsOn: Signal<CharacterValue | null>,
+  transformation: (input: number) => number = id,
+) {
+  const mapSignal = Store.getOrInsert(key, Signal(new CaseInsensitiveMap()));
+
+  const apply = () => {
+    if (dependsOn.value === null) return;
+
+    const newMap = new CaseInsensitiveMap(mapSignal.value);
+    const newValue = transformation(getScoreValue(dependsOn.value.value));
+    const characterValue = newMap.getOrInsert(
+      name,
+      Signal({ type: "SCORE", base: newValue }),
+    );
+
+    if (characterValue.value.base !== newValue) {
+      characterValue.value = {
+        ...characterValue.value,
+        base: newValue,
+      };
+    }
+
+    mapSignal.value = newMap;
+  };
+  apply();
+  dependsOn.dependency(mapSignal, apply);
+}
+
 function getScoreValue(score: Score): number {
   if (score.overwrite !== undefined) return score.overwrite;
   const modifiers = score.modifiers && score.modifiers.size > 0
@@ -368,9 +293,7 @@ apply({
     },
     { type: "PROFICIENCY", skill: "character.skill.perception", value: 1 },
     { type: "PROFICIENCY", skill: "character.skill.Arcana", value: 1 },
-    { type: "ABILITY", name: "Wisdom" },
-    { type: "ABILITY", name: "Intelligence" },
-    { type: "ABILITY", name: "Strength" },
+
     { type: "PROFICIENCY", skill: "character.skill?proficiency=1", value: 2 },
   ],
 });
