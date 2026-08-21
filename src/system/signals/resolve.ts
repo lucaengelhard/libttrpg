@@ -1,4 +1,3 @@
-import deepEqual from "deep-equal";
 import { CaseInsensitiveMap } from "../../lib/map.ts";
 import { add, getModifier } from "../../lib/utils.ts";
 import type {
@@ -22,7 +21,7 @@ type Score = {
 
 type CharacterValue = Signal<Score>;
 
-type QueryResult = CharacterValue | null;
+type QueryResult = CharacterValue[] | null;
 
 type Store = CaseInsensitiveMap<
   StoreKey,
@@ -111,12 +110,12 @@ export function apply(node: Node) {
     }
 
     case "SKILL": {
-      const ability = lookup(node.ability);
+      const ability = singleLookup(node.ability);
       const skillMapSignal = Store
         .getOrInsert(node.type, Signal(new CaseInsensitiveMap()));
 
       const setBase = (
-        queryResult: QueryResult,
+        queryResult: CharacterValue | null,
         currentMap: CaseInsensitiveMap<string, Signal<Score>>,
       ) => {
         if (queryResult === null) return;
@@ -145,13 +144,13 @@ export function apply(node: Node) {
       setBase(ability.value, skillMapSignal.value);
       ability.dependency(skillMapSignal, setBase);
 
-      const skill = lookup(`character.skill.${node.name}`);
+      const skill = singleLookup(`character.skill.${node.name}`);
 
       const passiveMapSignal = Store
         .getOrInsert("passive", Signal(new CaseInsensitiveMap()));
 
       const setPassiveBase = (
-        queryResult: QueryResult,
+        queryResult: CharacterValue | null,
         currentMap: CaseInsensitiveMap<string, Signal<Score>>,
       ) => {
         if (queryResult === null) return;
@@ -185,31 +184,38 @@ export function apply(node: Node) {
 
     case "PROFICIENCY": {
       const value = Signal(node.value);
-      const skill = lookup(node.skill);
+      const skills = lookup(node.skill);
 
       const applyScoreProficiency = (
         proficiency: ProficiencyValue | undefined,
         score: QueryResult,
       ) => {
         if (
-          proficiency === undefined || score === null || skill.value === null
+          proficiency === undefined ||
+          score === null ||
+          skills.value === null
         ) {
           return;
         }
 
-        if (
-          score.value.proficiency === undefined ||
-          proficiency > score.value.proficiency
-        ) {
-          skill.value.value = { ...score.value, proficiency: proficiency };
+        for (const skill of skills.value) {
+          if (
+            skill.value.proficiency === undefined ||
+            proficiency > skill.value.proficiency
+          ) {
+            skill.value = {
+              ...skill.value,
+              proficiency: proficiency,
+            };
+          }
         }
       };
-
-      skill.dependency(value, (updated, current) => {
+      // Make more generic and dont check for skill explicitly?
+      skills.dependency(value, (updated, current) => {
         applyScoreProficiency(current, updated);
       });
 
-      applyScoreProficiency(value.value, skill.value);
+      applyScoreProficiency(value.value, skills.value);
 
       break;
     }
@@ -243,36 +249,47 @@ function lookup(query?: Query) {
 
   if (!query) return resultValue;
 
-  const [accessor] = query.toLowerCase().split("?");
+  const [accessor, params] = query.toLowerCase().split("?");
   const [section, category, selector] = accessor.split(".");
   if (
-    section !== "character" || category === undefined || selector === undefined
+    section !== "character" || category === undefined
   ) return resultValue;
+
   const categorySignal = Store
     .getOrInsert(category, Signal(new CaseInsensitiveMap()));
 
-  categorySignal.listen((updated) => {
-    const selectedValue = updated.get(selector);
-    if (!selectedValue) return;
-    if (resultValue.value === null) {
-      resultValue.value = selectedValue;
-      return;
-    }
+  const applyQuery = (map: CaseInsensitiveMap<string, CharacterValue>) => {
+    const filtered = map.entries().filter(([key, value]) => {
+      if (selector && (selector !== key)) return false;
+      return applyParams(value.value, params);
+    }).map(([_, v]) => v).toArray();
 
-    if (!compare(selectedValue, resultValue.value)) return;
-    resultValue.value = selectedValue;
-  });
+    resultValue.value = filtered;
+  };
 
-  const currentValue = categorySignal.value.get(selector);
-  if (currentValue) {
-    resultValue.value = currentValue;
-  }
+  applyQuery(categorySignal.value);
+  categorySignal.listen(applyQuery);
 
   return resultValue;
 }
 
+function singleLookup(query?: Query) {
+  const result = lookup(query);
+  const value = Signal<CharacterValue | null>(null);
+
+  result.dependency(value, (updatedResult) => {
+    if (updatedResult === null) return;
+    if (updatedResult.length > 0) {
+      value.value = updatedResult[0];
+    }
+  });
+  return value;
+}
+
 function set(query: Query, value: Value, modify = false) {
-  const valueSignal = typeof value === "number" ? Signal(value) : lookup(value);
+  const valueSignal = typeof value === "number"
+    ? Signal(value)
+    : singleLookup(value);
 
   const [accessor, params] = query.toLowerCase().split("?");
   const [section, category, selector] = accessor.split(".");
@@ -282,7 +299,7 @@ function set(query: Query, value: Value, modify = false) {
     .getOrInsert(category, Signal(new CaseInsensitiveMap()));
 
   const setValue = (
-    updated: number | QueryResult,
+    updated: number | CharacterValue | null,
     current: CaseInsensitiveMap<string, Signal<Score>>,
   ) => {
     if (updated === null) return;
@@ -334,17 +351,27 @@ function getScoreValue(score: Score): number {
   return score.base + modifiers;
 }
 
-function compare(a: CharacterValue, b: CharacterValue): boolean {
-  return deepEqual(a, b); // TODO replace with lighter own function
-}
-
 apply({
   type: "MULTIPLE",
   values: [
     { type: "MODIFIER", value: 14, set: "character.ability.wisdom" },
     { type: "SKILL", name: "Perception", ability: "character.ability.wisdom" },
-    { type: "PROFICIENCY", skill: "character.skill.perception", value: 2 },
+    {
+      type: "SKILL",
+      name: "Arcana",
+      ability: "character.ability.intelligence",
+    },
+    {
+      type: "SKILL",
+      name: "Acrobatics",
+      ability: "character.ability.strength",
+    },
+    { type: "PROFICIENCY", skill: "character.skill.perception", value: 1 },
+    { type: "PROFICIENCY", skill: "character.skill.Arcana", value: 1 },
     { type: "ABILITY", name: "Wisdom" },
+    { type: "ABILITY", name: "Intelligence" },
+    { type: "ABILITY", name: "Strength" },
+    { type: "PROFICIENCY", skill: "character.skill?proficiency=1", value: 2 },
   ],
 });
 
