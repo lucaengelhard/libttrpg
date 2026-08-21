@@ -15,20 +15,79 @@ type Score = {
   type: "SCORE";
   base: number;
   modifiers?: Map<symbol, number>;
-  overwrite?: number;
-  proficiency?: number;
+  overwrite?: Map<symbol, number>;
+  //proficiency?: Map<symbol, ProficiencyValue>;
 }; // TODO max: number
 
-type CharacterValue = Signal<Score>;
+type CharacterValue = Score;
 
-type QueryResult = CharacterValue[] | null;
+/* type QueryResult = CharacterValue[] | null; */
 
-type Store = CaseInsensitiveMap<
+/* type Store = CaseInsensitiveMap<
   StoreKey,
   Signal<CaseInsensitiveMap<string, CharacterValue>>
+>; */
+
+type Store = CaseInsensitiveMap<
+  string,
+  CaseInsensitiveMap<string, Signal<CharacterValue | null>>
 >;
 
 const Store: Store = new CaseInsensitiveMap();
+
+function set(query: Query, value: CharacterValue) {
+  const [accessor, params] = query.toLowerCase().split("?");
+  const [section, category, selector] = accessor.split(".");
+  if (section !== "character" || category === undefined) return;
+
+  const categoryMap = Store.getOrInsert(category, new CaseInsensitiveMap());
+
+  if (selector) {
+    const current = categoryMap.get(selector);
+    if (!current) {
+      categoryMap.set(selector, Signal(value));
+    } else {
+      current.value = value;
+    }
+
+    return current;
+  }
+
+  // TODO Queries without selector
+}
+
+function get(query: Query) {
+  const [accessor, params] = query.toLowerCase().split("?");
+  const [section, category, selector] = accessor.split(".");
+  if (section !== "character" || category === undefined) return;
+
+  const categoryMap = Store.getOrInsert(category, new CaseInsensitiveMap());
+
+  if (selector) {
+    return categoryMap
+      .getOrInsert(selector, Signal(null))
+      .derive((updated) =>
+        updated && applyParams(updated, params) ? updated : null
+      );
+    // This causes get Signals to not propagate .value calls ->  maybe create listener for it?
+  }
+
+  // TODO Queries without selector
+}
+
+function getScoreValue(score: Score): number {
+  if (score.overwrite !== undefined && score.overwrite.size > 0) {
+    return score.overwrite.values().reduce((acc, curr) => Math.max(acc, curr));
+  }
+  const modifiers = score.modifiers && score.modifiers.size > 0
+    ? score.modifiers.values().reduce(add)
+    : 0;
+
+  // TODO how to handle proficiency??
+
+  return score.base + modifiers;
+}
+
 export function apply(node: Node) {
   switch (node.type) {
     case "MULTIPLE": {
@@ -45,39 +104,48 @@ export function apply(node: Node) {
       break;
     }
     case "MODIFIER": {
-      if (node.set) set(node.set, node.value);
-      if (node.modify) set(node.modify, node.value, true);
+      /* if (node.set) set(node.set, node.value);
+      if (node.modify) set(node.modify, node.value, true); */
 
       break;
     }
 
     case "ABILITY": {
-      setBase(
-        node.type,
-        node.name,
-        Signal(Signal<Score>({ type: "SCORE", base: node.value ?? 0 })),
-      );
+      const ability = set(`character.${node.type}.${node.name}`, {
+        type: "SCORE",
+        base: node.value ?? 0,
+      });
 
-      const ability = singleLookup(`character.ability.${node.name}`);
-      setBase("save", node.name, ability, getModifier);
+      const save = get(`character.save.${node.name}`);
+
+      if (save) {
+        save.value = {
+          type: "SCORE",
+          base: ability?.value ? getScoreValue(ability.value) : 0,
+        };
+        ability?.listen((updated) => {
+          if (save.value === null || updated === null) return;
+          save.value = { ...save.value, base: getScoreValue(updated) };
+        });
+      }
 
       break;
     }
 
     case "SKILL": {
-      const ability = singleLookup(node.ability);
+      /* const ability = singleLookup(node.ability);
       setBase(node.type, node.name, ability, getModifier);
 
       if (node.hasPassive) {
         const skill = singleLookup(`character.skill.${node.name}`);
         setBase("passive", node.name, skill, (modifier) => modifier + 10);
       }
-
+ */
       break;
     }
 
     case "PROFICIENCY": {
-      const value = Signal(node.value);
+      /* const value = Signal(node.value);
       const skills = lookup(node.skill);
 
       const applyScoreProficiency = (
@@ -109,7 +177,7 @@ export function apply(node: Node) {
         applyScoreProficiency(current, updated);
       });
 
-      applyScoreProficiency(value.value, skills.value);
+      applyScoreProficiency(value.value, skills.value); */
 
       break;
     }
@@ -138,7 +206,7 @@ export function apply(node: Node) {
   }
 }
 
-function lookup(query?: Query) {
+/* function lookup(query?: Query) {
   const resultValue = Signal<QueryResult>(null);
 
   if (!query) return resultValue;
@@ -267,19 +335,12 @@ function setBase(
   dependsOn.dependency(mapSignal, apply);
 }
 
-function getScoreValue(score: Score): number {
-  if (score.overwrite !== undefined) return score.overwrite;
-  const modifiers = score.modifiers && score.modifiers.size > 0
-    ? score.modifiers.values().reduce(add)
-    : 0;
-
-  return score.base + modifiers;
-}
+*/
 
 apply({
   type: "MULTIPLE",
   values: [
-    { type: "MODIFIER", value: 14, set: "character.ability.wisdom" },
+    /*     { type: "MODIFIER", value: 14, set: "character.ability.wisdom" },
     { type: "SKILL", name: "Perception", ability: "character.ability.wisdom" },
     {
       type: "SKILL",
@@ -294,7 +355,8 @@ apply({
     { type: "PROFICIENCY", skill: "character.skill.perception", value: 1 },
     { type: "PROFICIENCY", skill: "character.skill.Arcana", value: 1 },
 
-    { type: "PROFICIENCY", skill: "character.skill?proficiency=1", value: 2 },
+    { type: "PROFICIENCY", skill: "character.skill?proficiency=1", value: 2 }, */
+    { type: "ABILITY", name: "Peter" },
   ],
 });
 
@@ -305,7 +367,7 @@ console.log(
       .map(([key, value]) => [
         key,
         new Map(
-          value.value
+          value
             .entries()
             .map(([k, v]) => [k, v.value]),
         ),
