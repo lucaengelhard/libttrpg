@@ -2,28 +2,32 @@ export type Vertex<InputType, OutPutType> = {
   value: InputType;
   name?: string;
   reduce: (a: InputType, b: InputType) => OutPutType;
+  overrideSelector?: (arr: InputType[]) => InputType;
 };
 
 export function Vertex<InputType, OutPutType>(
+  name: string | undefined,
   value: InputType,
   reduce: Vertex<InputType, OutPutType>["reduce"],
-  name?: string,
+  overrideSelector?: Vertex<InputType, OutPutType>["overrideSelector"],
 ): Vertex<InputType, OutPutType> {
-  return { value, reduce, name };
+  return { name, value, reduce, overrideSelector };
 }
 
 export type Edge<F, T> = {
   from: Vertex<unknown, F>;
   to: Vertex<T, unknown>;
   transform?: (value: F) => T;
+  override?: boolean;
 };
 
 export function Edge<F, T>(
   from: Vertex<unknown, F>,
   to: Vertex<T, unknown>,
   transform?: Edge<F, T>["transform"],
+  override?: boolean,
 ): Edge<F, T> {
-  return { from, to, transform };
+  return { from, to, transform, override };
 }
 
 type Graph = {
@@ -59,14 +63,12 @@ export function GraphBuilder() {
 function adjacency(graph: Graph) {
   const result = new Map<
     Vertex<unknown, unknown>,
-    Set<
-      { to: Vertex<unknown, unknown>; transform?: (value: unknown) => unknown }
-    >
+    Set<Edge<unknown, unknown>>
   >();
 
   for (const edge of graph.edges) {
     const set = result.getOrInsert(edge.from, new Set());
-    set.add({ to: edge.to, transform: edge.transform });
+    set.add(edge);
   }
 
   return result;
@@ -96,8 +98,8 @@ function sort(graph: Graph) {
 
     status.set(vertex, "IN_PROGRESS");
 
-    for (const v of adjacencyMatrix.get(vertex) ?? new Set()) {
-      visit(v.to);
+    for (const edge of adjacencyMatrix.get(vertex) ?? new Set()) {
+      visit(edge.to);
     }
 
     status.set(vertex, "FINISHED");
@@ -111,6 +113,7 @@ function resolve(graph: Graph) {
   const resolvedValues = new Map(
     graph.vertices.values().map((v) => [v, [] as any[]]),
   );
+  const overrides = new Map<Vertex<unknown, unknown>, any[]>();
 
   const result = new Map<Vertex<unknown, unknown>, any>();
 
@@ -119,15 +122,31 @@ function resolve(graph: Graph) {
       resolvedValues.get(vertex),
       vertex.reduce,
     );
-    const value = parentValue === undefined
+
+    const override = overrides.get(vertex);
+    const overrideValue = override !== undefined && override.length > 0
+      ? vertex.overrideSelector
+        ? vertex.overrideSelector(override)
+        : override[0]
+      : undefined;
+
+    const value = overrideValue !== undefined
+      ? overrideValue
+      : parentValue === undefined
       ? vertex.value
       : vertex.reduce(vertex.value, parentValue);
 
     result.set(vertex, value);
 
-    for (const child of adjacencyMatrix.get(vertex) ?? []) {
-      const arr = resolvedValues.getOrInsert(child.to, []);
-      arr.push(child.transform ? child.transform(value) : value);
+    for (const edge of adjacencyMatrix.get(vertex) ?? []) {
+      const values = resolvedValues.getOrInsert(edge.to, []);
+      const transformedValue = edge.transform ? edge.transform(value) : value;
+      if (edge.override) {
+        const existingOverrides = overrides.getOrInsert(edge.to, []);
+        existingOverrides.push(transformedValue);
+      }
+
+      values.push(transformedValue);
     }
   }
 
