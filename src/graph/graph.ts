@@ -47,6 +47,12 @@ export function GraphBuilder() {
     log() {
       console.log(graph);
     },
+    getNamed() {
+      return new Map(
+        this.resolve().entries().filter(([vertex]) => vertex.name !== undefined)
+          .map(([vertex, value]) => [vertex.name, value]),
+      );
+    },
   };
 }
 

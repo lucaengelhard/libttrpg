@@ -242,9 +242,4 @@ const tree: Node = {
 
 traverse(tree);
 
-console.log(
-  new Map(
-    builder.resolve().entries().filter(([vertex]) => vertex.name !== undefined)
-      .map(([vertex, value]) => [vertex.name, value]),
-  ),
-);
+console.log(builder.getNamed());
