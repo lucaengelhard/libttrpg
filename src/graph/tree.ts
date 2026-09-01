@@ -9,7 +9,7 @@ type Multiple = {
 type Value = {
   type: "VALUE";
   name?: string;
-  value: number | string | BinOp;
+  value: number | string | Resolvable;
 };
 
 type BinOp = {
@@ -25,7 +25,7 @@ type UnaryOp = {
   kind: UnaryOpKind;
   value: Resolvable;
 };
-type UnaryOpKind = "CEIL";
+type UnaryOpKind = "CEIL" | "FLOOR";
 type Resolvable = Value | BinOp | UnaryOp;
 
 type Modifier = {
@@ -175,6 +175,8 @@ function unaryop(kind: UnaryOpKind, value: Num): Num {
   switch (kind) {
     case "CEIL":
       return Math.ceil(value);
+    case "FLOOR":
+      return Math.floor(value);
   }
 }
 
@@ -235,7 +237,19 @@ const tree: Node = {
     {
       type: "MODIFIER",
       target: "skills.perception",
-      value: { type: "VALUE", value: 23 },
+      value: {
+        type: "VALUE",
+        value: {
+          type: "UNARYOP",
+          kind: "FLOOR",
+          value: {
+            type: "BINOP",
+            kind: "MULTIPLY",
+            left: { type: "VALUE", value: 0.5 },
+            right: { type: "VALUE", value: "stats.proficiencyBonus" },
+          },
+        },
+      },
     },
   ],
 };
