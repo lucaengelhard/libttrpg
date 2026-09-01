@@ -15,12 +15,20 @@ type Value = {
 type BinOp = {
   type: "BINOP";
   kind: BinopKind;
-  left: Value | BinOp;
-  right: Value | BinOp;
+  left: Resolvable;
+  right: Resolvable;
 };
 type BinopKind = "DIVIDE" | "SUBTRACT" | "ADD" | "MULTIPLY";
 
-type Node = Multiple | Value | BinOp;
+type UnaryOp = {
+  type: "UNARYOP";
+  kind: UnaryOpKind;
+  value: Resolvable;
+};
+type UnaryOpKind = "CEIL";
+type Resolvable = Value | BinOp | UnaryOp;
+
+type Node = Multiple | Resolvable;
 
 const NEUTRAL = Symbol("Neutral");
 type Neutral = typeof NEUTRAL;
@@ -44,7 +52,7 @@ function traverse(node: Node) {
   }
 }
 
-function resolveValue(node: Value | BinOp): Vertex<any, Num> {
+function resolveValue(node: Resolvable): Vertex<any, Num> {
   switch (node.type) {
     case "VALUE": {
       let vertex = node.name !== undefined ? values.get(node.name) : undefined;
@@ -111,7 +119,14 @@ function resolveValue(node: Value | BinOp): Vertex<any, Num> {
         Edge(right, vertex, (value) => ({ right: value as Num })),
       );
 
-      return vertex as Vertex<unknown, Num>;
+      return vertex;
+    }
+    case "UNARYOP": {
+      const value = resolveValue(node.value);
+      const vertex = Vertex<Num, Num>(NEUTRAL, (_, b) => unaryop(node.kind, b));
+      builder.addVertex(value);
+      builder.addEdge(Edge(value, vertex));
+      return vertex;
     }
   }
 }
@@ -135,30 +150,72 @@ function binop(kind: BinopKind, a: Num, b: Num): Num {
   }
 }
 
+function unaryop(kind: UnaryOpKind, value: Num): Num {
+  if (value === NEUTRAL) return value;
+
+  switch (kind) {
+    case "CEIL":
+      return Math.ceil(value);
+  }
+}
+
 const tree: Node = {
   type: "MULTIPLE",
-  values: [{
-    type: "VALUE",
-    name: "skills.perception",
-    value: {
-      type: "BINOP",
-      kind: "DIVIDE",
-      left: {
+  values: [
+    {
+      type: "VALUE",
+      name: "skills.perception",
+      value: {
         type: "BINOP",
-        kind: "SUBTRACT",
-        left: { type: "VALUE", value: "abilities.wisdom" },
-        right: { type: "VALUE", value: 10 },
+        kind: "DIVIDE",
+        left: {
+          type: "BINOP",
+          kind: "SUBTRACT",
+          left: { type: "VALUE", value: "abilities.wisdom" },
+          right: { type: "VALUE", value: 10 },
+        },
+        right: { type: "VALUE", value: 2 },
       },
-      right: { type: "VALUE", value: 2 },
     },
-  }, {
-    type: "VALUE",
-    name: "abilities.wisdom",
-    value: 14,
-  }],
+    {
+      type: "VALUE",
+      name: "abilities.wisdom",
+      value: 14,
+    },
+    { type: "VALUE", name: "classlevels.ranger", value: 3 },
+    { type: "VALUE", name: "classlevels.druid", value: 2 },
+    {
+      type: "VALUE",
+      name: "stats.level",
+      value: {
+        type: "BINOP",
+        kind: "ADD",
+        left: { type: "VALUE", value: "classlevels.ranger" },
+        right: { type: "VALUE", value: "classlevels.druid" },
+      },
+    },
+    {
+      type: "VALUE",
+      name: "stats.proficiencyBonus",
+      value: {
+        type: "BINOP",
+        kind: "ADD",
+        left: { type: "VALUE", value: 1 },
+        right: {
+          type: "UNARYOP",
+          kind: "CEIL",
+          value: {
+            type: "BINOP",
+            kind: "DIVIDE",
+            left: { type: "VALUE", value: "stats.level" },
+            right: { type: "VALUE", value: 4 },
+          },
+        },
+      },
+    },
+  ],
 };
 
 traverse(tree);
-/* console.log(values); */
-/* builder.log(); */
+
 console.log(builder.resolve());
