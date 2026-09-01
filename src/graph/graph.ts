@@ -57,6 +57,9 @@ export function GraphBuilder() {
           .map(([vertex, value]) => [vertex.name, value]),
       );
     },
+    render() {
+      render(graph);
+    },
   };
 }
 
@@ -161,4 +164,8 @@ function resolve(graph: Graph) {
 
     return parents.reduce(reduce);
   }
+}
+
+function render(graph: Graph) {
+  // TODO
 }
