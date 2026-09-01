@@ -100,29 +100,28 @@ function parseTree(tree: Node) {
           : undefined;
 
         if (typeof node.value === "number") {
-          vertex = vertex ||
-            Vertex(node.name, node.value, node.name !== undefined ? add : id);
+          vertex = vertex || Num(node.name, node.value);
           vertex.value = node.value;
         }
 
         if (typeof node.value === "string") {
           const parent = values.getOrInsert(
             node.value,
-            Vertex(node.value, NEUTRAL, add),
+            Num(node.value),
           );
 
-          vertex = vertex || Vertex(node.name, NEUTRAL, add);
+          vertex = vertex || Num(node.name);
           builder.addEdge(Edge(parent, vertex));
         }
 
         if (typeof node.value === "object") {
           const value = resolveValue(node.value);
-          vertex = vertex || Vertex(node.name, NEUTRAL, add);
+          vertex = vertex || Num(node.name);
           builder.addEdge(Edge(value, vertex));
         }
 
         if (!vertex) {
-          vertex = Vertex(node.name, NEUTRAL, add);
+          vertex = Num(node.name);
         }
 
         builder.addVertex(vertex);
@@ -180,10 +179,6 @@ function parseTree(tree: Node) {
     }
   }
 
-  function add(a: Num, b: Num) {
-    return binop("ADD", a, b);
-  }
-
   function binop(kind: BinopKind, a: Num, b: Num): Num {
     if (a === NEUTRAL) return b;
     if (b === NEUTRAL) return a;
@@ -208,6 +203,18 @@ function parseTree(tree: Node) {
       case "FLOOR":
         return Math.floor(value);
     }
+  }
+
+  function add(a: Num, b: Num) {
+    return binop("ADD", a, b);
+  }
+
+  function overrideSelector(a: Num[]): Num {
+    return Math.max(...a.filter((o) => o !== NEUTRAL)) ?? NEUTRAL;
+  }
+
+  function Num(name: string | undefined, value: Num = NEUTRAL) {
+    return Vertex(name, value, add, overrideSelector);
   }
 }
 
@@ -289,7 +296,12 @@ const tree: Node = {
     {
       type: "OVERRIDE",
       target: "abilities.wisdom",
-      value: { type: "VALUE", value: 3 },
+      value: { type: "VALUE", value: 20 },
+    },
+    {
+      type: "OVERRIDE",
+      target: "abilities.wisdom",
+      value: { type: "VALUE", value: 12 },
     },
   ],
 };
