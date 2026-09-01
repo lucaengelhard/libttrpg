@@ -1,4 +1,3 @@
-import { id } from "../lib/utils.ts";
 import { Edge, GraphBuilder, Vertex } from "./graph.ts";
 
 type Multiple = {
