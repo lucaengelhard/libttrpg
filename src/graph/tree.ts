@@ -68,7 +68,7 @@ function parseTree(tree: Node) {
         break;
       }
       case "MODIFIER": {
-        const target = values.get(node.target); // TODO protect library & override gets
+        const target = values.get(node.target); // TODO protect library  gets
         if (target === undefined) break;
         const value = resolveValue(node.value);
 
@@ -77,7 +77,7 @@ function parseTree(tree: Node) {
         break;
       }
       case "OVERRIDE": {
-        const target = values.get(node.target); // TODO protect library & override gets
+        const target = values.get(node.target); // TODO protect library  gets
         if (target === undefined) break;
         const value = resolveValue(node.value);
 
@@ -100,28 +100,28 @@ function parseTree(tree: Node) {
           : undefined;
 
         if (typeof node.value === "number") {
-          vertex = vertex || Num(node.name, node.value);
+          vertex = vertex || NumVertex(node.name, node.value);
           vertex.value = node.value;
         }
 
         if (typeof node.value === "string") {
           const parent = values.getOrInsert(
             node.value,
-            Num(node.value),
+            NumVertex(node.value),
           );
 
-          vertex = vertex || Num(node.name);
+          vertex = vertex || NumVertex(node.name);
           builder.addEdge(Edge(parent, vertex));
         }
 
         if (typeof node.value === "object") {
           const value = resolveValue(node.value);
-          vertex = vertex || Num(node.name);
+          vertex = vertex || NumVertex(node.name);
           builder.addEdge(Edge(value, vertex));
         }
 
         if (!vertex) {
-          vertex = Num(node.name);
+          vertex = NumVertex(node.name);
         }
 
         builder.addVertex(vertex);
@@ -213,7 +213,7 @@ function parseTree(tree: Node) {
     return Math.max(...a.filter((o) => o !== NEUTRAL)) ?? NEUTRAL;
   }
 
-  function Num(name: string | undefined, value: Num = NEUTRAL) {
+  function NumVertex(name: string | undefined, value: Num = NEUTRAL) {
     return Vertex(name, value, add, overrideSelector);
   }
 }
