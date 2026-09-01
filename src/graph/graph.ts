@@ -1,35 +1,33 @@
-import { id } from "../lib/utils.ts";
-
-export type Vertex<T> = {
-  value: T;
+export type Vertex<InputType, OutPutType> = {
+  value: InputType;
   name?: string;
-  reduce: (a: T, b: T) => T;
+  reduce: (a: InputType, b: InputType) => OutPutType;
 };
 
-export function Vertex<T>(
-  value: T,
-  reduce: Vertex<T>["reduce"] = id,
+export function Vertex<InputType, OutPutType>(
+  value: InputType,
+  reduce: Vertex<InputType, OutPutType>["reduce"],
   name?: string,
-): Vertex<T> {
+): Vertex<InputType, OutPutType> {
   return { value, reduce, name };
 }
 
 export type Edge<F, T> = {
-  from: Vertex<F>;
-  to: Vertex<T>;
-  transform: (value: F) => T;
+  from: Vertex<unknown, F>;
+  to: Vertex<T, unknown>;
+  transform?: (value: F) => T;
 };
 
 export function Edge<F, T>(
-  from: Vertex<F>,
-  to: Vertex<T>,
-  transform: Edge<F, T>["transform"],
+  from: Vertex<unknown, F>,
+  to: Vertex<T, unknown>,
+  transform?: Edge<F, T>["transform"],
 ): Edge<F, T> {
   return { from, to, transform };
 }
 
 type Graph = {
-  vertices: Set<Vertex<any>>;
+  vertices: Set<Vertex<any, any>>;
   edges: Set<Edge<any, any>>;
 };
 
@@ -37,7 +35,7 @@ export function GraphBuilder() {
   const graph: Graph = { vertices: new Set(), edges: new Set() };
 
   return {
-    addVertex(vertex: Vertex<any>) {
+    addVertex(vertex: Vertex<any, any>) {
       graph.vertices.add(vertex);
     },
     addEdge(edge: Edge<any, any>) {
@@ -54,8 +52,10 @@ export function GraphBuilder() {
 
 function adjacency(graph: Graph) {
   const result = new Map<
-    Vertex<unknown>,
-    Set<{ to: Vertex<unknown>; transform: (value: unknown) => unknown }>
+    Vertex<unknown, unknown>,
+    Set<
+      { to: Vertex<unknown, unknown>; transform?: (value: unknown) => unknown }
+    >
   >();
 
   for (const edge of graph.edges) {
@@ -69,13 +69,13 @@ function adjacency(graph: Graph) {
 function sort(graph: Graph) {
   const adjacencyMatrix = adjacency(graph);
   const status = new Map<
-    Vertex<unknown>,
+    Vertex<unknown, unknown>,
     "NOT_VISITED" | "IN_PROGRESS" | "FINISHED"
   >(
     graph.vertices.values().map((v) => [v, "NOT_VISITED"]),
   );
 
-  const sorted: Vertex<unknown>[] = [];
+  const sorted: Vertex<unknown, unknown>[] = [];
 
   for (const v of graph.vertices) {
     if (status.get(v) !== "NOT_VISITED") continue;
@@ -84,7 +84,7 @@ function sort(graph: Graph) {
 
   return sorted.reverse();
 
-  function visit(vertex: Vertex<unknown>) {
+  function visit(vertex: Vertex<unknown, unknown>) {
     if (status.get(vertex) === "FINISHED") return;
     if (status.get(vertex) === "IN_PROGRESS") throw "Cycle detected";
 
@@ -103,10 +103,10 @@ function resolve(graph: Graph) {
   const adjacencyMatrix = adjacency(graph);
   const sorted = sort(graph);
   const resolvedValues = new Map(
-    graph.vertices.values().map((v) => [v, new Set<any>()]),
+    graph.vertices.values().map((v) => [v, [] as any[]]),
   );
 
-  const result = new Map<Vertex<unknown>, any>();
+  const result = new Map<Vertex<unknown, unknown>, any>();
 
   for (const vertex of sorted) {
     const parentValue = reduceParents(
@@ -119,50 +119,21 @@ function resolve(graph: Graph) {
 
     result.set(vertex, value);
 
-    for (const child of adjacencyMatrix.get(vertex) ?? new Set()) {
-      const set = resolvedValues.getOrInsert(child.to, new Set());
-      set.add(child.transform(value));
+    for (const child of adjacencyMatrix.get(vertex) ?? []) {
+      const arr = resolvedValues.getOrInsert(child.to, []);
+      arr.push(child.transform ? child.transform(value) : value);
     }
   }
 
   return result;
 
   function reduceParents<T>(
-    parents: Set<T> | undefined,
+    parents: T[] | undefined,
     reduce: (a: T, b: T) => T,
   ): T | undefined {
-    if (parents === undefined || parents.size === 0) return;
-    if (parents.size === 1) return parents.values().toArray()[0];
+    if (parents === undefined || parents.length === 0) return;
+    if (parents.length === 1) return parents.values().toArray()[0];
 
-    return parents.values().reduce(reduce);
+    return parents.reduce(reduce);
   }
 }
-
-/* const rangerLevel = Vertex(3);
-const druidLevel = Vertex(2);
-
-const level = Vertex(0, add);
-
-const proficiencyBonus = Vertex(0, add);
-
-const wisdom = Vertex(12, add);
-const perception = Vertex(0, add);
-
-const character: Graph = {
-  edges: new Set([
-    Edge(wisdom, perception, getModifier),
-    Edge(rangerLevel, level, id),
-    Edge(druidLevel, level, id),
-    Edge(level, proficiencyBonus, getProficiencyBonus),
-    Edge(proficiencyBonus, perception, id),
-  ]),
-  vertices: new Set([
-    wisdom,
-    perception,
-    rangerLevel,
-    druidLevel,
-    level,
-    proficiencyBonus,
-  ]),
-};
- */
