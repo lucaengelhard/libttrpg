@@ -28,7 +28,13 @@ type UnaryOp = {
 type UnaryOpKind = "CEIL";
 type Resolvable = Value | BinOp | UnaryOp;
 
-type Node = Multiple | Resolvable;
+type Modifier = {
+  type: "MODIFIER";
+  target: string;
+  value: Resolvable;
+};
+
+type Node = Multiple | Resolvable | Modifier;
 
 const NEUTRAL = Symbol("Neutral");
 type Neutral = typeof NEUTRAL;
@@ -48,6 +54,19 @@ function traverse(node: Node) {
     case "VALUE": {
       resolveValue(node);
       break;
+    }
+    case "MODIFIER": {
+      const target = values.get(node.target); // TODO protect library gets
+      if (target === undefined) break;
+      const value = resolveValue(node.value);
+
+      builder.addEdge(Edge(value, target));
+
+      break;
+    }
+    case "BINOP":
+    case "UNARYOP": {
+      throw `Unexpected node in traverse: ${node.type}`;
     }
   }
 }
@@ -213,9 +232,19 @@ const tree: Node = {
         },
       },
     },
+    {
+      type: "MODIFIER",
+      target: "skills.perception",
+      value: { type: "VALUE", value: 23 },
+    },
   ],
 };
 
 traverse(tree);
 
-console.log(builder.resolve());
+console.log(
+  new Map(
+    builder.resolve().entries().filter(([vertex]) => vertex.name !== undefined)
+      .map(([vertex, value]) => [vertex.name, value]),
+  ),
+);
