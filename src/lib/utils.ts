@@ -12,6 +12,10 @@ export function add(a: number, b: number) {
   return a + b;
 }
 
+export function id<T>(a: T) {
+  return a;
+}
+
 function isPrimitive(value: unknown) {
   return typeof value === "string" || typeof value === "number" ||
     typeof value === "boolean";

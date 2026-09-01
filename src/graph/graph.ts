@@ -1,23 +1,55 @@
-import { add, getModifier } from "../lib/utils.ts";
+import { id } from "../lib/utils.ts";
 
-type Vertex<T> = {
+export type Vertex<T> = {
   value: T;
+  name?: string;
   reduce: (a: T, b: T) => T;
 };
 
-type Edge<F, T> = {
+export function Vertex<T>(
+  value: T,
+  reduce: Vertex<T>["reduce"] = id,
+  name?: string,
+): Vertex<T> {
+  return { value, reduce, name };
+}
+
+export type Edge<F, T> = {
   from: Vertex<F>;
   to: Vertex<T>;
   transform: (value: F) => T;
 };
+
+export function Edge<F, T>(
+  from: Vertex<F>,
+  to: Vertex<T>,
+  transform: Edge<F, T>["transform"],
+): Edge<F, T> {
+  return { from, to, transform };
+}
 
 type Graph = {
   vertices: Set<Vertex<any>>;
   edges: Set<Edge<any, any>>;
 };
 
-function id<T>(a: T) {
-  return a;
+export function GraphBuilder() {
+  const graph: Graph = { vertices: new Set(), edges: new Set() };
+
+  return {
+    addVertex(vertex: Vertex<any>) {
+      graph.vertices.add(vertex);
+    },
+    addEdge(edge: Edge<any, any>) {
+      graph.edges.add(edge);
+    },
+    resolve() {
+      return resolve(graph);
+    },
+    log() {
+      console.log(graph);
+    },
+  };
 }
 
 function adjacency(graph: Graph) {
@@ -106,21 +138,31 @@ function resolve(graph: Graph) {
   }
 }
 
-const wisdom: Vertex<number> = { value: 12, reduce: add };
-const wisdomMod: Vertex<number> = { value: 0, reduce: add };
+/* const rangerLevel = Vertex(3);
+const druidLevel = Vertex(2);
 
-const wisdomModBonus: Vertex<number> = { value: 3, reduce: add };
+const level = Vertex(0, add);
+
+const proficiencyBonus = Vertex(0, add);
+
+const wisdom = Vertex(12, add);
+const perception = Vertex(0, add);
 
 const character: Graph = {
   edges: new Set([
-    {
-      from: wisdom,
-      to: wisdomMod,
-      transform: getModifier,
-    },
-    { from: wisdomModBonus, to: wisdomMod, transform: id },
+    Edge(wisdom, perception, getModifier),
+    Edge(rangerLevel, level, id),
+    Edge(druidLevel, level, id),
+    Edge(level, proficiencyBonus, getProficiencyBonus),
+    Edge(proficiencyBonus, perception, id),
   ]),
-  vertices: new Set([wisdom, wisdomMod, wisdomModBonus]),
+  vertices: new Set([
+    wisdom,
+    perception,
+    rangerLevel,
+    druidLevel,
+    level,
+    proficiencyBonus,
+  ]),
 };
-
-console.log(resolve(character));
+ */
