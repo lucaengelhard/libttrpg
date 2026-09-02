@@ -1,4 +1,4 @@
-import type { Multiple, Node, Resolvable } from "./nodes.ts";
+import { isNode, type Multiple, type Node, type Resolvable } from "./nodes.ts";
 
 export type Root = {
   type: "ROOT";
@@ -69,7 +69,7 @@ export function desugar(root: Root): Node {
           newBindings.set(identifier, node.bindings[identifier]);
         }
 
-        return apply(definition.definition, newBindings);
+        return apply(definition.definition, newBindings); // TODO maybe return apply with a result prop?
       }
       case "CHOICE": {
         return {
@@ -88,8 +88,10 @@ export function desugar(root: Root): Node {
         };
       }
 
-      case "QUERY":
-        return node;
+      case "QUERY": {
+        const res = get(node.query);
+        return isNode(res) ? apply(res, bindings) : node;
+      }
     }
 
     function get(identifier: string | undefined) {

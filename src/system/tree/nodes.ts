@@ -67,6 +67,11 @@ export type Node =
   | Apply
   | Choice;
 
+export function isNode(input: unknown): input is Node {
+  return input !== null && input !== undefined && typeof input === "object" &&
+    "type" in input && typeof input.type === "string" && input.type.length > 0;
+}
+
 export function isBinopValue(value: unknown): value is BinopValue {
   return typeof value === "object" && value !== null &&
     ("left" in value || "right" in value);

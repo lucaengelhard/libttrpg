@@ -305,10 +305,13 @@ const rules = Ruleset({
     },
   },
   class: {
-    bindings: ["name", "level"],
+    bindings: ["name", "level", "grants"],
     definition: {
       type: "MULTIPLE",
-      values: [{ type: "VALUE", name: "$name", value: "$level" }],
+      values: [
+        { type: "VALUE", name: "$name", value: "$level" },
+        { type: "QUERY", query: "$grants" },
+      ],
     },
   },
   level: {
@@ -351,27 +354,26 @@ const rules = Ruleset({
 
 const char = rules.create({
   "abilities.strength": 12,
-  "abilities.dexterity": 16,
+  "abilities.dexterity": 15,
   "abilities.constitution": 14,
   "abilities.intelligence": 13,
-  "abilities.wisdom": 14,
-  "abilities.charisma": 10,
+  "abilities.wisdom": 13,
+  "abilities.charisma": 8,
 });
 
-console.log(parseTree(char));
+/* console.log(parseTree(char)); */
 
 char.entry.values.push({
   type: "APPLY",
   name: "class",
-  bindings: { name: "classes.ranger", level: 3 },
-});
-
-console.log(parseTree(char));
-
-char.entry.values.push({
-  type: "APPLY",
-  name: "class",
-  bindings: { name: "classes.druid", level: 4 },
+  bindings: {
+    name: "classes.ranger",
+    level: 3,
+    grants: {
+      type: "MULTIPLE",
+      values: [{ type: "VALUE", name: "aaaaaaaaa", value: 2 }],
+    },
+  },
 });
 
 console.log(parseTree(char));
