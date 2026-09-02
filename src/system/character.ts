@@ -412,7 +412,7 @@ char.entry.values.push({
   bindings: {
     name: "classes.ranger",
     level: 3,
-    grants: {},
+    grants: { type: "VALUE", name: "aaaaaaaaa", value: 200 },
   },
 });
 

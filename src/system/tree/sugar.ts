@@ -9,10 +9,12 @@ export type Root = {
 
 export type Definition = { bindings: string[]; definition: Node };
 
+type BindingValue = number | string | Node;
+
 export type Apply = {
   type: "APPLY";
   name: string;
-  bindings: Record<string, any>;
+  bindings: Record<string, BindingValue>;
 };
 
 // TODO: Not sure if this works correctly or if closures are relevant
@@ -23,7 +25,7 @@ export function desugar(root: Root): Node {
 
   function apply(
     node: Node | Apply,
-    bindings: Map<string, any>,
+    bindings: Map<string, BindingValue>,
   ): Node {
     switch (node.type) {
       case "MULTIPLE": {
@@ -39,7 +41,11 @@ export function desugar(root: Root): Node {
           ? apply(node.value, bindings)
           : get(node.value) ?? node.value;
 
-        return { ...node, name: get(node.name) ?? node.name, value };
+        return {
+          ...node,
+          name: get(node.name, "string") ?? node.name,
+          value: value as Resolvable,
+        };
       }
       case "BINOP": {
         return {
@@ -59,7 +65,7 @@ export function desugar(root: Root): Node {
         return {
           ...node,
           value: apply(node.value, bindings) as Resolvable,
-          target: get(node.target) ?? node.target,
+          target: get(node.target, "string") ?? node.target,
         };
       }
       case "APPLY": {
@@ -87,11 +93,30 @@ export function desugar(root: Root): Node {
       }
     }
 
-    function get(identifier: string | undefined) {
+    function get<Constraint extends "number" | "string" | "node" | undefined>(
+      identifier: string | undefined,
+      constraint?: Constraint,
+    ):
+      | (Constraint extends "number" ? number | undefined
+        : Constraint extends "string" ? string | undefined
+        : Constraint extends "node" ? Node | undefined
+        : BindingValue | undefined)
+      | undefined {
       // TODO template strings
       if (identifier === undefined || !identifier.startsWith("$")) return;
       const cleaned = identifier.replace("$", "");
-      return bindings.get(cleaned);
+      const res = bindings.get(cleaned);
+
+      // deno-lint-ignore no-explicit-any
+      if (constraint === undefined || res === undefined) return res as any;
+
+      if (constraint === "number" || constraint === "string") {
+        // deno-lint-ignore no-explicit-any valid-typeof
+        return typeof res === constraint ? res as any : undefined;
+      }
+
+      // deno-lint-ignore no-explicit-any
+      return isNode(res) ? res as any : undefined;
     }
   }
 }
