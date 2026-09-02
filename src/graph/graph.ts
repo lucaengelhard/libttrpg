@@ -1,3 +1,5 @@
+import { nestedMap } from "../lib/utils.ts";
+
 export type Vertex<InputType, OutPutType> = {
   value: InputType;
   name?: string;
@@ -52,10 +54,10 @@ export function GraphBuilder<T>() {
       console.log(graph);
     },
     getNamed() {
-      return new Map(
+      return nestedMap(Object.fromEntries(
         this.resolve().entries().filter(([vertex]) => vertex.name !== undefined)
           .map(([vertex, value]) => [vertex.name, value]),
-      );
+      ));
     },
     render() {
       render(graph);
