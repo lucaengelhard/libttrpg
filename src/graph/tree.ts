@@ -81,7 +81,12 @@ function unaryop(kind: UnaryOpKind, value: VertexValue): VertexValue {
   }
 }
 
-export type Resolvable = Value | BinOp | UnaryOp | Collection;
+type Query = {
+  type: "QUERY";
+  query: string;
+};
+
+export type Resolvable = Value | BinOp | UnaryOp | Query;
 export function isResolvable(node: unknown): node is Resolvable {
   if (
     node === undefined || node === null || typeof node !== "object" ||
@@ -90,7 +95,7 @@ export function isResolvable(node: unknown): node is Resolvable {
     return false;
   }
 
-  return ["VALUE", "BINOP", "UNARYOP", "COLLECTION"].includes(node.type);
+  return ["VALUE", "BINOP", "UNARYOP", "QUERY"].includes(node.type);
 }
 
 type Modifier = {
@@ -104,11 +109,6 @@ type Override = {
   target: string;
   value: Resolvable;
   // TODO: condition
-};
-
-type Collection = {
-  type: "COLLECTION";
-  query: string;
 };
 
 export type Node =
@@ -174,6 +174,7 @@ export function parseTree(tree: Root) {
 
         break;
       }
+      case "APPLY":
       case "BINOP":
       case "UNARYOP": {
         throw `Unexpected node in traverse: ${node.type}`;
@@ -259,7 +260,7 @@ export function parseTree(tree: Root) {
         builder.addEdge(Edge(value, vertex));
         return vertex;
       }
-      case "COLLECTION": {
+      case "QUERY": {
         const resultVertex = ValueVertex(undefined);
         builder.addVertex(resultVertex);
 

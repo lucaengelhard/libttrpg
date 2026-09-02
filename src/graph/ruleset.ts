@@ -43,7 +43,7 @@ function Ruleset(
           case "BINOP":
           case "UNARYOP":
           case "VALUE":
-          case "COLLECTION":
+          case "QUERY":
             return node;
         }
       }
@@ -92,6 +92,34 @@ const rules = Ruleset([{
   },
 }, {
   type: "DEFINE",
+  name: "passive",
+  bindings: ["from", "name"],
+  definition: {
+    type: "VALUE",
+    name: "$name",
+    value: {
+      type: "BINOP",
+      kind: "ADD",
+      left: {
+        type: "UNARYOP",
+        kind: "FLOOR",
+        value: {
+          type: "BINOP",
+          kind: "DIVIDE",
+          left: {
+            type: "BINOP",
+            kind: "SUBTRACT",
+            left: { type: "VALUE", value: "$from" },
+            right: { type: "VALUE", value: 10 },
+          },
+          right: { type: "VALUE", value: 2 },
+        },
+      },
+      right: { type: "VALUE", value: 10 },
+    },
+  },
+}, {
+  type: "DEFINE",
   name: "modifier",
   bindings: ["from", "name"],
   definition: {
@@ -112,6 +140,51 @@ const rules = Ruleset([{
         right: { type: "VALUE", value: 2 },
       },
     },
+  },
+}, {
+  type: "DEFINE",
+  name: "saves",
+  bindings: [],
+  definition: {
+    type: "MULTIPLE",
+    values: [
+      {
+        type: "APPLY",
+        name: "modifier",
+        bindings: { from: "abilities.strength", name: "saves.strength" },
+      },
+      {
+        type: "APPLY",
+        name: "modifier",
+        bindings: { from: "abilities.dexterity", name: "saves.dexterity" },
+      },
+      {
+        type: "APPLY",
+        name: "modifier",
+        bindings: {
+          from: "abilities.constitution",
+          name: "saves.constitution",
+        },
+      },
+      {
+        type: "APPLY",
+        name: "modifier",
+        bindings: {
+          from: "abilities.intelligence",
+          name: "saves.intelligence",
+        },
+      },
+      {
+        type: "APPLY",
+        name: "modifier",
+        bindings: { from: "abilities.wisdom", name: "saves.wisdom" },
+      },
+      {
+        type: "APPLY",
+        name: "modifier",
+        bindings: { from: "abilities.charisma", name: "saves.charisma" },
+      },
+    ],
   },
 }, {
   type: "DEFINE",
@@ -233,7 +306,7 @@ const rules = Ruleset([{
   definition: {
     type: "VALUE",
     name: "stats.level",
-    value: { type: "COLLECTION", query: "classes" },
+    value: { type: "QUERY", query: "classes" },
   },
 }, {
   type: "DEFINE",
@@ -261,6 +334,7 @@ const rules = Ruleset([{
 }], [
   { type: "APPLY", name: "skills", bindings: {} },
   { type: "APPLY", name: "abilities", bindings: {} },
+  { type: "APPLY", name: "saves", bindings: {} },
   { type: "APPLY", name: "level", bindings: {} },
   { type: "APPLY", name: "proficiencyBonus", bindings: {} },
 ]);

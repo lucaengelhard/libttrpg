@@ -78,7 +78,7 @@ export function desugar(root: Root): Node {
 
         return apply(definition.definition, newBindings);
       }
-      case "COLLECTION":
+      case "QUERY":
         return node;
     }
 
