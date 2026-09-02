@@ -25,7 +25,7 @@ type UnaryOp = {
   value: Resolvable;
 };
 type UnaryOpKind = "CEIL" | "FLOOR";
-type Resolvable = Value | BinOp | UnaryOp;
+export type Resolvable = Value | BinOp | UnaryOp;
 
 type Modifier = {
   type: "MODIFIER";
@@ -40,13 +40,39 @@ type Override = {
   // TODO: condition
 };
 
-type Node = Multiple | Resolvable | Modifier | Override;
+type Scope = {
+  type: "SCOPE";
+  definitions: Define[];
+  entry: Node;
+};
+
+export type Define = {
+  type: "DEFINE";
+  name: string;
+  bindings: string[];
+  definition: Node;
+};
+
+type Apply = {
+  type: "APPLY";
+  name: string;
+  bindings: Record<string, any>;
+};
+
+export type Node =
+  | Multiple
+  | Resolvable
+  | Modifier
+  | Override
+  | Scope
+  | Define
+  | Apply;
 
 const NEUTRAL = Symbol("Neutral");
 type Neutral = typeof NEUTRAL;
 type Num = number | Neutral;
 
-function parseTree(tree: Node) {
+export function parseTree(tree: Node) {
   const values = new Map<string, Vertex<any, Num>>();
   const builder = GraphBuilder();
 
@@ -84,9 +110,15 @@ function parseTree(tree: Node) {
 
         break;
       }
+      case "DEFINE":
+      case "APPLY":
       case "BINOP":
       case "UNARYOP": {
         throw `Unexpected node in traverse: ${node.type}`;
+      }
+      case "SCOPE": {
+        traverse(node.entry);
+        break;
       }
     }
   }
@@ -217,7 +249,7 @@ function parseTree(tree: Node) {
   }
 }
 
-const tree: Node = {
+/* const tree: Node = {
   type: "MULTIPLE",
   values: [
     {
@@ -305,4 +337,4 @@ const tree: Node = {
   ],
 };
 
-console.log(parseTree(tree));
+console.log(parseTree(tree)); */
