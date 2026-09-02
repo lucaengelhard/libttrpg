@@ -6,14 +6,14 @@ export type Root = {
   entry: Node;
 };
 
-export type Define = {
+type Define = {
   type: "DEFINE";
   name: string;
   bindings: string[];
   definition: Node;
 };
 
-type Apply = {
+export type Apply = {
   type: "APPLY";
   name: string;
   bindings: Record<string, any>;
@@ -76,7 +76,7 @@ export function desugar(root: Root): Node {
           newBindings.set(identifier, node.bindings[identifier]);
         }
 
-        return apply(definition.definition, bindings);
+        return apply(definition.definition, newBindings);
       }
     }
 

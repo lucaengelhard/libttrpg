@@ -1,5 +1,5 @@
 import { Edge, GraphBuilder, Vertex } from "./graph.ts";
-import { desugar, type Root } from "./sugar.ts";
+import { type Apply, desugar, type Root } from "./sugar.ts";
 
 type Multiple = {
   type: "MULTIPLE";
@@ -25,7 +25,7 @@ type BinopValue =
   | { right: VertexValue }
   | Neutral;
 
-function isBinopValue(value: VertexValue): value is BinopValue {
+function isBinopValue(value: unknown): value is BinopValue {
   return typeof value === "object" && value !== null &&
     ("left" in value || "right" in value);
 }
@@ -49,12 +49,8 @@ function getBinopValue(
 }
 
 function binop(kind: BinopKind, a: VertexValue, b: VertexValue): VertexValue {
-  if (a === NEUTRAL) return b;
+  if (a === NEUTRAL) return b; // TODO: This causes unexpected behaviour, maybe case-by-case handling?
   if (b === NEUTRAL) return a;
-  if (typeof a !== "number" || typeof b !== "number") {
-    // TODO
-    return NEUTRAL;
-  }
   switch (kind) {
     case "DIVIDE":
       return a / b;
@@ -76,11 +72,6 @@ type UnaryOpKind = "CEIL" | "FLOOR";
 
 function unaryop(kind: UnaryOpKind, value: VertexValue): VertexValue {
   if (value === NEUTRAL) return value;
-
-  if (typeof value !== "number") {
-    // TODO
-    return NEUTRAL;
-  }
 
   switch (kind) {
     case "CEIL":
@@ -119,7 +110,8 @@ export type Node =
   | Multiple
   | Resolvable
   | Modifier
-  | Override;
+  | Override
+  | Apply;
 
 const NEUTRAL = Symbol("Neutral");
 type Neutral = typeof NEUTRAL;
@@ -257,7 +249,7 @@ export function parseTree(tree: Root) {
   }
 
   function overrideSelector(a: VertexValue[]): VertexValue {
-    return Math.max(...a.filter((o) => typeof o === "number")) ?? NEUTRAL; // TODO make more generic
+    return Math.max(...a.filter((o) => typeof o === "number")) ?? NEUTRAL;
   }
 
   function ValueVertex(name: string | undefined, value: VertexValue = NEUTRAL) {
@@ -265,7 +257,7 @@ export function parseTree(tree: Root) {
   }
 }
 
-const tree: Node = {
+/* const tree: Node = {
   type: "MULTIPLE",
   values: [
     {
@@ -353,4 +345,4 @@ const tree: Node = {
   ],
 };
 
-console.log(parseTree({ type: "ROOT", entry: tree, definitions: [] }));
+console.log(parseTree({ type: "ROOT", entry: tree, definitions: [] })); */
