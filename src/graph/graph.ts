@@ -14,35 +14,35 @@ export function Vertex<InputType, OutPutType>(
   return { name, value, reduce, overrideSelector };
 }
 
-export type Edge<F, T> = {
-  from: Vertex<unknown, F>;
-  to: Vertex<T, unknown>;
-  transform?: (value: F) => T;
+export type Edge<FromInput, FromOutput, ToInput, ToOutput> = {
+  from: Vertex<FromInput, FromOutput>;
+  to: Vertex<ToInput, ToOutput>;
+  transform?: (value: FromOutput) => ToInput;
   override?: boolean;
 };
 
-export function Edge<F, T>(
-  from: Vertex<unknown, F>,
-  to: Vertex<T, unknown>,
-  transform?: Edge<F, T>["transform"],
+export function Edge<FromInput, FromOutput, ToInput, ToOutput>(
+  from: Vertex<FromInput, FromOutput>,
+  to: Vertex<ToInput, ToOutput>,
+  transform?: Edge<FromInput, FromOutput, ToInput, ToOutput>["transform"],
   override?: boolean,
-): Edge<F, T> {
+): Edge<FromInput, FromOutput, ToInput, ToOutput> {
   return { from, to, transform, override };
 }
 
-type Graph = {
-  vertices: Set<Vertex<any, any>>;
-  edges: Set<Edge<any, any>>;
+type Graph<T> = {
+  vertices: Set<Vertex<T, T>>;
+  edges: Set<Edge<T, T, T, T>>;
 };
 
-export function GraphBuilder() {
-  const graph: Graph = { vertices: new Set(), edges: new Set() };
+export function GraphBuilder<T>() {
+  const graph: Graph<T> = { vertices: new Set(), edges: new Set() };
 
   return {
-    addVertex(vertex: Vertex<any, any>) {
+    addVertex(vertex: Vertex<T, T>) {
       graph.vertices.add(vertex);
     },
-    addEdge(edge: Edge<any, any>) {
+    addEdge(edge: Edge<T, T, T, T>) {
       graph.edges.add(edge);
     },
     resolve() {
@@ -63,10 +63,10 @@ export function GraphBuilder() {
   };
 }
 
-function adjacency(graph: Graph) {
+function adjacency<T>(graph: Graph<T>) {
   const result = new Map<
-    Vertex<unknown, unknown>,
-    Set<Edge<unknown, unknown>>
+    Vertex<T, T>,
+    Set<Edge<T, T, T, T>>
   >();
 
   for (const edge of graph.edges) {
@@ -77,16 +77,16 @@ function adjacency(graph: Graph) {
   return result;
 }
 
-function sort(graph: Graph) {
+function sort<T>(graph: Graph<T>) {
   const adjacencyMatrix = adjacency(graph);
   const status = new Map<
-    Vertex<unknown, unknown>,
+    Vertex<T, T>,
     "NOT_VISITED" | "IN_PROGRESS" | "FINISHED"
   >(
     graph.vertices.values().map((v) => [v, "NOT_VISITED"]),
   );
 
-  const sorted: Vertex<unknown, unknown>[] = [];
+  const sorted: Vertex<T, T>[] = [];
 
   for (const v of graph.vertices) {
     if (status.get(v) !== "NOT_VISITED") continue;
@@ -95,7 +95,7 @@ function sort(graph: Graph) {
 
   return sorted.reverse();
 
-  function visit(vertex: Vertex<unknown, unknown>) {
+  function visit(vertex: Vertex<T, T>) {
     if (status.get(vertex) === "FINISHED") return;
     if (status.get(vertex) === "IN_PROGRESS") throw "Cycle detected";
 
@@ -110,15 +110,15 @@ function sort(graph: Graph) {
   }
 }
 
-function resolve(graph: Graph) {
+function resolve<T>(graph: Graph<T>) {
   const adjacencyMatrix = adjacency(graph);
   const sorted = sort(graph);
   const resolvedValues = new Map(
-    graph.vertices.values().map((v) => [v, [] as any[]]),
+    graph.vertices.values().map((v) => [v, [] as T[]]),
   );
-  const overrides = new Map<Vertex<unknown, unknown>, any[]>();
+  const overrides = new Map<Vertex<T, T>, T[]>();
 
-  const result = new Map<Vertex<unknown, unknown>, any>();
+  const result = new Map<Vertex<T, T>, T>();
 
   for (const vertex of sorted) {
     const parentValue = reduceParents(
@@ -166,6 +166,6 @@ function resolve(graph: Graph) {
   }
 }
 
-function render(graph: Graph) {
+function render<T>(_graph: Graph<T>) {
   // TODO
 }

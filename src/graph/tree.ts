@@ -9,7 +9,7 @@ type Multiple = {
 type Value = {
   type: "VALUE";
   name?: string;
-  value: number | string | Resolvable;
+  value: number | string | Resolvable | { [key: string]: Resolvable };
 };
 
 type BinOp = {
@@ -20,13 +20,87 @@ type BinOp = {
 };
 type BinopKind = "DIVIDE" | "SUBTRACT" | "ADD" | "MULTIPLY";
 
+type BinopValue =
+  | { left: VertexValue }
+  | { right: VertexValue }
+  | Neutral;
+
+function isBinopValue(value: VertexValue): value is BinopValue {
+  return typeof value === "object" && value !== null &&
+    ("left" in value || "right" in value);
+}
+
+function unwrapBinopValue(value: BinopValue) {
+  return typeof value === "object"
+    ? "left" in value ? value.left : value.right
+    : value;
+}
+
+function getBinopValue(
+  a: Exclude<BinopValue, Neutral>,
+  b: Exclude<BinopValue, Neutral>,
+  side: "left" | "right",
+): VertexValue {
+  return side in a
+    ? a[side as keyof typeof a]
+    : side in b
+    ? b[side as keyof typeof b]
+    : NEUTRAL;
+}
+
+function binop(kind: BinopKind, a: VertexValue, b: VertexValue): VertexValue {
+  if (a === NEUTRAL) return b;
+  if (b === NEUTRAL) return a;
+  if (typeof a !== "number" || typeof b !== "number") {
+    // TODO
+    return NEUTRAL;
+  }
+  switch (kind) {
+    case "DIVIDE":
+      return a / b;
+    case "SUBTRACT":
+      return a - b;
+    case "ADD":
+      return a + b;
+    case "MULTIPLY":
+      return a * b;
+  }
+}
+
 type UnaryOp = {
   type: "UNARYOP";
   kind: UnaryOpKind;
   value: Resolvable;
 };
 type UnaryOpKind = "CEIL" | "FLOOR";
+
+function unaryop(kind: UnaryOpKind, value: VertexValue): VertexValue {
+  if (value === NEUTRAL) return value;
+
+  if (typeof value !== "number") {
+    // TODO
+    return NEUTRAL;
+  }
+
+  switch (kind) {
+    case "CEIL":
+      return Math.ceil(value);
+    case "FLOOR":
+      return Math.floor(value);
+  }
+}
+
 export type Resolvable = Value | BinOp | UnaryOp;
+function isResolvable(node: unknown): node is Resolvable {
+  if (
+    node === undefined || node === null || typeof node !== "object" ||
+    !("type" in node) || typeof node.type !== "string"
+  ) {
+    return false;
+  }
+
+  return ["VALUE", "BINOP", "UNARYOP"].includes(node.type);
+}
 
 type Modifier = {
   type: "MODIFIER";
@@ -49,14 +123,13 @@ export type Node =
 
 const NEUTRAL = Symbol("Neutral");
 type Neutral = typeof NEUTRAL;
-type Num = number | Neutral;
+
+type VertexValue = number | Neutral | { [key: string]: VertexValue };
 
 export function parseTree(tree: Root) {
-  const values = new Map<string, Vertex<any, Num>>();
-  const builder = GraphBuilder();
+  const values = new Map<string, Vertex<VertexValue, VertexValue>>();
+  const builder = GraphBuilder<VertexValue>();
 
-  // Next -> Desugaring only top level, remove types from  Node type and only make one desugaring pass
-  // 	  -> Make tree more generic, so that more information can flow?
   traverse(desugar(tree));
 
   return builder.getNamed();
@@ -98,7 +171,7 @@ export function parseTree(tree: Root) {
     }
   }
 
-  function resolveValue(node: Resolvable): Vertex<any, Num> {
+  function resolveValue(node: Resolvable): Vertex<VertexValue, VertexValue> {
     switch (node.type) {
       case "VALUE": {
         let vertex = node.name !== undefined
@@ -106,28 +179,34 @@ export function parseTree(tree: Root) {
           : undefined;
 
         if (typeof node.value === "number") {
-          vertex = vertex || NumVertex(node.name, node.value);
+          vertex = vertex || ValueVertex(node.name, node.value);
           vertex.value = node.value;
         }
 
         if (typeof node.value === "string") {
           const parent = values.getOrInsert(
             node.value,
-            NumVertex(node.value),
+            ValueVertex(node.value),
           );
 
-          vertex = vertex || NumVertex(node.name);
+          vertex = vertex || ValueVertex(node.name);
           builder.addEdge(Edge(parent, vertex));
         }
 
         if (typeof node.value === "object") {
-          const value = resolveValue(node.value);
-          vertex = vertex || NumVertex(node.name);
-          builder.addEdge(Edge(value, vertex));
+          if (isResolvable(node.value)) {
+            const value = resolveValue(node.value);
+            vertex = vertex || ValueVertex(node.name);
+            builder.addEdge(Edge(value, vertex));
+          }
+
+          if (!isResolvable(node.value)) {
+            // TODO
+          }
         }
 
         if (!vertex) {
-          vertex = NumVertex(node.name);
+          vertex = ValueVertex(node.name);
         }
 
         builder.addVertex(vertex);
@@ -140,40 +219,34 @@ export function parseTree(tree: Root) {
         const left = resolveValue(node.left);
         const right = resolveValue(node.right);
 
-        const vertex = Vertex<{ left: Num } | { right: Num } | Neutral, Num>(
+        const result = Vertex<VertexValue, VertexValue>(
           undefined,
           NEUTRAL,
           (a, b) => {
-            if (a === NEUTRAL) {
-              return typeof b === "object" ? "left" in b ? b.left : b.right : b;
+            if (a === NEUTRAL || !isBinopValue(a)) {
+              return isBinopValue(b) ? unwrapBinopValue(b) : b;
+            }
+            if (b === NEUTRAL || !isBinopValue(b)) {
+              return unwrapBinopValue(a);
             }
 
-            if (b === NEUTRAL) return "left" in a ? a.left : a.right;
-
-            const left = "left" in a ? a.left : "left" in b ? b.left : NEUTRAL;
-            const right = "right" in a
-              ? a.right
-              : "right" in b
-              ? b.right
-              : NEUTRAL;
+            const left = getBinopValue(a, b, "left");
+            const right = getBinopValue(a, b, "right");
 
             return binop(node.kind, left, right);
           },
         );
 
-        builder.addVertex(vertex);
-        builder.addEdge(
-          Edge(left, vertex, (value) => ({ left: value as Num })),
-        );
-        builder.addEdge(
-          Edge(right, vertex, (value) => ({ right: value as Num })),
-        );
+        builder.addVertex(result);
 
-        return vertex;
+        builder.addEdge(Edge(left, result, (value) => ({ left: value })));
+        builder.addEdge(Edge(right, result, (value) => ({ right: value })));
+
+        return result;
       }
       case "UNARYOP": {
         const value = resolveValue(node.value);
-        const vertex = Vertex<Num, Num>(
+        const vertex = Vertex<VertexValue, VertexValue>(
           undefined,
           NEUTRAL,
           (_, b) => unaryop(node.kind, b),
@@ -185,46 +258,20 @@ export function parseTree(tree: Root) {
     }
   }
 
-  function binop(kind: BinopKind, a: Num, b: Num): Num {
-    if (a === NEUTRAL) return b;
-    if (b === NEUTRAL) return a;
-    switch (kind) {
-      case "DIVIDE":
-        return a / b;
-      case "SUBTRACT":
-        return a - b;
-      case "ADD":
-        return a + b;
-      case "MULTIPLY":
-        return a * b;
-    }
-  }
-
-  function unaryop(kind: UnaryOpKind, value: Num): Num {
-    if (value === NEUTRAL) return value;
-
-    switch (kind) {
-      case "CEIL":
-        return Math.ceil(value);
-      case "FLOOR":
-        return Math.floor(value);
-    }
-  }
-
-  function add(a: Num, b: Num) {
+  function add(a: VertexValue, b: VertexValue) {
     return binop("ADD", a, b);
   }
 
-  function overrideSelector(a: Num[]): Num {
-    return Math.max(...a.filter((o) => o !== NEUTRAL)) ?? NEUTRAL;
+  function overrideSelector(a: VertexValue[]): VertexValue {
+    return Math.max(...a.filter((o) => typeof o === "number")) ?? NEUTRAL; // TODO make more generic
   }
 
-  function NumVertex(name: string | undefined, value: Num = NEUTRAL) {
-    return Vertex(name, value, add, overrideSelector);
+  function ValueVertex(name: string | undefined, value: VertexValue = NEUTRAL) {
+    return Vertex<VertexValue, VertexValue>(name, value, add, overrideSelector);
   }
 }
 
-/* const tree: Node = {
+const tree: Node = {
   type: "MULTIPLE",
   values: [
     {
@@ -312,4 +359,4 @@ export function parseTree(tree: Root) {
   ],
 };
 
-console.log(parseTree(tree)); */
+console.log(parseTree({ type: "ROOT", entry: tree, definitions: [] }));
