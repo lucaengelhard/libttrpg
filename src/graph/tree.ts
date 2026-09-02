@@ -1,4 +1,5 @@
 import { Edge, GraphBuilder, Vertex } from "./graph.ts";
+import { desugar, type Root } from "./sugar.ts";
 
 type Multiple = {
   type: "MULTIPLE";
@@ -40,43 +41,23 @@ type Override = {
   // TODO: condition
 };
 
-type Scope = {
-  type: "SCOPE";
-  definitions: Define[];
-  entry: Node;
-};
-
-export type Define = {
-  type: "DEFINE";
-  name: string;
-  bindings: string[];
-  definition: Node;
-};
-
-type Apply = {
-  type: "APPLY";
-  name: string;
-  bindings: Record<string, any>;
-};
-
 export type Node =
   | Multiple
   | Resolvable
   | Modifier
-  | Override
-  | Scope
-  | Define
-  | Apply;
+  | Override;
 
 const NEUTRAL = Symbol("Neutral");
 type Neutral = typeof NEUTRAL;
 type Num = number | Neutral;
 
-export function parseTree(tree: Node) {
+export function parseTree(tree: Root) {
   const values = new Map<string, Vertex<any, Num>>();
   const builder = GraphBuilder();
 
-  traverse(tree);
+  // Next -> Desugaring only top level, remove types from  Node type and only make one desugaring pass
+  // 	  -> Make tree more generic, so that more information can flow?
+  traverse(desugar(tree));
 
   return builder.getNamed();
 
@@ -110,15 +91,9 @@ export function parseTree(tree: Node) {
 
         break;
       }
-      case "DEFINE":
-      case "APPLY":
       case "BINOP":
       case "UNARYOP": {
         throw `Unexpected node in traverse: ${node.type}`;
-      }
-      case "SCOPE": {
-        traverse(node.entry);
-        break;
       }
     }
   }
