@@ -1,4 +1,4 @@
-import { nestedMap } from "../lib/utils.ts";
+import { nestedMap } from "./utils.ts";
 
 export type Vertex<InputType, OutPutType> = {
   value: InputType;

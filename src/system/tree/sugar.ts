@@ -1,4 +1,4 @@
-import type { Multiple, Node, Resolvable } from "./tree.ts";
+import type { Multiple, Node, Resolvable } from "./nodes.ts";
 
 export type Root = {
   type: "ROOT";
@@ -78,6 +78,23 @@ export function desugar(root: Root): Node {
 
         return apply(definition.definition, newBindings);
       }
+      case "CHOICE": {
+        return {
+          ...node,
+          count: apply(node.count, bindings) as Resolvable,
+          options: Object.fromEntries(
+            Object.entries(node.options).map((
+              [key, value],
+            ) => [key, apply(value, bindings)]),
+          ),
+          selected: Object.fromEntries(
+            Object.entries(node.selected).map((
+              [key, value],
+            ) => [key, apply(value, bindings)]),
+          ),
+        };
+      }
+
       case "QUERY":
         return node;
     }
@@ -90,5 +107,3 @@ export function desugar(root: Root): Node {
     }
   }
 }
-
-// Next: Choices? More Desugaring? How would level scaling work?
