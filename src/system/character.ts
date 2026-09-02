@@ -1,61 +1,53 @@
+import { recordMap } from "../lib/utils.ts";
 import { Ruleset } from "./ruleset.ts";
 import type { Node } from "./tree/nodes.ts";
 import { parseTree } from "./tree/parseTree.ts";
 import type { Root } from "./tree/sugar.ts";
 
-export function makeChoice(
-  tree: Root,
-  identifier: string,
-  selection: string,
-): Root {
-  const { values } = parseTree(tree);
-  return { ...tree, entry: traverse(tree.entry) };
+type Vistor<N extends Node, A extends unknown[]> = (
+  node: N,
+  traverse: (
+    node: Node,
+    tree: ReturnType<typeof parseTree>,
+    ...args: A
+  ) => Node,
+  tree: ReturnType<typeof parseTree>,
+  ...args: A
+) => N;
 
-  function traverse<N extends Node>(node: N): N {
+type Vistors<A extends unknown[]> = {
+  [K in Node["type"]]: Vistor<Extract<Node, { type: K }>, A>;
+};
+
+function createNodeSetter<A extends unknown[]>(visitors: Partial<Vistors<A>>) {
+  return (tree: Root, ...args: A): Root => {
+    return { ...tree, entry: traverse(tree.entry, parseTree(tree), ...args) };
+  };
+
+  function traverse<N extends Node>(
+    node: N,
+    tree: ReturnType<typeof parseTree>,
+    ...args: A
+  ): N {
+    const visitor: Vistor<N, A> = visitors[node.type] as unknown as Vistor<
+      N,
+      A
+    >;
+
+    if (visitor) return visitor(node, traverse, tree, ...args);
+
     switch (node.type) {
-      case "CHOICE": {
-        if (node.name !== identifier) {
-          return {
-            ...node,
-            selected: Object.fromEntries(
-              Object.entries(node.selected).map((
-                [key, value],
-              ) => [key, traverse(value)]),
-            ),
-          };
-        }
-
-        if (!(selection in node.options)) {
-          return { ...node };
-        }
-
-        if (selection in node.selected) {
-          return {
-            ...node,
-            selected: Object.fromEntries(
-              Object.entries(node.selected).filter(([key]) =>
-                key !== selection
-              ),
-            ),
-          };
-        }
-
-        const count = (values as any).get("choices")?.get(identifier) as number;
-        if (Object.keys(node.selected).length >= count) {
-          const reduced = Object.fromEntries(
-            Object.entries(node.selected).slice(0, count),
-          );
-
-          return { ...node, selected: reduced };
-        }
-
+      case "MULTIPLE":
         return {
           ...node,
-          selected: { ...node.selected, [selection]: node.options[selection] },
+          values: node.values.map((n) => traverse(n, tree, ...args)),
+        };
+      case "CHOICE": {
+        return {
+          ...node,
+          options: recordMap(node.options, (n) => traverse(n, tree, ...args)),
         };
       }
-      case "MULTIPLE":
-        return { ...node, values: node.values.map(traverse) };
       case "VALUE":
       case "BINOP":
       case "UNARYOP":
@@ -67,6 +59,57 @@ export function makeChoice(
     }
   }
 }
+
+const choiceSetter = createNodeSetter<[string, string]>({
+  CHOICE: (node, traverse, tree, identifier, selection) => {
+    if (node.name !== identifier) {
+      return {
+        ...node,
+        selected: recordMap(
+          node.selected,
+          (n) => traverse(n, tree, identifier, selection),
+        ),
+      };
+    }
+
+    if (!(selection in node.options)) {
+      return { ...node };
+    }
+
+    if (selection in node.selected) {
+      return {
+        ...node,
+        selected: Object.fromEntries(
+          Object.entries(node.selected).filter(([key]) => key !== selection),
+        ),
+      };
+    }
+
+    const count = (tree.values as any)
+      .get("choices")
+      ?.get(identifier) as number;
+
+    if (Object.keys(node.selected).length >= count) {
+      const reduced = Object.fromEntries(
+        Object.entries(node.selected).slice(0, count),
+      );
+
+      return { ...node, selected: reduced };
+    }
+
+    return {
+      ...node,
+      selected: { ...node.selected, [selection]: node.options[selection] },
+    };
+  },
+});
+
+export function makeChoice(tree: Root, identifier: string, selection: string) {
+  return choiceSetter(tree, identifier, selection);
+}
+
+/* export function setLevel(tree: Root, identifier: string, level: number): Root {
+} */
 
 const rules = Ruleset({
   abilities: {
@@ -369,10 +412,7 @@ char.entry.values.push({
   bindings: {
     name: "classes.ranger",
     level: 3,
-    grants: {
-      type: "MULTIPLE",
-      values: [{ type: "VALUE", name: "aaaaaaaaa", value: 2 }],
-    },
+    grants: {},
   },
 });
 

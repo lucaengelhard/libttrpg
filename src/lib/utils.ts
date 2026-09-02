@@ -24,3 +24,12 @@ export function nestedMap<T>(record: Record<string, T>): NestedMap<T> {
 
   return res;
 }
+
+export function recordMap<V extends string | number | symbol, K, T>(
+  record: Record<V, K>,
+  transform: (value: K) => T,
+) {
+  return Object.fromEntries(
+    Object.entries<K>(record).map(([key, value]) => [key, transform(value)]),
+  );
+}

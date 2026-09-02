@@ -1,4 +1,4 @@
-import { nestedMap } from "../lib/utils.ts";
+import { nestedMap, recordMap } from "../lib/utils.ts";
 import type { Definition, Root } from "./tree/sugar.ts";
 import type { Node } from "./tree/nodes.ts";
 
@@ -40,6 +40,7 @@ export function Ruleset(
               },
             };
           }
+
           case "MULTIPLE":
             return { ...node, values: node.values.map(apply) };
           case "MODIFIER":

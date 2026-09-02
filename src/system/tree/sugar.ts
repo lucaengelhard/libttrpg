@@ -1,3 +1,4 @@
+import { recordMap } from "../../lib/utils.ts";
 import { isNode, type Multiple, type Node, type Resolvable } from "./nodes.ts";
 
 export type Root = {
@@ -75,16 +76,8 @@ export function desugar(root: Root): Node {
         return {
           ...node,
           count: apply(node.count, bindings) as Resolvable,
-          options: Object.fromEntries(
-            Object.entries(node.options).map((
-              [key, value],
-            ) => [key, apply(value, bindings)]),
-          ),
-          selected: Object.fromEntries(
-            Object.entries(node.selected).map((
-              [key, value],
-            ) => [key, apply(value, bindings)]),
-          ),
+          options: recordMap(node.options, (v) => apply(v, bindings)),
+          selected: recordMap(node.selected, (v) => apply(v, bindings)),
         };
       }
 
