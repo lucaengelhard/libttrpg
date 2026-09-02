@@ -1,6 +1,10 @@
 import { nestedMap } from "../lib/utils.ts";
-import type { Root } from "./tree/sugar.ts";
+import type { Definition, Root } from "./tree/sugar.ts";
 import type { Node } from "./tree/nodes.ts";
+
+export function Static(definition: Node): Definition {
+  return { bindings: [], definition };
+}
 
 export function Ruleset(
   definitions: Root["definitions"],
@@ -8,7 +12,7 @@ export function Ruleset(
 ) {
   const base: Root = {
     type: "ROOT",
-    definitions: [...definitions],
+    definitions,
     entry: { type: "MULTIPLE", values: [...init] },
   };
 

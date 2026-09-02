@@ -2,16 +2,11 @@ import type { Multiple, Node, Resolvable } from "./nodes.ts";
 
 export type Root = {
   type: "ROOT";
-  definitions: Define[];
+  definitions: Record<string, Definition>;
   entry: Multiple;
 };
 
-type Define = {
-  type: "DEFINE";
-  name: string;
-  bindings: string[];
-  definition: Node;
-};
+export type Definition = { bindings: string[]; definition: Node };
 
 export type Apply = {
   type: "APPLY";
@@ -21,9 +16,7 @@ export type Apply = {
 
 // TODO: Not sure if this works correctly or if closures are relevant
 export function desugar(root: Root): Node {
-  const definitions = new Map(
-    root.definitions.map((d) => [d.name, d] as const),
-  );
+  const definitions = new Map(Object.entries(root.definitions));
 
   return apply(root.entry, new Map());
 

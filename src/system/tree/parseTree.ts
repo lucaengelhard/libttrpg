@@ -1,7 +1,6 @@
 import { Edge, GraphBuilder, Vertex } from "../../lib/graph.ts";
 import {
   binop,
-  type Choice,
   getBinopValue,
   isBinopValue,
   NEUTRAL,
@@ -16,10 +15,6 @@ import { desugar, type Root } from "./sugar.ts";
 export function parseTree(tree: Root) {
   const values = new Map<string, Vertex<VertexValue, VertexValue>>();
   const queries = new Map<string, Vertex<VertexValue, VertexValue>[]>();
-  const choices = new Map<
-    string,
-    { choice: Choice; vertex: Vertex<VertexValue, VertexValue> }
-  >();
 
   const builder = GraphBuilder<VertexValue>();
 
@@ -36,7 +31,7 @@ export function parseTree(tree: Root) {
       );
   }
 
-  return { values: builder.getNamed(), choices };
+  return { values: builder.getNamed() };
 
   function traverse(node: Node) {
     switch (node.type) {
@@ -68,18 +63,13 @@ export function parseTree(tree: Root) {
 
         break;
       }
-      case "QUERY": {
-        // TODO
-        break;
-      }
+
       case "CHOICE": {
         const parent = resolveValue(node.count);
         const countVertex = ValueVertex(`choices.${node.name}`);
 
         builder.addVertex(countVertex);
         builder.addEdge(Edge(parent, countVertex));
-
-        choices.set(node.name, { choice: node, vertex: countVertex });
 
         Object.values(node.selected).forEach(traverse);
 
@@ -89,6 +79,11 @@ export function parseTree(tree: Root) {
       case "BINOP":
       case "UNARYOP": {
         throw `Unexpected node in traverse: ${node.type}`;
+      }
+      case "QUERY": {
+        // TODO This is difficult, because as soon as we add nodes based on a query, it get cyclic
+        // Except if we only allow static library lookups?
+        break;
       }
     }
   }
