@@ -175,6 +175,8 @@ const tree: Node = {
   },
 };
 
+// Next: Choices? More Desugaring? How would level scaling work?
+
 const desugared = desugar(tree, new Map());
 
 console.log(parseTree(desugared));
