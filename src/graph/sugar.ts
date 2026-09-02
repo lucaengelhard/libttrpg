@@ -1,9 +1,9 @@
-import type { Node, Resolvable } from "./tree.ts";
+import type { Multiple, Node, Resolvable } from "./tree.ts";
 
 export type Root = {
   type: "ROOT";
   definitions: Define[];
-  entry: Node;
+  entry: Multiple;
 };
 
 type Define = {
@@ -78,9 +78,12 @@ export function desugar(root: Root): Node {
 
         return apply(definition.definition, newBindings);
       }
+      case "COLLECTION":
+        return node;
     }
 
     function get(identifier: string | undefined) {
+      // TODO template strings
       if (identifier === undefined || !identifier.startsWith("$")) return;
       const cleaned = identifier.replace("$", "");
       return bindings.get(cleaned);

@@ -1,7 +1,7 @@
 import { Edge, GraphBuilder, Vertex } from "./graph.ts";
 import { type Apply, desugar, type Root } from "./sugar.ts";
 
-type Multiple = {
+export type Multiple = {
   type: "MULTIPLE";
   values: Node[];
 };
@@ -81,7 +81,7 @@ function unaryop(kind: UnaryOpKind, value: VertexValue): VertexValue {
   }
 }
 
-export type Resolvable = Value | BinOp | UnaryOp;
+export type Resolvable = Value | BinOp | UnaryOp | Collection;
 export function isResolvable(node: unknown): node is Resolvable {
   if (
     node === undefined || node === null || typeof node !== "object" ||
@@ -90,7 +90,7 @@ export function isResolvable(node: unknown): node is Resolvable {
     return false;
   }
 
-  return ["VALUE", "BINOP", "UNARYOP"].includes(node.type);
+  return ["VALUE", "BINOP", "UNARYOP", "COLLECTION"].includes(node.type);
 }
 
 type Modifier = {
@@ -104,6 +104,11 @@ type Override = {
   target: string;
   value: Resolvable;
   // TODO: condition
+};
+
+type Collection = {
+  type: "COLLECTION";
+  query: string;
 };
 
 export type Node =
@@ -120,9 +125,22 @@ type VertexValue = number | Neutral;
 
 export function parseTree(tree: Root) {
   const values = new Map<string, Vertex<VertexValue, VertexValue>>();
+  const queries = new Map<string, Vertex<VertexValue, VertexValue>[]>();
+
   const builder = GraphBuilder<VertexValue>();
 
   traverse(desugar(tree));
+
+  for (const [query, vertices] of queries.entries()) {
+    values
+      .entries()
+      .filter(([name]) => name.startsWith(`${query}.`))
+      .forEach(([_, vertex]) =>
+        vertices.forEach((resultVertex) => {
+          builder.addEdge(Edge(vertex, resultVertex));
+        })
+      );
+  }
 
   return builder.getNamed();
 
@@ -240,6 +258,15 @@ export function parseTree(tree: Root) {
         builder.addVertex(value);
         builder.addEdge(Edge(value, vertex));
         return vertex;
+      }
+      case "COLLECTION": {
+        const resultVertex = ValueVertex(undefined);
+        builder.addVertex(resultVertex);
+
+        const vertices = queries.getOrInsert(node.query, []);
+        vertices.push(resultVertex);
+
+        return resultVertex;
       }
     }
   }

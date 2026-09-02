@@ -23,7 +23,7 @@ function Ruleset(
 
       return {
         ...structuredClone(base),
-        entry: apply(structuredClone(base.entry) as Node),
+        entry: apply(structuredClone(base.entry)),
       };
       function apply<N extends Node>(node: N): N {
         switch (node.type) {
@@ -43,6 +43,7 @@ function Ruleset(
           case "BINOP":
           case "UNARYOP":
           case "VALUE":
+          case "COLLECTION":
             return node;
         }
       }
@@ -217,11 +218,52 @@ const rules = Ruleset([{
       },
     ],
   },
-}], [{ type: "APPLY", name: "skills", bindings: {} }, {
-  type: "APPLY",
-  name: "abilities",
-  bindings: {},
-}]);
+}, {
+  type: "DEFINE",
+  name: "class",
+  bindings: ["name", "level"],
+  definition: {
+    type: "MULTIPLE",
+    values: [{ type: "VALUE", name: "$name", value: "$level" }],
+  },
+}, {
+  type: "DEFINE",
+  name: "level",
+  bindings: [],
+  definition: {
+    type: "VALUE",
+    name: "stats.level",
+    value: { type: "COLLECTION", query: "classes" },
+  },
+}, {
+  type: "DEFINE",
+  name: "proficiencyBonus",
+  bindings: [],
+  definition: {
+    type: "VALUE",
+    name: "stats.proficiencyBonus",
+    value: {
+      type: "BINOP",
+      kind: "ADD",
+      left: { type: "VALUE", value: 1 },
+      right: {
+        type: "UNARYOP",
+        kind: "CEIL",
+        value: {
+          type: "BINOP",
+          kind: "DIVIDE",
+          left: { type: "VALUE", value: "stats.level" },
+          right: { type: "VALUE", value: 4 },
+        },
+      },
+    },
+  },
+}], [
+  { type: "APPLY", name: "skills", bindings: {} },
+  { type: "APPLY", name: "abilities", bindings: {} },
+  { type: "APPLY", name: "level", bindings: {} },
+  { type: "APPLY", name: "proficiencyBonus", bindings: {} },
+]);
 
 const char = rules.create({
   "abilities.strength": 12,
@@ -230,6 +272,22 @@ const char = rules.create({
   "abilities.intelligence": 13,
   "abilities.wisdom": 14,
   "abilities.charisma": 10,
+});
+
+console.log(parseTree(char));
+
+char.entry.values.push({
+  type: "APPLY",
+  name: "class",
+  bindings: { name: "classes.ranger", level: 3 },
+});
+
+console.log(parseTree(char));
+
+char.entry.values.push({
+  type: "APPLY",
+  name: "class",
+  bindings: { name: "classes.druid", level: 4 },
 });
 
 console.log(parseTree(char));
