@@ -9,7 +9,7 @@ type Multiple = {
 type Value = {
   type: "VALUE";
   name?: string;
-  value: number | string | Resolvable | { [key: string]: Resolvable };
+  value: number | string | Resolvable;
 };
 
 type BinOp = {
@@ -91,7 +91,7 @@ function unaryop(kind: UnaryOpKind, value: VertexValue): VertexValue {
 }
 
 export type Resolvable = Value | BinOp | UnaryOp;
-function isResolvable(node: unknown): node is Resolvable {
+export function isResolvable(node: unknown): node is Resolvable {
   if (
     node === undefined || node === null || typeof node !== "object" ||
     !("type" in node) || typeof node.type !== "string"
@@ -124,7 +124,7 @@ export type Node =
 const NEUTRAL = Symbol("Neutral");
 type Neutral = typeof NEUTRAL;
 
-type VertexValue = number | Neutral | { [key: string]: VertexValue };
+type VertexValue = number | Neutral;
 
 export function parseTree(tree: Root) {
   const values = new Map<string, Vertex<VertexValue, VertexValue>>();
@@ -194,15 +194,9 @@ export function parseTree(tree: Root) {
         }
 
         if (typeof node.value === "object") {
-          if (isResolvable(node.value)) {
-            const value = resolveValue(node.value);
-            vertex = vertex || ValueVertex(node.name);
-            builder.addEdge(Edge(value, vertex));
-          }
-
-          if (!isResolvable(node.value)) {
-            // TODO
-          }
+          const value = resolveValue(node.value);
+          vertex = vertex || ValueVertex(node.name);
+          builder.addEdge(Edge(value, vertex));
         }
 
         if (!vertex) {
