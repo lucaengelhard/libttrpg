@@ -1,3 +1,4 @@
+import { nestedMap } from "../lib/utils.ts";
 import type { Root } from "./sugar.ts";
 import { type Node, parseTree } from "./tree.ts";
 
@@ -13,13 +14,10 @@ function Ruleset(
 
   return {
     create(bindings: Record<string, unknown>): Root {
-      const bindingMap = new Map<string, Record<string, unknown>>();
-      for (const [name, value] of Object.entries(bindings)) {
-        const [definition, identifier] = name.split(".");
-        if (identifier === undefined) continue;
-        const def = bindingMap.getOrInsert(definition, {});
-        def[identifier] = value;
-      }
+      const bindingMap = nestedMap(bindings) as Map<
+        string,
+        Map<string, unknown>
+      >;
 
       return {
         ...structuredClone(base),
@@ -32,7 +30,9 @@ function Ruleset(
               ...node,
               bindings: {
                 ...node.bindings,
-                ...bindingMap.get(node.name) ?? {},
+                ...Object.fromEntries(
+                  bindingMap.get(node.name)?.entries() ?? [],
+                ),
               },
             };
           }
