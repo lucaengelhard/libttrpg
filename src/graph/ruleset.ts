@@ -12,8 +12,8 @@ function Ruleset(
   };
 
   return {
-    create(bindings: Record<string, any>): Root {
-      const bindingMap = new Map<string, Record<string, any>>();
+    create(bindings: Record<string, unknown>): Root {
+      const bindingMap = new Map<string, Record<string, unknown>>();
       for (const [name, value] of Object.entries(bindings)) {
         const [definition, identifier] = name.split(".");
         if (identifier === undefined) continue;
@@ -21,7 +21,10 @@ function Ruleset(
         def[identifier] = value;
       }
 
-      return { ...base, entry: apply(structuredClone(base.entry) as Node) };
+      return {
+        ...structuredClone(base),
+        entry: apply(structuredClone(base.entry) as Node),
+      };
       function apply<N extends Node>(node: N): N {
         switch (node.type) {
           case "APPLY": {
