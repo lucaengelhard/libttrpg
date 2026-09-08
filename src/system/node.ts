@@ -474,7 +474,7 @@ const tree: Node = {
           type: "OVERRIDE",
           value: { type: "VALUE", value: 2 },
           target: "abilities",
-        }, { type: "VALUE", name: "abilities.lol", value: 12 }],
+        }],
       },
     },
   ],
