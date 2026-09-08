@@ -1,173 +1,301 @@
-import { nestedMap } from "./utils.ts";
+import deepEqual from "deep-equal";
 
-export type Vertex<InputType, OutPutType> = {
-  value: InputType;
-  name?: string;
-  reduce: (a: InputType, b: InputType) => OutPutType;
-  overrideSelector?: (arr: InputType[]) => InputType;
+import type { Tag } from "./tag.ts";
+
+export type Vertex<
+  Input extends Tag = Tag,
+  Output extends Tag = Tag,
+> = {
+  expects: Input["$tag"] | Input["$tag"][];
+  value?: Input;
+  reduce: (values: Input["$value"][]) => Output;
+  overrideSelector?: (
+    overrideValues: Input["$value"][],
+    parentValues: Input["$value"][],
+  ) => Output;
 };
 
-export function Vertex<InputType, OutPutType>(
-  name: string | undefined,
-  value: InputType,
-  reduce: Vertex<InputType, OutPutType>["reduce"],
-  overrideSelector?: Vertex<InputType, OutPutType>["overrideSelector"],
-): Vertex<InputType, OutPutType> {
-  return { name, value, reduce, overrideSelector };
+export function Vertex<Input extends Tag, Output extends Tag>(
+  value: Input | Input["$tag"] | Input["$tag"][],
+  reduce: (values: Input["$value"][]) => Output,
+  overrideSelector?: (
+    overrideValues: Input["$value"][],
+    parentValues: Input["$value"][],
+  ) => Output,
+): Vertex<Input, Output> {
+  return {
+    value: typeof value === "object" && !Array.isArray(value)
+      ? value
+      : undefined,
+    reduce,
+    expects: typeof value === "string" || Array.isArray(value)
+      ? value
+      : (value as Input).$tag,
+    overrideSelector,
+  };
 }
 
-export type Edge<FromInput, FromOutput, ToInput, ToOutput> = {
-  from: Vertex<FromInput, FromOutput>;
-  to: Vertex<ToInput, ToOutput>;
-  transform?: (value: FromOutput) => ToInput;
+export type Edge<Value extends Tag = Tag> = {
+  from: Vertex<Tag, Value>;
+  to: Vertex<Value, Tag>;
   override?: boolean;
 };
 
-export function Edge<FromInput, FromOutput, ToInput, ToOutput>(
-  from: Vertex<FromInput, FromOutput>,
-  to: Vertex<ToInput, ToOutput>,
-  transform?: Edge<FromInput, FromOutput, ToInput, ToOutput>["transform"],
+export function Edge<Value extends Tag = Tag>(
+  from: Vertex<Tag, Value>,
+  to: Vertex<Value, Tag>,
   override?: boolean,
-): Edge<FromInput, FromOutput, ToInput, ToOutput> {
-  return { from, to, transform, override };
+) {
+  return { from, to, override };
 }
 
-type Graph<T> = {
-  vertices: Set<Vertex<T, T>>;
-  edges: Set<Edge<T, T, T, T>>;
+type Graph = {
+  vertices: Set<Vertex>;
+  edges: Set<Edge>;
 };
 
-export function GraphBuilder<T>() {
-  const graph: Graph<T> = { vertices: new Set(), edges: new Set() };
+export function GraphBuilder() {
+  const graph: Graph = { vertices: new Set(), edges: new Set() };
 
   return {
-    addVertex(vertex: Vertex<T, T>) {
+    addVertex(vertex: Vertex) {
       graph.vertices.add(vertex);
     },
-    addEdge(edge: Edge<T, T, T, T>) {
+    addEdge(edge: Edge) {
       graph.edges.add(edge);
     },
     resolve() {
       return resolve(graph);
     },
-    log() {
-      console.log(graph);
-    },
-    getNamed() {
-      return nestedMap(Object.fromEntries(
-        this.resolve().entries().filter(([vertex]) => vertex.name !== undefined)
-          .map(([vertex, value]) => [vertex.name, value]),
-      ));
-    },
-    render() {
-      render(graph);
+    graph() {
+      return graph;
     },
   };
 }
 
-function adjacency<T>(graph: Graph<T>) {
-  const result = new Map<
-    Vertex<T, T>,
-    Set<Edge<T, T, T, T>>
-  >();
+function adjacency(graph: Graph, parents?: boolean) {
+  const result = new Map<Vertex, Set<Edge>>();
 
   for (const edge of graph.edges) {
-    const set = result.getOrInsert(edge.from, new Set());
+    const set = result.getOrInsert(parents ? edge.to : edge.from, new Set());
     set.add(edge);
   }
 
-  return result;
+  return (vertex: Vertex) => result.get(vertex) ?? new Set();
 }
 
-function sort<T>(graph: Graph<T>) {
-  const adjacencyMatrix = adjacency(graph);
+function componentAdjacency(
+  adj: ReturnType<typeof adjacency>,
+  components: Set<Set<Vertex>>,
+) {
+  const result = new Map<Set<Vertex>, Set<Set<Vertex>>>();
+
+  for (const component of components) {
+    for (const vertex of component) {
+      for (const edge of adj(vertex)) {
+        if (component.has(edge.to)) continue;
+        const toComp = components.values().find((c) => c.has(edge.to));
+        if (!toComp) continue;
+        const set = result.getOrInsert(component, new Set());
+        set.add(toComp);
+      }
+    }
+  }
+
+  return (component: Set<Vertex>) => result.get(component) ?? new Set();
+}
+
+function scc(graph: Graph) {
+  const adj = adjacency(graph);
+
+  const components = new Set<Set<Vertex>>();
+
+  let index = 0;
+  const stack: Vertex[] = [];
+
+  const indexMap = new Map<Vertex, number>();
+  const lowlinkMap = new Map<Vertex, number>();
+  const onStackMap = new Map<Vertex, boolean>();
+
+  for (const vertex of graph.vertices) {
+    if (indexMap.has(vertex)) continue;
+    strongconnect(vertex);
+  }
+
+  return components;
+
+  function strongconnect(vertex: Vertex) {
+    indexMap.set(vertex, index);
+    lowlinkMap.set(vertex, index);
+    index++;
+    stack.push(vertex);
+    onStackMap.set(vertex, true);
+
+    for (const edge of adj(vertex)) {
+      if (!indexMap.has(edge.to)) {
+        strongconnect(edge.to);
+        lowlinkMap.set(
+          vertex,
+          Math.min(
+            lowlinkMap.get(vertex) ?? Number.MAX_SAFE_INTEGER,
+            lowlinkMap.get(edge.to) ?? Number.MAX_SAFE_INTEGER,
+          ),
+        );
+      } else if (onStackMap.get(edge.to)) {
+        lowlinkMap.set(
+          vertex,
+          Math.min(
+            lowlinkMap.get(vertex) ?? Number.MAX_SAFE_INTEGER,
+            indexMap.get(edge.to) ?? Number.MAX_SAFE_INTEGER,
+          ),
+        );
+      }
+    }
+
+    if (lowlinkMap.get(vertex) === indexMap.get(vertex)) {
+      const component = new Set<Vertex>();
+
+      let current: Vertex | undefined;
+      do {
+        current = stack.pop();
+        if (current) {
+          onStackMap.set(current, false);
+          component.add(current);
+        }
+      } while (current !== vertex);
+
+      components.add(component);
+    }
+  }
+}
+
+function sort(
+  components: Set<Set<Vertex>>,
+  componentAdj: ReturnType<typeof componentAdjacency>,
+) {
   const status = new Map<
-    Vertex<T, T>,
+    Set<Vertex>,
     "NOT_VISITED" | "IN_PROGRESS" | "FINISHED"
-  >(
-    graph.vertices.values().map((v) => [v, "NOT_VISITED"]),
-  );
+  >(components.values().map((c) => [c, "NOT_VISITED"]));
 
-  const sorted: Vertex<T, T>[] = [];
+  const sorted: Set<Vertex>[] = [];
 
-  for (const v of graph.vertices) {
-    if (status.get(v) !== "NOT_VISITED") continue;
-    visit(v);
+  for (const component of components) {
+    if (status.get(component) !== "NOT_VISITED") continue;
+    visit(component);
   }
 
   return sorted.reverse();
 
-  function visit(vertex: Vertex<T, T>) {
-    if (status.get(vertex) === "FINISHED") return;
-    if (status.get(vertex) === "IN_PROGRESS") throw "Cycle detected";
+  function visit(component: Set<Vertex>) {
+    if (
+      status.get(component) === "FINISHED" ||
+      status.get(component) === "IN_PROGRESS" // Does this ever happen?
+    ) return;
 
-    status.set(vertex, "IN_PROGRESS");
+    status.set(component, "IN_PROGRESS");
 
-    for (const edge of adjacencyMatrix.get(vertex) ?? new Set()) {
-      visit(edge.to);
+    for (const toComp of componentAdj(component)) {
+      visit(toComp);
     }
 
-    status.set(vertex, "FINISHED");
-    sorted.push(vertex);
+    status.set(component, "FINISHED");
+    sorted.push(component);
   }
 }
 
-function resolve<T>(graph: Graph<T>) {
-  const adjacencyMatrix = adjacency(graph);
-  const sorted = sort(graph);
-  const resolvedValues = new Map(
-    graph.vertices.values().map((v) => [v, [] as T[]]),
-  );
-  const overrides = new Map<Vertex<T, T>, T[]>();
+const DEFAULT_MAX_ITERATIONS = 999;
+function resolve(graph: Graph, config?: { maxIterations?: number }) {
+  const { maxIterations = DEFAULT_MAX_ITERATIONS } = config ?? {};
 
-  const result = new Map<Vertex<T, T>, T>();
+  const components = scc(graph);
+  const parentAdj = adjacency(graph, true);
+  const componentAdj = componentAdjacency(adjacency(graph), components);
+  const sorted = sort(components, componentAdj);
 
-  for (const vertex of sorted) {
-    const parentValue = reduceParents(
-      resolvedValues.get(vertex),
-      vertex.reduce,
-    );
+  const vertexValues = new Map<Vertex, Tag>();
 
-    const override = overrides.get(vertex);
-    const overrideValue = override !== undefined && override.length > 0
-      ? vertex.overrideSelector
-        ? vertex.overrideSelector(override)
-        : override[0]
-      : undefined;
+  for (const component of sorted) {
+    resolveComponent(component);
+  }
 
-    const value = overrideValue !== undefined
-      ? overrideValue
-      : parentValue === undefined
-      ? vertex.value
-      : vertex.reduce(vertex.value, parentValue);
+  return vertexValues;
 
-    result.set(vertex, value);
+  function resolveComponent(component: Set<Vertex>) {
+    let iterations = 0;
+    let changed = false;
 
-    for (const edge of adjacencyMatrix.get(vertex) ?? []) {
-      const values = resolvedValues.getOrInsert(edge.to, []);
-      const transformedValue = edge.transform ? edge.transform(value) : value;
-      if (edge.override) {
-        const existingOverrides = overrides.getOrInsert(edge.to, []);
-        existingOverrides.push(transformedValue);
+    do {
+      changed = false;
+      const prev = new Map<Vertex, Tag | undefined>();
+
+      for (const vertex of component) {
+        prev.set(vertex, vertexValues.get(vertex));
       }
 
-      values.push(transformedValue);
+      for (const vertex of component) {
+        apply(vertex);
+      }
+
+      for (const vertex of component) {
+        const oldValue = prev.get(vertex)?.$value;
+        const newValue = vertexValues.get(vertex)?.$value;
+
+        if (!deepEqual(oldValue, newValue)) {
+          changed = true;
+          break;
+        }
+      }
+
+      iterations++;
+      if (changed && iterations >= maxIterations) {
+        console.warn(
+          `[Graph Resolve] Cycle detected: Max iterations (${maxIterations}) reached for component. Bailing out.`,
+        );
+        break;
+      }
+    } while (changed);
+
+    function apply(vertex: Vertex) {
+      const parentEdges = parentAdj(vertex);
+
+      const parentValues = new Map(
+        parentEdges.values()
+          .map((e) => e.from)
+          .map((p) => [p, vertexValues.get(p)] as const)
+          .filter(([_, v]) => {
+            if (v === undefined) return false;
+
+            if (typeof vertex.expects === "string") {
+              return v.$tag === vertex.expects;
+            }
+
+            return (vertex.expects as string[]).includes(v.$tag);
+          })
+          .map(([p, v]) => [p, v!.$value] as const),
+      );
+
+      const inputs = [];
+      if (vertex.value) inputs.push(vertex.value.$value);
+      inputs.push(...parentValues.values());
+
+      const overrideValues = parentEdges.values()
+        .filter((e) => e.override)
+        .map((e) => parentValues.get(e.from))
+        .filter((v) => v !== undefined && v !== null)
+        .toArray();
+
+      const override = overrideValues.length > 0 && vertex.overrideSelector
+        ? vertex.overrideSelector(overrideValues, inputs)
+        : undefined;
+
+      const calculatedValue = vertex.reduce(inputs);
+
+      const value = override !== undefined ? override : calculatedValue;
+
+      if (value !== undefined) {
+        vertexValues.set(vertex, value);
+      }
     }
   }
-
-  return result;
-
-  function reduceParents<T>(
-    parents: T[] | undefined,
-    reduce: (a: T, b: T) => T,
-  ): T | undefined {
-    if (parents === undefined || parents.length === 0) return;
-    if (parents.length === 1) return parents.values().toArray()[0];
-
-    return parents.reduce(reduce);
-  }
-}
-
-function render<T>(_graph: Graph<T>) {
-  // TODO
 }

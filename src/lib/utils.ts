@@ -1,13 +1,9 @@
-export function id<T>(a: T) {
-  return a;
-}
+type NestedMap<T> = Map<string, T | NestedMap<T>>;
 
-type NestedMap<T> = Map<string, T | Map<string, NestedMap<T>>>;
-
-export function nestedMap<T>(record: Record<string, T>): NestedMap<T> {
+export function nestedMap<T>(map: Map<string, T>): NestedMap<T> {
   const res = new Map();
 
-  for (const [name, value] of Object.entries(record)) {
+  for (const [name, value] of map.entries()) {
     const segments = name.split(".");
 
     let currentMap = res;
