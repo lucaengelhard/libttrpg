@@ -70,8 +70,17 @@ export function setValue<
       return { ...node, options };
     }
     case "COLLECTION": {
-      return { ...node, calculation: setValue(node.calculation, ctx) };
+      return {
+        ...node,
+        derives: Object.fromEntries(
+          Object.entries(node.derives).map((
+            [key, [value, calculation]],
+          ) => [key, [value, setValue(calculation, ctx)]]),
+        ),
+      };
     }
+    case "SECTION":
+      return { ...node, value: setValue(node.value, ctx) };
   }
 }
 
@@ -131,7 +140,20 @@ export function getValue<
 
       return optionRes;
     }
-    case "COLLECTION":
-      return getValue(node.calculation, ctx);
+    case "COLLECTION": {
+      let res: Selected[Key] | undefined;
+
+      for (const [_, calculation] of Object.values(node.derives)) {
+        const value = getValue(calculation, ctx as any) as
+          | Selected[Key]
+          | undefined;
+
+        if (value) res = value;
+      }
+
+      return res;
+    }
+    case "SECTION":
+      return getValue(node.value, ctx);
   }
 }

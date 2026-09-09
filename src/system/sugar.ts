@@ -21,14 +21,14 @@ type Collection = NodeFactory<
   {
     name?: string;
     base: Record<string, number>;
-    derived: Record<string, string[]>;
+    derives: Record<string, [Record<string, string[]>, Resolvable]>;
     basePrefix: string;
-    derivePrefix: string;
-    calculation: Resolvable;
   }
 >;
 
-export type Sugar = Switch | Choice | Level | Collection;
+type Section = NodeFactory<"Section", { name: string; value: WithSugar<Node> }>;
+
+export type Sugar = Switch | Choice | Level | Collection | Section;
 
 export type WithSugar<N extends Node> =
   | {
@@ -115,38 +115,40 @@ export function desugar(node: WithSugar<Node>): Node {
       return { type: "MULTIPLE", values };
     }
     case "COLLECTION": {
-      const values = Object.entries(node.base).flatMap(
-        ([identifier, value]) => {
-          const base = {
-            type: "VALUE",
-            name: `${node.basePrefix}.${identifier}`,
-            value,
-          } as const;
+      const bases = Object.entries(node.base).map(([identifier, value]) => ({
+        type: "VALUE",
+        name: `${node.basePrefix}.${identifier}`,
+        value,
+      } as const));
 
-          const derives = node.derived[identifier];
-          if (!derives) return [base];
+      const derives = Object.entries(node.derives)
+        .flatMap(([derivePrefix, [values, calculation]]) =>
+          Object.entries(values)
+            .flatMap(([baseName, identifiers]) =>
+              identifiers.map((
+                identifier,
+              ) => ({
+                type: "VALUE",
+                name: `${derivePrefix}.${identifier}`,
+                value: createCollectionItem(calculation, {
+                  basePrefix: node.basePrefix,
+                  derivePrefix,
+                  baseName,
+                }),
+              } as const))
+            )
+        );
 
-          const derivedValues = derives.map((name) => ({
-            type: "VALUE",
-            name: `${node.derivePrefix}.${name}`,
-            value: createCollectionItem(node.calculation, {
-              ...node,
-              identifier,
-            }),
-          } as const));
-
-          return [base, ...derivedValues];
-        },
-      );
-
-      return { type: "MULTIPLE", values };
+      return { type: "MULTIPLE", values: [...bases, ...derives] };
     }
+    case "SECTION":
+      return desugar(node.value);
   }
 }
 
 function createCollectionItem(
   node: Resolvable,
-  ctx: { basePrefix: string; derivePrefix: string; identifier: string },
+  ctx: { basePrefix: string; derivePrefix: string; baseName: string },
 ): Resolvable {
   switch (node.type) {
     case "VALUE":
@@ -166,7 +168,7 @@ function createCollectionItem(
       return { ...node, value: createCollectionItem(node.value, ctx) };
     case "QUERY": {
       if (node.query !== "$base") return { ...node };
-      return { ...node, query: `${ctx.basePrefix}.${ctx.identifier}` };
+      return { ...node, query: `${ctx.basePrefix}.${ctx.baseName}` };
     }
   }
 }
