@@ -1,5 +1,6 @@
 import { Node, parse } from "./system/node.ts";
 import { desugar, WithSugar } from "./system/sugar.ts";
+import { setValue } from "./system/value.ts";
 
 const tree: WithSugar<Node> = {
   type: "MULTIPLE",
@@ -88,7 +89,51 @@ const tree: WithSugar<Node> = {
         basePrefix: "abilities",
       },
     },
+    {
+      type: "SECTION",
+      name: "Species",
+      value: {
+        type: "MULTIPLE",
+        values: [{
+          type: "MODIFIER",
+          value: { type: "VALUE", value: 2 },
+          target: "abilities.charisma",
+        }, {
+          type: "CHOICE",
+          name: "Half-Elf ASI",
+          count: 2,
+          active: [],
+          options: {
+            strength: {
+              type: "MODIFIER",
+              value: { type: "VALUE", value: 1 },
+              target: "abilities.strength",
+            },
+            dexterity: {
+              type: "MODIFIER",
+              value: { type: "VALUE", value: 1 },
+              target: "abilities.dexterity",
+            },
+            constitution: {
+              type: "MODIFIER",
+              value: { type: "VALUE", value: 1 },
+              target: "abilities.constitution",
+            },
+            intelligence: {
+              type: "MODIFIER",
+              value: { type: "VALUE", value: 1 },
+              target: "abilities.intelligence",
+            },
+          },
+        }],
+      },
+    },
   ],
 };
 
-console.log(parse(desugar(tree)));
+console.log(parse(desugar(setValue(tree, {
+  nodeType: "CHOICE",
+  name: "Half-Elf ASI",
+  key: "active",
+  value: ["dexterity", "wisdom"],
+}))));

@@ -12,7 +12,12 @@ type Level = NodeFactory<
 
 type Choice = NodeFactory<
   "Choice",
-  { count: number; options: Record<string, Node>; active: string[] }
+  {
+    count: number;
+    options: Record<string, Node>;
+    active: string[];
+    name: string;
+  }
 >;
 // Count is not dynamic for now, as this is probably really weird to build ui for?
 
