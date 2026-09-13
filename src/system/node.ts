@@ -58,8 +58,6 @@ export type Condition = NodeFactory<
 
 export type Node = Resolvable | Multiple | Modifier | Override | Condition;
 
-export type TaggedNode<N extends Node> = Tag<N["type"], Omit<N, "type">>;
-
 function sum(arr: number[]) {
   return arr.reduce((prev, curr) => prev + curr, 0);
 }
