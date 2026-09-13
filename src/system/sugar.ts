@@ -15,7 +15,7 @@ export type InputNode = Extend<BaseNode, Sugar, BaseNode>;
 
 type Switch = NodeFactory<
   "Switch",
-  { name?: string; effect: InputNode; active: boolean }
+  { name: string; effect: InputNode; active: boolean }
 >;
 
 type Level = NodeFactory<
@@ -47,7 +47,7 @@ export type Sugar = Switch | Choice | Level | Section;
 const baseDesugarer = createTraversal<
   BaseNode,
   AnyNode,
-  Record<PropertyKey, never>
+  { passthrough?: boolean }
 >({
   VALUE: (node, desugar) => ({
     ...node,
@@ -87,20 +87,62 @@ const baseDesugarer = createTraversal<
   QUERY: (node) => node,
 });
 
+function passOr<N extends Sugar, T>(
+  fn: (
+    node: N,
+    traverse: (node: AnyNode) => T,
+    ctx: { passthrough?: boolean },
+  ) => T,
+) {
+  return (
+    node: N,
+    traverse: (node: AnyNode) => T,
+    ctx: { passthrough?: boolean },
+  ) => {
+    if (ctx.passthrough) {
+      switch (node.type) {
+        case "SWITCH":
+          return { ...node, effect: traverse(node.effect) };
+        case "CHOICE":
+          return {
+            ...node,
+            options: Object.fromEntries(
+              Object.entries(node.options).map((
+                [key, value],
+              ) => [key, traverse(value)]),
+            ),
+          };
+        case "LEVEL":
+          return {
+            ...node,
+            options: Object.fromEntries(
+              Object.entries(node.levels).map((
+                [key, value],
+              ) => [key, traverse(value)]),
+            ),
+          };
+        case "SECTION":
+          return { ...node, value: traverse(node.value) };
+      }
+    }
+
+    return fn(node, traverse, ctx);
+  };
+}
 export const desugar = createTraversal<
   Sugar,
   AnyNode,
-  Record<PropertyKey, never>
+  { passthrough?: boolean }
 >(
   {
-    SWITCH: (node, desugar) => ({
+    SWITCH: passOr((node, desugar) => ({
       type: "CONDITION",
       kind: "EQUAL",
       reference: { type: "VALUE", value: 1 },
       value: { type: "VALUE", value: node.active ? 1 : 0 },
       effect: desugar(node.effect),
-    }),
-    LEVEL: (node, desugar) => {
+    })),
+    LEVEL: passOr((node, desugar) => {
       const values: Condition[] = Object.entries(node.levels).map(
         ([levelStr, effect]) => {
           return {
@@ -114,11 +156,11 @@ export const desugar = createTraversal<
       );
 
       return { type: "MULTIPLE", values };
-    },
-    CHOICE: (node, desugar) => {
+    }),
+    CHOICE: passOr((node, desugar) => {
       const values: BaseNode[] = [];
 
-      for (const key of node.active) {
+      for (const key of new Set(node.active)) {
         const value = node.options[key] as BaseNode | undefined;
         if (!value) continue;
 
@@ -130,8 +172,8 @@ export const desugar = createTraversal<
       }
 
       return desugar({ type: "MULTIPLE", values });
-    },
-    SECTION: (node, desugar) => desugar(node.value),
+    }),
+    SECTION: passOr((node, desugar) => desugar(node.value)),
   },
   baseDesugarer,
 );

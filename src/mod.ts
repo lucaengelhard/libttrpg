@@ -9,3 +9,5 @@ export { desugar } from "./system/sugar.ts";
 
 export { getOr, getValue, setOr, setValue } from "./system/value.ts";
 export type { GetCtx, SetCtx } from "./system/value.ts";
+
+export { nestedMap } from "./lib/utils.ts";

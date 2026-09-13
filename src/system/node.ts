@@ -127,7 +127,7 @@ export function parse(tree: BaseNode) {
 
   const res = builder.resolve();
 
-  return res.get(values)?.$value;
+  return { result: res, values: res.get(values)?.$value };
 
   function traverse(node: BaseNode, condition?: Vertex<Tag, Boolean>) {
     switch (node.type) {
@@ -137,6 +137,7 @@ export function parse(tree: BaseNode) {
         }
         break;
       }
+      case "AGGREGATOR":
       case "QUERY":
       case "VALUE":
       case "BINARYOPERATION":
