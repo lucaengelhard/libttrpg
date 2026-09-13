@@ -2,26 +2,27 @@ import { Edge, GraphBuilder, Vertex } from "../lib/graph.ts";
 import { Tag } from "../lib/tag.ts";
 
 type Readable<R extends Record<string, unknown>> = {
-  [K in keyof R]: R[K];
+  [K in keyof R]: R[K]; // TODO make recursive
 };
 
+export type NodeValue = Omit<Record<string, unknown>, "type">;
 export type NodeFactory<
   Type extends string,
-  Values extends Omit<Record<string, unknown>, "type">,
+  Values extends NodeValue,
 > = Readable<
   {
     type: Uppercase<Type>;
   } & Values
 >;
 
-type Multiple = NodeFactory<"Multiple", { values: Node[] }>;
+type Multiple = NodeFactory<"Multiple", { values: BaseNode[] }>;
 
 type Value = NodeFactory<
   "Value",
   { name?: string; value: number | Resolvable }
 >;
 
-type BinopKind = "DIVIDE" | "SUBTRACT" | "ADD" | "MULTIPLY";
+type BinopKind = "DIVIDE" | "SUBTRACT" | "ADD" | "MULTIPLY" | "MAX" | "MIN";
 type BinaryOperation = NodeFactory<
   "BinaryOperation",
   { kind: BinopKind; left: Resolvable; right: Resolvable }
@@ -35,7 +36,14 @@ type UnaryOperation = NodeFactory<
 
 type Query = NodeFactory<"Query", { query: string }>;
 
-export type Resolvable = Value | BinaryOperation | UnaryOperation | Query;
+type Aggreator = NodeFactory<"Aggregator", { name: string; kind: BinopKind }>;
+
+export type Resolvable =
+  | Value
+  | BinaryOperation
+  | UnaryOperation
+  | Query
+  | Aggreator;
 
 type Modifier = NodeFactory<"Modifier", { target: string; value: Resolvable }>;
 type Override = NodeFactory<"Override", { target: string; value: Resolvable }>;
@@ -52,11 +60,11 @@ export type Condition = NodeFactory<
     kind: ConditionKind;
     reference: Resolvable;
     value: Resolvable;
-    effect: Node;
+    effect: BaseNode;
   }
 >;
 
-export type Node = Resolvable | Multiple | Modifier | Override | Condition;
+export type BaseNode = Resolvable | Multiple | Modifier | Override | Condition;
 
 function sum(arr: number[]) {
   return arr.reduce((prev, curr) => prev + curr, 0);
@@ -73,7 +81,7 @@ type Values = Tag<"values", Map<string, number>>;
 
 type Modifiers = Tag<"modifiers", Map<string, number[]>>;
 
-export function parse(tree: Node) {
+export function parse(tree: BaseNode) {
   const builder = GraphBuilder();
 
   const values = Vertex<Named, Values>(
@@ -121,7 +129,7 @@ export function parse(tree: Node) {
 
   return res.get(values)?.$value;
 
-  function traverse(node: Node, condition?: Vertex<Tag, Boolean>) {
+  function traverse(node: BaseNode, condition?: Vertex<Tag, Boolean>) {
     switch (node.type) {
       case "MULTIPLE": {
         for (const value of node.values) {
@@ -152,8 +160,8 @@ export function parse(tree: Node) {
             return Tag("named", [node.target, sum(filtered)]);
           },
         ) as Vertex<Tag, Named>;
-        builder.addVertex(query);
 
+        builder.addVertex(query);
         builder.addEdge(Edge(value, query));
 
         if (node.type === "MODIFIER") {
@@ -324,7 +332,20 @@ export function parse(tree: Node) {
           };
         }
 
-        return vertex;
+        const result = Vertex<Named | Number, Number | Undefined>([
+          "named",
+          "number",
+        ], (valueArr) => {
+          const value = valueArr[0];
+          if (value === undefined) return Undefined;
+          if (typeof value === "number") return Tag("number", value);
+          return Tag("number", value[1]);
+        });
+
+        builder.addVertex(result);
+        builder.addEdge(Edge(vertex, result));
+
+        return result;
       }
       case "BINARYOPERATION": {
         const left = resolveValue(node.left, condition);
@@ -386,6 +407,61 @@ export function parse(tree: Node) {
 
         return result;
       }
+      case "AGGREGATOR": {
+        const result = Vertex<
+          Tag<"NumberArray", number[]> | Undefined,
+          Number | Undefined
+        >(
+          "NumberArray",
+          (valuesArr) => {
+            const values = valuesArr[0];
+            if (values === undefined) return Undefined;
+            if (values.length === 0) return Undefined;
+            if (values.length === 1) return Tag("number", values[0]);
+
+            return Tag(
+              "number",
+              values.reduce((prev, curr) =>
+                binop(node.kind, prev, curr).$value
+              ),
+            );
+          },
+        );
+
+        const modifierVertex = Vertex<
+          Modifiers,
+          Tag<"NumberArray", number[]> | Undefined
+        >(
+          "modifiers",
+          (modifiersArr) => {
+            const modifiers = modifiersArr[0];
+            if (modifiers === undefined) return Undefined;
+
+            const toAdd: number[] = [];
+
+            for (const [query, values] of modifiers.entries()) {
+              const querySegments = query.split(".");
+              const nameSegments = node.name!.split(".");
+              if (querySegments.length > nameSegments.length) continue;
+
+              const isMatching = querySegments.every((segment, index) =>
+                segment === nameSegments[index]
+              );
+
+              if (isMatching) {
+                toAdd.push(...values);
+              }
+            }
+
+            return Tag("NumberArray", toAdd);
+          },
+        );
+        builder.addVertex(modifierVertex);
+        builder.addEdge(Edge(modifiers, modifierVertex));
+        builder.addEdge(Edge(modifierVertex, result));
+
+        return result;
+      }
     }
   }
 }
@@ -399,6 +475,10 @@ function binop(kind: BinopKind, left: number, right: number): Number {
       return Tag("number", left + right);
     case "MULTIPLY":
       return Tag("number", left * right);
+    case "MAX":
+      return Tag("number", Math.max(left, right));
+    case "MIN":
+      return Tag("number", Math.min(left, right));
   }
 }
 

@@ -1,10 +1,9 @@
-import type { Node } from "./node.ts";
-import type { Sugar, WithSugar } from "./sugar.ts";
+import type { Node } from "@lucaengelhard/libttrpg";
 
-type WithName = Extract<Node | Sugar, { name?: string }>;
+type WithName = Extract<Node, { name?: string }>;
 
 export function setValue<
-  N extends WithSugar<Node>,
+  N extends Node,
   Possible extends WithName,
   Type extends Possible["type"],
   Selected extends Extract<Possible, { type: Type }>,
@@ -40,6 +39,7 @@ export function setValue<
       };
     case "UNARYOPERATION":
       return { ...node, value: setValue(node.value, ctx) };
+    case "AGGREGATOR":
     case "QUERY":
       return { ...node };
     case "MULTIPLE": {
@@ -69,23 +69,13 @@ export function setValue<
 
       return { ...node, options };
     }
-    case "COLLECTION": {
-      return {
-        ...node,
-        derives: Object.fromEntries(
-          Object.entries(node.derives).map((
-            [key, [value, calculation]],
-          ) => [key, [value, setValue(calculation, ctx)]]),
-        ),
-      };
-    }
     case "SECTION":
       return { ...node, value: setValue(node.value, ctx) };
   }
 }
 
 export function getValue<
-  N extends WithSugar<Node>,
+  N extends Node,
   Possible extends WithName,
   Type extends Possible["type"],
   Selected extends Extract<Possible, { type: Type }>,
@@ -111,6 +101,7 @@ export function getValue<
       return getValue(node.left, ctx) || getValue(node.right, ctx);
     case "UNARYOPERATION":
       return getValue(node.value, ctx);
+    case "AGGREGATOR":
     case "QUERY":
       return undefined;
     case "MULTIPLE":
@@ -139,19 +130,6 @@ export function getValue<
       ).find((v) => v !== undefined) as Selected[Key] | undefined;
 
       return optionRes;
-    }
-    case "COLLECTION": {
-      let res: Selected[Key] | undefined;
-
-      for (const [_, calculation] of Object.values(node.derives)) {
-        const value = getValue(calculation, ctx as any) as
-          | Selected[Key]
-          | undefined;
-
-        if (value) res = value;
-      }
-
-      return res;
     }
     case "SECTION":
       return getValue(node.value, ctx);
