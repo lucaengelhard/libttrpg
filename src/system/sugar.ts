@@ -1,4 +1,5 @@
 import type { BaseNode, Condition, NodeFactory, Resolvable } from "./node.ts";
+import { type AnyNode, createTraversal } from "./traverse.ts";
 
 export type Extend<Base, Extension, Value> =
   | Extension
@@ -9,51 +10,6 @@ export type Extend<Base, Extension, Value> =
         : Value[K];
     }
     : never);
-
-export type DesugarFunc<TInput, TTarget> = (
-  node: TInput,
-  topLevelDesugar?: DesugarFunc<TInput, TTarget>,
-) => TTarget;
-
-export type DesugarHandlers<
-  THandled extends { type: string },
-  TInput,
-  TTarget,
-> = {
-  [T in THandled["type"]]?: (
-    node: Extract<TInput, { type: T }>,
-    desugar: (node: TInput) => TTarget,
-  ) => TTarget;
-};
-
-export function createDesugarer<
-  THandled extends { type: string },
-  TInput extends { type: string },
-  TTarget,
->(
-  handlers: DesugarHandlers<THandled, TInput, TTarget>,
-  fallback?: DesugarFunc<any, any>,
-): DesugarFunc<TInput, TTarget> {
-  return function desugar(
-    node: TInput,
-    recursiveFn?: DesugarFunc<TInput, TTarget>,
-  ): TTarget {
-    const topLevelDesugar = recursiveFn ?? desugar;
-
-    const handler = handlers[node.type as keyof typeof handlers];
-
-    if (handler) {
-      // deno-lint-ignore ban-types
-      return (handler as Function)(node, topLevelDesugar);
-    }
-
-    if (fallback) {
-      return fallback(node, topLevelDesugar);
-    }
-
-    throw new Error(`No desugaring handler for ${node.type}`);
-  };
-}
 
 export type InputNode = Extend<BaseNode, Sugar, BaseNode>;
 
@@ -88,7 +44,11 @@ type Section = NodeFactory<
 
 export type Sugar = Switch | Choice | Level | Section;
 
-const BASE_HANDLERS: DesugarHandlers<BaseNode, InputNode, BaseNode> = {
+const baseDesugarer = createTraversal<
+  BaseNode,
+  AnyNode,
+  Record<PropertyKey, never>
+>({
   VALUE: (node, desugar) => ({
     ...node,
     value: typeof node.value === "number"
@@ -104,10 +64,10 @@ const BASE_HANDLERS: DesugarHandlers<BaseNode, InputNode, BaseNode> = {
     ...node,
     value: desugar(node.value) as Resolvable,
   }),
-
-  MULTIPLE: (node, desugar) => {
-    return ({ ...node, values: node.values.map((v) => desugar(v)) });
-  },
+  MULTIPLE: (node, desugar) => ({
+    ...node,
+    values: node.values.map((v) => desugar(v)),
+  }),
   MODIFIER: (node, desugar) => ({
     ...node,
     value: desugar(node.value) as Resolvable,
@@ -125,14 +85,13 @@ const BASE_HANDLERS: DesugarHandlers<BaseNode, InputNode, BaseNode> = {
 
   AGGREGATOR: (node) => node,
   QUERY: (node) => node,
-};
+});
 
-const baseDesugarer = createDesugarer<BaseNode, InputNode, BaseNode>(
-  BASE_HANDLERS,
-  (node) => node as BaseNode,
-);
-
-export const desugar = createDesugarer<Sugar, InputNode, BaseNode>(
+export const desugar = createTraversal<
+  Sugar,
+  AnyNode,
+  Record<PropertyKey, never>
+>(
   {
     SWITCH: (node, desugar) => ({
       type: "CONDITION",
@@ -149,7 +108,7 @@ export const desugar = createDesugarer<Sugar, InputNode, BaseNode>(
             kind: "GREATEREQUAL",
             reference: node.reference,
             value: { type: "VALUE", value: parseInt(levelStr) },
-            effect: desugar(effect as BaseNode | Sugar),
+            effect: desugar(effect) as BaseNode,
           };
         },
       );

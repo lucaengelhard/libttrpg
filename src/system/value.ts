@@ -1,137 +1,146 @@
-import type { Node } from "@lucaengelhard/libttrpg";
+import type { Node, Resolvable } from "@lucaengelhard/libttrpg";
+import { type AnyNode, createTraversal } from "./traverse.ts";
 
-type WithName = Extract<Node, { name?: string }>;
-
-export function setValue<
-  N extends Node,
-  Possible extends WithName,
-  Type extends Possible["type"],
-  Selected extends Extract<Possible, { type: Type }>,
-  Key extends Exclude<keyof Selected, "name" | "type">,
->(
-  node: N,
-  ctx: {
-    nodeType: Type;
-    name: string;
-    key: Key;
-    value: Selected[Key];
-  },
-): N {
-  if (node.type === ctx.nodeType && node.name === ctx.name) {
-    return { ...node, [ctx.key]: ctx.value };
-  }
-
-  switch (node.type) {
-    case "VALUE":
-      return {
-        ...node,
-        value: typeof node.value === "number"
-          ? node.value
-          : setValue(node.value, ctx),
-      };
-    case "SWITCH":
-      return { ...node, effect: setValue(node.effect, ctx) };
-    case "BINARYOPERATION":
-      return {
-        ...node,
-        left: setValue(node.left, ctx),
-        right: setValue(node.right, ctx),
-      };
-    case "UNARYOPERATION":
-      return { ...node, value: setValue(node.value, ctx) };
-    case "AGGREGATOR":
-    case "QUERY":
-      return { ...node };
-    case "MULTIPLE": {
-      return { ...node, values: node.values.map((v) => setValue(v, ctx)) };
+export type SetCtx = {
+  nodeType: string;
+  name: string;
+  key: string;
+  value: any;
+};
+export function setOr<N extends AnyNode>(
+  fn: (node: N, traverse: (node: AnyNode) => AnyNode) => AnyNode,
+) {
+  return (node: N, traverse: (node: AnyNode) => AnyNode, ctx: SetCtx) => {
+    if (
+      node.type === ctx.nodeType && "name" in node && node.name === ctx.name
+    ) {
+      return { ...node, [ctx.key]: ctx.value };
     }
-    case "MODIFIER":
-    case "OVERRIDE":
-      return { ...node, value: setValue(node.value, ctx) };
-    case "CONDITION":
-      return {
-        ...node,
-        reference: setValue(node.reference, ctx),
-        value: setValue(node.value, ctx),
-        effect: setValue(node.effect, ctx),
-      };
-    case "LEVEL": {
-      const levels = Object.entries(node.levels).map(
-        ([levelStr, effect]) =>
-          [parseInt(levelStr), setValue(effect, ctx)] as const,
-      );
-      return { ...node, reference: setValue(node.reference, ctx), levels };
-    }
-    case "CHOICE": {
-      const options = Object.entries(node.options).map(
-        ([key, effect]) => [key, setValue(effect, ctx)] as const,
-      );
 
-      return { ...node, options };
-    }
-    case "SECTION":
-      return { ...node, value: setValue(node.value, ctx) };
-  }
+    return fn(node, traverse);
+  };
 }
+export const setValue = createTraversal<Node, AnyNode, SetCtx>({
+  VALUE: setOr((node, traverse) => ({
+    ...node,
+    value: typeof node.value === "number"
+      ? node.value
+      : traverse(node.value) as Resolvable,
+  })),
+  SWITCH: setOr((node, traverse) => ({
+    ...node,
+    effect: traverse(node.effect),
+  })),
+  BINARYOPERATION: setOr((node, traverse) => ({
+    ...node,
+    left: traverse(node.left) as Resolvable,
+    right: traverse(node.right) as Resolvable,
+  })),
+  UNARYOPERATION: setOr((node, traverse) => ({
+    ...node,
+    value: traverse(node.value) as Resolvable,
+  })),
+  AGGREGATOR: setOr((node) => ({ ...node })),
+  QUERY: setOr((node) => ({ ...node })),
+  MULTIPLE: setOr((node, traverse) => ({
+    ...node,
+    values: node.values.map((v) => traverse(v)),
+  })),
+  MODIFIER: setOr((node, traverse) => ({
+    ...node,
+    value: traverse(node.value) as Resolvable,
+  })),
+  OVERRIDE: setOr((node, traverse) => ({
+    ...node,
+    value: traverse(node.value) as Resolvable,
+  })),
+  CONDITION: setOr((node, traverse) => ({
+    ...node,
+    reference: traverse(node.reference) as Resolvable,
+    value: traverse(node.value) as Resolvable,
+    effect: traverse(node.effect),
+  })),
+  LEVEL: setOr((node, traverse) => {
+    const levels = Object.fromEntries(
+      Object.entries(node.levels)
+        .map(([levelStr, effect]) =>
+          [parseInt(levelStr), traverse(effect)] as const
+        ),
+    );
+    return {
+      ...node,
+      reference: traverse(node.reference) as Resolvable,
+      levels,
+    };
+  }),
+  CHOICE: setOr((node, traverse) => {
+    const options = Object.fromEntries(
+      Object.entries(node.options).map(
+        ([key, effect]) => [key, traverse(effect)] as const,
+      ),
+    );
 
-export function getValue<
-  N extends Node,
-  Possible extends WithName,
-  Type extends Possible["type"],
-  Selected extends Extract<Possible, { type: Type }>,
-  Key extends Exclude<keyof Selected, "name" | "type">,
->(
-  node: N,
-  ctx: {
-    nodeType: Type;
-    name: string;
-    key: Key;
-  },
-): Selected[Key] | undefined {
-  if (node.type === ctx.nodeType && node.name === ctx.name) {
-    return (node as unknown as Selected)[ctx.key];
-  }
+    return { ...node, options };
+  }),
+  SECTION: setOr((node, traverse) => ({
+    ...node,
+    value: traverse(node.value),
+  })),
+});
 
-  switch (node.type) {
-    case "VALUE":
-      return typeof node.value === "number"
-        ? undefined
-        : getValue(node.value, ctx);
-    case "BINARYOPERATION":
-      return getValue(node.left, ctx) || getValue(node.right, ctx);
-    case "UNARYOPERATION":
-      return getValue(node.value, ctx);
-    case "AGGREGATOR":
-    case "QUERY":
-      return undefined;
-    case "MULTIPLE":
-      return node.values
-        .map((v) => getValue(v, ctx as any))
-        .find((v) => v !== undefined) as Selected[Key] | undefined;
-    case "MODIFIER":
-    case "OVERRIDE":
-      return getValue(node.value, ctx);
-    case "CONDITION":
-      return getValue(node.effect, ctx) ||
-        getValue(node.reference, ctx) ||
-        getValue(node.value, ctx);
-    case "SWITCH":
-      return getValue(node.effect, ctx);
-    case "LEVEL": {
-      const levelRes = Object.values(node.levels).map((v) =>
-        getValue(v, ctx) as Selected[Key] | undefined
-      ).find((v) => v !== undefined) as Selected[Key] | undefined;
-
-      return levelRes || getValue(node.reference, ctx);
+export type GetCtx = {
+  nodeType: string;
+  name: string;
+  key: string;
+};
+export function getOr<N extends AnyNode, T>(
+  fn: (node: N, traverse: (node: AnyNode) => T, ctx: GetCtx) => T,
+) {
+  return (node: N, traverse: (node: AnyNode) => T, ctx: GetCtx) => {
+    if (
+      node.type === ctx.nodeType && "name" in node && node.name === ctx.name &&
+      ctx.key in node && typeof ctx.key === "string"
+    ) {
+      return (node as any)[ctx.key];
     }
-    case "CHOICE": {
-      const optionRes = Object.values(node.options).map((v) =>
-        getValue(v, ctx) as Selected[Key] | undefined
-      ).find((v) => v !== undefined) as Selected[Key] | undefined;
 
-      return optionRes;
-    }
-    case "SECTION":
-      return getValue(node.value, ctx);
-  }
+    return fn(node, traverse, ctx);
+  };
 }
+export const getValue = createTraversal<Node, unknown, GetCtx>({
+  VALUE: getOr((node, traverse) =>
+    typeof node.value === "number" ? undefined : traverse(node.value)
+  ),
+  BINARYOPERATION: getOr((node, traverse) =>
+    traverse(node.left) || traverse(node.right)
+  ),
+  UNARYOPERATION: getOr((node, traverse) => traverse(node.value)),
+  AGGREGATOR: () => undefined,
+  QUERY: () => undefined,
+  MULTIPLE: getOr((node, traverse) =>
+    node.values
+      .map((v) => traverse(v))
+      .find((v) => v !== undefined)
+  ),
+  MODIFIER: getOr((node, traverse) => traverse(node.value)),
+  OVERRIDE: getOr((node, traverse) => traverse(node.value)),
+  CONDITION: getOr((node, traverse) =>
+    traverse(node.effect) || traverse(node.reference) || traverse(node.value)
+  ),
+  SWITCH: getOr((node, traverse) => traverse(node.effect)),
+  LEVEL: getOr((node, traverse) => {
+    const levelRes = Object.values(node.levels)
+      .map((v) => traverse(v))
+      .find((v) => v !== undefined && v !== null);
+
+    return levelRes || traverse(node.reference);
+  }),
+  CHOICE: getOr((node, traverse) => {
+    const optionRes = Object.values(node.options)
+      .map((v) => traverse(v))
+      .find((v) => v !== undefined && v !== null);
+
+    return optionRes;
+  }),
+  SECTION: getOr((node, traverse) => traverse(node.value)),
+});
