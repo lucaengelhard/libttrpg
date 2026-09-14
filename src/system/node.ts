@@ -64,7 +64,12 @@ export type Condition = NodeFactory<
   }
 >;
 
-export type BaseNode = Resolvable | Multiple | Modifier | Override | Condition;
+export type BaseNode =
+  | Resolvable
+  | Multiple
+  | Modifier
+  | Override
+  | Condition;
 
 function sum(arr: number[]) {
   return arr.reduce((prev, curr) => prev + curr, 0);
@@ -165,6 +170,10 @@ export function parse(tree: BaseNode) {
         builder.addVertex(query);
         builder.addEdge(Edge(value, query));
 
+        if (condition) {
+          builder.addEdge(Edge(condition, query));
+        }
+
         if (node.type === "MODIFIER") {
           builder.addEdge(Edge(query, modifiers));
         } else {
@@ -177,14 +186,23 @@ export function parse(tree: BaseNode) {
         const reference = resolveValue(node.reference, condition);
         const value = resolveValue(node.value, condition);
 
-        const conditionSwitch = Vertex<Number | Named, Boolean>([
+        const conditionSwitch = Vertex<Number | Named | Boolean, Boolean>([
           "named",
           "number",
         ], (values) => {
-          if (values.length < 2) return Tag("boolean", false);
+          if (values.some((v) => typeof v === "boolean" && !v)) {
+            return Tag("boolean", false);
+          }
 
-          const ref = typeof values[0] === "number" ? values[0] : values[0][1];
-          const val = typeof values[1] === "number" ? values[1] : values[1][1];
+          const filtered = values.filter((v) => typeof v !== "boolean");
+          if (filtered.length < 2) return Tag("boolean", false);
+
+          const ref = typeof filtered[0] === "number"
+            ? filtered[0]
+            : filtered[0][1];
+          const val = typeof filtered[1] === "number"
+            ? filtered[1]
+            : filtered[1][1];
 
           return Tag("boolean", cond(node.kind, ref, val));
         });
@@ -195,6 +213,10 @@ export function parse(tree: BaseNode) {
 
         builder.addEdge(Edge(reference, conditionSwitch));
         builder.addEdge(Edge(value, conditionSwitch));
+
+        if (condition) {
+          builder.addEdge(Edge(condition, conditionSwitch));
+        }
 
         traverse(node.effect, conditionSwitch);
 
