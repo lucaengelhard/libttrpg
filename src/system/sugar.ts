@@ -87,6 +87,10 @@ const baseDesugarer = createTraversal<
 
   AGGREGATOR: (node) => node,
   QUERY: (node) => node,
+  META: (node, desugar) => ({
+    ...node,
+    value: desugar(node.value) as Resolvable,
+  }),
 });
 
 function passOr<N extends Sugar, T>(

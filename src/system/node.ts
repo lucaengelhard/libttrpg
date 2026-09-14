@@ -22,6 +22,11 @@ type Value = NodeFactory<
   { name?: string; value: number | Resolvable }
 >;
 
+type Meta = NodeFactory<
+  "Meta",
+  { meta: Record<string, unknown>; value: Resolvable }
+>;
+
 type BinopKind = "DIVIDE" | "SUBTRACT" | "ADD" | "MULTIPLY" | "MAX" | "MIN";
 type BinaryOperation = NodeFactory<
   "BinaryOperation",
@@ -40,6 +45,7 @@ type Aggreator = NodeFactory<"Aggregator", { name: string; kind: BinopKind }>;
 
 export type Resolvable =
   | Value
+  | Meta
   | BinaryOperation
   | UnaryOperation
   | Query
@@ -144,9 +150,9 @@ export function parse(tree: BaseNode) {
 
   traverse(tree);
 
-  const res = builder.resolve();
+  const resolvedTree = builder.resolve();
 
-  return { result: res, values: res.get(values)?.$value };
+  return { result: resolvedTree, values: resolvedTree.get(values)?.$value };
 
   function traverse(node: BaseNode, condition?: Vertex<Tag, Boolean>) {
     switch (node.type) {
@@ -156,6 +162,7 @@ export function parse(tree: BaseNode) {
         }
         break;
       }
+      case "META":
       case "AGGREGATOR":
       case "QUERY":
       case "VALUE":
@@ -277,7 +284,6 @@ export function parse(tree: BaseNode) {
             const calculated = sum(filtered);
 
             const meta = { ...calculated.meta, name: node.name };
-
             return Tag("number", { value: calculated.value, meta });
           },
         );
@@ -531,6 +537,22 @@ export function parse(tree: BaseNode) {
         builder.addVertex(modifierVertex);
         builder.addEdge(Edge(modifiers, modifierVertex));
         builder.addEdge(Edge(modifierVertex, result));
+
+        return result;
+      }
+      case "META": {
+        const value = resolveValue(node.value);
+
+        const result = Vertex<Number, Number | Undefined>(
+          "number",
+          (values) => {
+            if (values.length === 0) return Undefined;
+            return Tag("number", { ...values[0], meta: { ...node.meta } });
+          },
+        );
+
+        builder.addVertex(result);
+        builder.addEdge(Edge(value, result));
 
         return result;
       }
