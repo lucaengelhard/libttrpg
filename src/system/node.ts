@@ -41,7 +41,10 @@ type UnaryOperation = NodeFactory<
 
 type Query = NodeFactory<"Query", { query: string }>;
 
-type Aggreator = NodeFactory<"Aggregator", { name: string; kind: BinopKind }>;
+type Aggreator = NodeFactory<
+  "Aggregator",
+  { name: string; kind: BinopKind } | { parent: Query; kind: BinopKind }
+>;
 
 export type Resolvable =
   | Value
@@ -98,6 +101,8 @@ type Boolean = Tag<"boolean", boolean>;
 
 type Undefined = Tag<"undefined", undefined>;
 const Undefined: Undefined = Tag("undefined", undefined);
+
+type ValueArray = Tag<"ValueArray", ValueObj[]>;
 
 type Values = Tag<
   "values",
@@ -455,7 +460,7 @@ export function parse(tree: BaseNode) {
         return result;
       }
       case "QUERY": {
-        const result = Vertex<Values, Number | Undefined>(
+        const result = Vertex<Values, Number | ValueArray | Undefined>(
           "values",
           (values) => {
             const valueMap = values[0];
@@ -463,7 +468,58 @@ export function parse(tree: BaseNode) {
 
             const res = valueMap.get(node.query);
 
-            return res !== undefined ? Tag("number", res) : Undefined;
+            if (res !== undefined) return Tag("number", res);
+
+            const resultArray: ValueObj[] = [];
+
+            for (const [name, value] of valueMap.entries()) {
+              const [query, params] = node.query.split("?");
+              const querySegments = query.split(".");
+              const nameSegments = name.split(".");
+              if (querySegments.length > nameSegments.length) continue;
+
+              const isMatching = querySegments.every((segment, index) =>
+                segment === nameSegments[index]
+              );
+
+              if (!isMatching) continue;
+
+              if (params !== undefined) {
+                const parts = params.split(";");
+                let isMismatched = false;
+                for (const part of parts) {
+                  const [key, param_value] = part.split("=");
+
+                  if (
+                    key === "value" && value.value !== parseInt(param_value)
+                  ) {
+                    isMismatched = true;
+                    break;
+                  }
+
+                  if (value.meta === undefined) {
+                    isMismatched = true;
+                    break;
+                  }
+
+                  if (!(key in value.meta)) {
+                    isMismatched = true;
+                    break;
+                  }
+
+                  if (String(value.meta[key]) !== param_value) {
+                    isMismatched = true;
+                    break;
+                  }
+                }
+
+                if (isMismatched) continue;
+              }
+
+              resultArray.push(value);
+            }
+
+            return Tag("ValueArray", resultArray);
           },
         );
 
@@ -474,7 +530,7 @@ export function parse(tree: BaseNode) {
       }
       case "AGGREGATOR": {
         const result = Vertex<
-          Tag<"ValueArray", ValueObj[]> | Undefined,
+          ValueArray | Undefined,
           Number | Undefined
         >(
           "ValueArray",
@@ -496,37 +552,44 @@ export function parse(tree: BaseNode) {
           },
         );
 
-        const modifierVertex = Vertex<
-          Modifiers,
-          Tag<"ValueArray", ValueObj[]> | Undefined
-        >(
-          "modifiers",
-          (modifiersArr) => {
-            const modifiers = modifiersArr[0];
-            if (modifiers === undefined) return Undefined;
+        if ("name" in node) {
+          const modifierVertex = Vertex<
+            Modifiers,
+            ValueArray | Undefined
+          >(
+            "modifiers",
+            (modifiersArr) => {
+              const modifiers = modifiersArr[0];
+              if (modifiers === undefined) return Undefined;
 
-            const toAdd: ValueObj[] = [];
+              const toAdd: ValueObj[] = [];
 
-            for (const [query, values] of modifiers.entries()) {
-              const querySegments = query.split(".");
-              const nameSegments = node.name!.split(".");
-              if (querySegments.length > nameSegments.length) continue;
+              for (const [query, values] of modifiers.entries()) {
+                const querySegments = query.split(".");
+                const nameSegments = node.name!.split(".");
+                if (querySegments.length > nameSegments.length) continue;
 
-              const isMatching = querySegments.every((segment, index) =>
-                segment === nameSegments[index]
-              );
+                const isMatching = querySegments.every((segment, index) =>
+                  segment === nameSegments[index]
+                );
 
-              if (isMatching) {
-                toAdd.push(...values);
+                if (isMatching) {
+                  toAdd.push(...values);
+                }
               }
-            }
 
-            return Tag("ValueArray", toAdd);
-          },
-        );
-        builder.addVertex(modifierVertex);
-        builder.addEdge(Edge(modifiers, modifierVertex));
-        builder.addEdge(Edge(modifierVertex, result));
+              return Tag("ValueArray", toAdd);
+            },
+          );
+          builder.addVertex(modifierVertex);
+          builder.addEdge(Edge(modifiers, modifierVertex));
+          builder.addEdge(Edge(modifierVertex, result));
+        }
+
+        if ("parent" in node) {
+          const parent = resolveValue(node.parent);
+          builder.addEdge(Edge(parent, result));
+        }
 
         return result;
       }
