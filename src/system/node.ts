@@ -71,39 +71,53 @@ export type BaseNode =
   | Override
   | Condition;
 
-function sum(arr: number[]) {
-  return arr.reduce((prev, curr) => prev + curr, 0);
+function sum(arr: ValueObj[]) {
+  return arr.reduce(addValueObj, { value: 0 });
 }
 
-type Number = Tag<"number", number>;
+function addValueObj(a: ValueObj, b: ValueObj): ValueObj {
+  const meta = a.meta === undefined ? b.meta : { ...a.meta, ...b.meta };
+  return { value: a.value + b.value, meta };
+}
+type ValueObj = { value: number; meta?: Record<string, unknown> };
+
+type Number = Tag<"number", ValueObj & { meta?: { name?: string } }>;
+function toEntries(numbers: Number["$value"][]) {
+  return numbers.filter((n) => n.meta?.name !== undefined).map((n) =>
+    [n.meta!.name!, n] as const
+  );
+}
+
 type Boolean = Tag<"boolean", boolean>;
 
 type Undefined = Tag<"undefined", undefined>;
 const Undefined: Undefined = Tag("undefined", undefined);
 
-type Named = Tag<"named", [string, number]>;
-type Values = Tag<"values", Map<string, number>>;
+type Values = Tag<
+  "values",
+  Map<string, ValueObj>
+>;
 
-type Modifiers = Tag<"modifiers", Map<string, number[]>>;
+type Modifiers = Tag<"modifiers", Map<string, ValueObj[]>>;
 
 export function parse(tree: BaseNode) {
   const builder = GraphBuilder();
 
-  const values = Vertex<Named, Values>(
-    "named",
+  const values = Vertex<Number, Values>(
+    "number",
     (entries) => {
-      return Tag("values", new Map(entries));
+      return Tag("values", new Map(toEntries(entries)));
     },
   );
 
   const valuesLookup = new Map<string, Vertex>();
 
-  const modifiers = Vertex<Named, Modifiers>(
-    "named",
+  const modifiers = Vertex<Number, Modifiers>(
+    "number",
     (entries) => {
-      const res = new Map<string, number[]>();
+      const res = new Map<string, ValueObj[]>();
 
-      for (const [name, value] of entries) {
+      for (const [name, value] of toEntries(entries)) {
         res.getOrInsert(name, []).push(value);
       }
 
@@ -111,12 +125,12 @@ export function parse(tree: BaseNode) {
     },
   );
 
-  const overwrites = Vertex<Named, Modifiers>(
-    "named",
+  const overwrites = Vertex<Number, Modifiers>(
+    "number",
     (entries) => {
-      const res = new Map<string, number[]>();
+      const res = new Map<string, ValueObj[]>();
 
-      for (const [name, value] of entries) {
+      for (const [name, value] of toEntries(entries)) {
         res.getOrInsert(name, []).push(value);
       }
 
@@ -155,17 +169,22 @@ export function parse(tree: BaseNode) {
         const value = resolveValue(node.value, condition);
         builder.addVertex(value);
 
-        const query = Vertex<Number | Boolean, Named | Undefined>(
+        const query = Vertex<Number | Boolean, Number | Undefined>(
           "number",
           (values) => {
             if (values.some((v) => typeof v === "boolean" && !v)) {
               return Undefined;
             }
-            const filtered = values.filter((v) => typeof v === "number");
+            const filtered = values.filter((v) => typeof v !== "boolean");
 
-            return Tag("named", [node.target, sum(filtered)]);
+            const calculated = sum(filtered);
+
+            return Tag("number", {
+              value: calculated.value,
+              meta: { ...calculated.meta, name: node.target },
+            });
           },
-        ) as Vertex<Tag, Named>;
+        ) as Vertex<Tag, Number>;
 
         builder.addVertex(query);
         builder.addEdge(Edge(value, query));
@@ -186,26 +205,27 @@ export function parse(tree: BaseNode) {
         const reference = resolveValue(node.reference, condition);
         const value = resolveValue(node.value, condition);
 
-        const conditionSwitch = Vertex<Number | Named | Boolean, Boolean>([
-          "named",
+        const conditionSwitch = Vertex<Number | Boolean, Boolean>(
           "number",
-        ], (values) => {
-          if (values.some((v) => typeof v === "boolean" && !v)) {
-            return Tag("boolean", false);
-          }
+          (values) => {
+            if (values.some((v) => typeof v === "boolean" && !v)) {
+              return Tag("boolean", false);
+            }
 
-          const filtered = values.filter((v) => typeof v !== "boolean");
-          if (filtered.length < 2) return Tag("boolean", false);
+            const filtered = values.filter((v) => typeof v !== "boolean");
+            if (filtered.length < 2) return Tag("boolean", false);
 
-          const ref = typeof filtered[0] === "number"
-            ? filtered[0]
-            : filtered[0][1];
-          const val = typeof filtered[1] === "number"
-            ? filtered[1]
-            : filtered[1][1];
+            const ref = Array.isArray(filtered[0])
+              ? filtered[0][1].value
+              : filtered[0].value;
 
-          return Tag("boolean", cond(node.kind, ref, val));
-        });
+            const val = Array.isArray(filtered[1])
+              ? filtered[1][1].value
+              : filtered[1].value;
+
+            return Tag("boolean", cond(node.kind, ref, val));
+          },
+        );
 
         builder.addVertex(reference);
         builder.addVertex(value);
@@ -239,26 +259,26 @@ export function parse(tree: BaseNode) {
         let parent: Vertex<Tag, Number> | undefined;
 
         if (typeof node.value === "number") {
-          valueTag = Tag("number", node.value);
+          valueTag = Tag("number", { value: node.value });
         }
 
         if (typeof node.value === "object") {
           parent = resolveValue(node.value, condition);
         }
 
-        const newVertex = Vertex<Number | Boolean, Number | Named | Undefined>(
+        const newVertex = Vertex<Number | Boolean, Number | Undefined>(
           ["number", "boolean"],
           (values) => {
             if (values.some((v) => typeof v === "boolean" && !v)) {
               return Undefined;
             }
 
-            const filtered = values.filter((v) => typeof v === "number");
-            if (node.name === undefined) {
-              return Tag("number", sum(filtered));
-            }
+            const filtered = values.filter((v) => typeof v !== "boolean");
+            const calculated = sum(filtered);
 
-            return Tag("named", [node.name, sum(filtered)] as [string, number]);
+            const meta = { ...calculated.meta, name: node.name };
+
+            return Tag("number", { value: calculated.value, meta });
           },
         );
 
@@ -286,7 +306,7 @@ export function parse(tree: BaseNode) {
               const modifiers = modifiersArr[0];
               if (modifiers === undefined) return Undefined;
 
-              const toAdd: number[] = [];
+              const toAdd: ValueObj[] = [];
 
               for (const [query, values] of modifiers.entries()) {
                 const querySegments = query.split(".");
@@ -302,7 +322,18 @@ export function parse(tree: BaseNode) {
                 }
               }
 
-              return Tag("number", sum(toAdd));
+              if (
+                node.name === "stats.proficiencyBonus" && toAdd[0] &&
+                toAdd[0].value < 10
+              ) {
+                console.log(toAdd);
+              }
+
+              const res = sum(toAdd);
+              res.meta = res.meta ?? {};
+              res.meta.name = node.name;
+
+              return Tag("number", res);
             },
           );
           builder.addVertex(modifierVertex);
@@ -315,7 +346,7 @@ export function parse(tree: BaseNode) {
               const overwrites = overwritesArr[0];
               if (overwrites === undefined) return Undefined;
 
-              const toAdd: number[] = [];
+              const toAdd: ValueObj[] = [];
 
               for (const [query, values] of overwrites.entries()) {
                 const querySegments = query.split(".");
@@ -333,7 +364,11 @@ export function parse(tree: BaseNode) {
 
               if (toAdd.length === 0) return Undefined;
 
-              return Tag("number", Math.max(...toAdd));
+              const res = sum(toAdd);
+              res.meta = res.meta ?? {};
+              res.meta.name = node.name;
+
+              return Tag("number", res);
             },
           );
           builder.addVertex(overwriteVertex);
@@ -342,28 +377,33 @@ export function parse(tree: BaseNode) {
           builder.addEdge(Edge(overwriteVertex, vertex, true));
 
           vertex.overrideSelector = (
-            overrideValues: (number | boolean)[],
-            parentValues: (number | boolean)[],
+            overrideValues: (ValueObj | boolean)[],
+            parentValues: (ValueObj | boolean)[],
           ) => {
             if (parentValues.some((v) => typeof v === "boolean" && !v)) {
               return Undefined;
             }
             const filtered = overrideValues.filter((v) =>
-              typeof v === "number"
+              typeof v !== "boolean"
             );
-            return Tag("named", [node.name, Math.max(...filtered)]);
+
+            return Tag(
+              "number",
+              filtered.reduce((prev, curr) =>
+                prev.value >= curr.value ? prev : curr
+              ),
+            );
           };
         }
 
-        const result = Vertex<Named | Number, Number | Undefined>([
-          "named",
+        const result = Vertex<Number, Number | Undefined>(
           "number",
-        ], (valueArr) => {
-          const value = valueArr[0];
-          if (value === undefined) return Undefined;
-          if (typeof value === "number") return Tag("number", value);
-          return Tag("number", value[1]);
-        });
+          (valueArr) => {
+            const value = valueArr[0];
+            if (value === undefined) return Undefined;
+            return Tag("number", value);
+          },
+        );
 
         builder.addVertex(result);
         builder.addEdge(Edge(vertex, result));
@@ -383,7 +423,10 @@ export function parse(tree: BaseNode) {
 
             if (values.length === 1) return Tag("number", values[0]);
 
-            return binop(node.kind, values[0], values[1]);
+            return Tag("number", {
+              value: binop(node.kind, values[0].value, values[1].value),
+              meta: { ...values[0].meta, ...values[1].meta },
+            });
           },
         );
 
@@ -403,7 +446,10 @@ export function parse(tree: BaseNode) {
               return Undefined;
             }
 
-            return unaryop(node.kind, values[0]);
+            return Tag("number", {
+              value: unaryop(node.kind, values[0].value),
+              meta: values[0].meta,
+            });
           },
         );
 
@@ -432,35 +478,38 @@ export function parse(tree: BaseNode) {
       }
       case "AGGREGATOR": {
         const result = Vertex<
-          Tag<"NumberArray", number[]> | Undefined,
+          Tag<"ValueArray", ValueObj[]> | Undefined,
           Number | Undefined
         >(
-          "NumberArray",
+          "ValueArray",
           (valuesArr) => {
             const values = valuesArr[0];
             if (values === undefined) return Undefined;
             if (values.length === 0) return Undefined;
-            if (values.length === 1) return Tag("number", values[0]);
+            if (values.length === 1) {
+              return Tag("number", values[0]);
+            }
 
             return Tag(
               "number",
-              values.reduce((prev, curr) =>
-                binop(node.kind, prev, curr).$value
-              ),
+              values.reduce((prev, curr) => ({
+                value: binop(node.kind, prev.value, curr.value),
+                meta: { ...prev.meta, ...curr.meta },
+              })),
             );
           },
         );
 
         const modifierVertex = Vertex<
           Modifiers,
-          Tag<"NumberArray", number[]> | Undefined
+          Tag<"ValueArray", ValueObj[]> | Undefined
         >(
           "modifiers",
           (modifiersArr) => {
             const modifiers = modifiersArr[0];
             if (modifiers === undefined) return Undefined;
 
-            const toAdd: number[] = [];
+            const toAdd: ValueObj[] = [];
 
             for (const [query, values] of modifiers.entries()) {
               const querySegments = query.split(".");
@@ -476,7 +525,7 @@ export function parse(tree: BaseNode) {
               }
             }
 
-            return Tag("NumberArray", toAdd);
+            return Tag("ValueArray", toAdd);
           },
         );
         builder.addVertex(modifierVertex);
@@ -488,29 +537,29 @@ export function parse(tree: BaseNode) {
     }
   }
 }
-function binop(kind: BinopKind, left: number, right: number): Number {
+function binop(kind: BinopKind, left: number, right: number): number {
   switch (kind) {
     case "DIVIDE":
-      return Tag("number", left / right);
+      return left / right;
     case "SUBTRACT":
-      return Tag("number", left - right);
+      return left - right;
     case "ADD":
-      return Tag("number", left + right);
+      return left + right;
     case "MULTIPLY":
-      return Tag("number", left * right);
+      return left * right;
     case "MAX":
-      return Tag("number", Math.max(left, right));
+      return Math.max(left, right);
     case "MIN":
-      return Tag("number", Math.min(left, right));
+      return Math.min(left, right);
   }
 }
 
-function unaryop(kind: UnaryOpKind, value: number): Number {
+function unaryop(kind: UnaryOpKind, value: number): number {
   switch (kind) {
     case "CEIL":
-      return Tag("number", Math.ceil(value));
+      return Math.ceil(value);
     case "FLOOR":
-      return Tag("number", Math.floor(value));
+      return Math.floor(value);
   }
 }
 
