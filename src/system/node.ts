@@ -116,8 +116,6 @@ export function parse(tree: BaseNode) {
     },
   );
 
-  const valuesLookup = new Map<string, Vertex>();
-
   const modifiers = Vertex<Number, Modifiers>(
     "number",
     (entries) => {
@@ -258,10 +256,6 @@ export function parse(tree: BaseNode) {
   ): Vertex {
     switch (node.type) {
       case "VALUE": {
-        const existingVertex = node.name !== undefined
-          ? valuesLookup.get(node.name)
-          : undefined;
-
         let valueTag: Number | undefined;
         let parent: Vertex<Tag, Number> | undefined;
 
@@ -273,7 +267,7 @@ export function parse(tree: BaseNode) {
           parent = resolveValue(node.value, condition);
         }
 
-        const newVertex = Vertex<Number | Boolean, Number | Undefined>(
+        const vertex = Vertex<Number | Boolean, Number | Undefined>(
           ["number", "boolean"],
           (values) => {
             if (values.some((v) => typeof v === "boolean" && !v)) {
@@ -286,10 +280,7 @@ export function parse(tree: BaseNode) {
             const meta = { ...calculated.meta, name: node.name };
             return Tag("number", { value: calculated.value, meta });
           },
-        );
-
-        const vertex = existingVertex || newVertex;
-        vertex.reduce = newVertex.reduce;
+        ) as Vertex;
         vertex.value = valueTag;
 
         builder.addVertex(vertex);
@@ -304,7 +295,6 @@ export function parse(tree: BaseNode) {
 
         if (node.name !== undefined) {
           builder.addEdge(Edge(vertex, values));
-          valuesLookup.set(node.name, vertex);
 
           const modifierVertex = Vertex<Modifiers, Number | Undefined>(
             "modifiers",
