@@ -7,6 +7,8 @@ export type Extend<Base, Extension, Value> =
       [K in keyof Value]: Value[K] extends Base
         ? Extend<Base, Extension, Value[K]>
         : Value[K] extends Base[] ? Extend<Base, Extension, Value[K][number]>[]
+        : Value[K] extends Record<string, Base>
+          ? Record<string, Extend<Base, Extension, Value[K][string]>>
         : Value[K];
     }
     : never);
