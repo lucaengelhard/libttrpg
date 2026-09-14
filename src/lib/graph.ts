@@ -9,19 +9,11 @@ export type Vertex<
   expects: Input["$tag"] | Input["$tag"][];
   value?: Input;
   reduce: (values: Input["$value"][]) => Output;
-  overrideSelector?: (
-    overrideValues: Input["$value"][],
-    parentValues: Input["$value"][],
-  ) => Output;
 };
 
 export function Vertex<Input extends Tag, Output extends Tag>(
   value: Input | Input["$tag"] | Input["$tag"][],
   reduce: (values: Input["$value"][]) => Output,
-  overrideSelector?: (
-    overrideValues: Input["$value"][],
-    parentValues: Input["$value"][],
-  ) => Output,
 ): Vertex<Input, Output> {
   return {
     value: typeof value === "object" && !Array.isArray(value)
@@ -31,7 +23,6 @@ export function Vertex<Input extends Tag, Output extends Tag>(
     expects: typeof value === "string" || Array.isArray(value)
       ? value
       : (value as Input).$tag,
-    overrideSelector,
   };
 }
 
@@ -162,7 +153,7 @@ function scc(graph: Graph) {
           onStackMap.set(current, false);
           component.add(current);
         }
-      } while (current !== vertex);
+      } while (current && current !== vertex);
 
       components.add(component);
     }
@@ -285,8 +276,8 @@ function resolve(graph: Graph, config?: { maxIterations?: number }) {
         .filter((v) => v !== undefined && v !== null)
         .toArray();
 
-      const override = overrideValues.length > 0 && vertex.overrideSelector
-        ? vertex.overrideSelector(overrideValues, inputs)
+      const override = overrideValues.length > 0
+        ? overrideValues[0]
         : undefined;
 
       const calculatedValue = vertex.reduce(inputs);

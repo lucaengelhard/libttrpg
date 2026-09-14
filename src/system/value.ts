@@ -86,6 +86,10 @@ export const setValue = createTraversal<Node, AnyNode, SetCtx>({
     ...node,
     value: traverse(node.value),
   })),
+  SELECTOR: setOr((node, traverse) => ({
+    ...node,
+    query: traverse(node.query),
+  })),
 });
 
 export type GetCtx = {
@@ -143,4 +147,5 @@ export const getValue = createTraversal<Node, unknown, GetCtx>({
     return optionRes;
   }),
   SECTION: getOr((node, traverse) => traverse(node.value)),
+  SELECTOR: getOr((node, traverse) => traverse(node.query)),
 });

@@ -1,4 +1,5 @@
-import type { BaseNode, Condition, NodeFactory, Resolvable } from "./node.ts";
+import type { Condition } from "./node/condition.ts";
+import type { Node, NodeFactory, Resolvable } from "./node/index.ts";
 import { type AnyNode, createTraversal } from "./traverse.ts";
 
 export type Extend<Base, Extension, Value> =
@@ -13,7 +14,7 @@ export type Extend<Base, Extension, Value> =
     }
     : never);
 
-export type InputNode = Extend<BaseNode, Sugar, BaseNode>;
+export type InputNode = Extend<Node, Sugar, Node>;
 
 type Switch = NodeFactory<
   "Switch",
@@ -28,26 +29,15 @@ type Level = NodeFactory<
   }
 >;
 
-type Choice = NodeFactory<
-  "Choice",
-  {
-    // Count is not dynamic for now, as this is probably really weird to build ui for?
-    count: number;
-    options: Record<string, InputNode>;
-    active: string[];
-    name: string;
-  }
->;
-
 type Section = NodeFactory<
   "Section",
   { name: string; value: InputNode }
 >;
 
-export type Sugar = Switch | Choice | Level | Section;
+export type Sugar = Switch | Level | Section;
 
 const baseDesugarer = createTraversal<
-  BaseNode,
+  Node,
   AnyNode,
   { passthrough?: boolean }
 >({
@@ -80,106 +70,54 @@ const baseDesugarer = createTraversal<
   }),
   CONDITION: (node, desugar) => ({
     ...node,
-    reference: desugar(node.reference) as Resolvable,
-    value: desugar(node.value) as Resolvable,
+    left: desugar(node.left) as Resolvable,
+    right: desugar(node.right) as Resolvable,
     effect: desugar(node.effect),
   }),
 
-  AGGREGATOR: (node) => node,
+  REDUCE: (node) => node,
   QUERY: (node) => node,
-  META: (node, desugar) => ({
-    ...node,
-    value: desugar(node.value) as Resolvable,
-  }),
+  CHOICE: (node, desugar) => {
+    const options = Object.fromEntries(
+      Object
+        .entries(node.options)
+        .map(([key, value]) => [key, desugar(value)]),
+    );
+
+    return { ...node, options };
+  },
+  SELECTOR: (node, desugar) => ({ ...node, query: desugar(node.query) }),
 });
 
-function passOr<N extends Sugar, T>(
-  fn: (
-    node: N,
-    traverse: (node: AnyNode) => T,
-    ctx: { passthrough?: boolean },
-  ) => T,
-) {
-  return (
-    node: N,
-    traverse: (node: AnyNode) => T,
-    ctx: { passthrough?: boolean },
-  ) => {
-    if (ctx.passthrough) {
-      switch (node.type) {
-        case "SWITCH":
-          return { ...node, effect: traverse(node.effect) };
-        case "CHOICE":
-          return {
-            ...node,
-            options: Object.fromEntries(
-              Object.entries(node.options).map((
-                [key, value],
-              ) => [key, traverse(value)]),
-            ),
-          };
-        case "LEVEL":
-          return {
-            ...node,
-            options: Object.fromEntries(
-              Object.entries(node.levels).map((
-                [key, value],
-              ) => [key, traverse(value)]),
-            ),
-          };
-        case "SECTION":
-          return { ...node, value: traverse(node.value) };
-      }
-    }
-
-    return fn(node, traverse, ctx);
-  };
-}
 export const desugar = createTraversal<
   Sugar,
   AnyNode,
   { passthrough?: boolean }
 >(
   {
-    SWITCH: passOr((node, desugar) => ({
+    SWITCH: (node, desugar) => ({
       type: "CONDITION",
       kind: "EQUAL",
       reference: { type: "VALUE", value: 1 },
       value: { type: "VALUE", value: node.active ? 1 : 0 },
       effect: desugar(node.effect),
-    })),
-    LEVEL: passOr((node, desugar) => {
+    }),
+    LEVEL: (node, desugar) => {
       const values: Condition[] = Object.entries(node.levels).map(
         ([levelStr, effect]) => {
           return {
             type: "CONDITION",
-            kind: "GREATEREQUAL",
-            reference: node.reference,
-            value: { type: "VALUE", value: parseInt(levelStr) },
-            effect: desugar(effect) as BaseNode,
+            left: { type: "VALUE", value: parseInt(levelStr) },
+            kind: "<=",
+            right: node.reference,
+            effect: desugar(effect) as Node,
           };
         },
       );
 
       return { type: "MULTIPLE", values };
-    }),
-    CHOICE: passOr((node, desugar) => {
-      const values: BaseNode[] = [];
-
-      for (const key of new Set(node.active)) {
-        const value = node.options[key] as BaseNode | undefined;
-        if (!value) continue;
-
-        if (values.length < node.count) {
-          values.push(value);
-        } else {
-          break;
-        }
-      }
-
-      return desugar({ type: "MULTIPLE", values });
-    }),
-    SECTION: passOr((node, desugar) => desugar(node.value)),
+    },
+    SECTION: (node, desugar) => desugar(node.value),
   },
   baseDesugarer,
 );
