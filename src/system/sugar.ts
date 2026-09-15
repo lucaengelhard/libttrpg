@@ -7,26 +7,55 @@ import type {
 import type { Query } from "./node/query.ts";
 import { createTraversal } from "./traverse.ts";
 
-export type ExtendAST<T, TSugar, TResolvableSugar> = T extends infer Item
-  ? Item extends BaseResolvable ?
-      | { [K in keyof Item]: ExtendAST<Item[K], TSugar, TResolvableSugar> }
-      | TResolvableSugar
-  : Item extends BaseNode ?
-      | { [K in keyof Item]: ExtendAST<Item[K], TSugar, TResolvableSugar> }
-      | TSugar
-  : Item extends Array<infer Element>
-    ? Array<ExtendAST<Element, TSugar, TResolvableSugar>>
+export type ExtendAST<
+  T,
+  BaseNodeType,
+  BaseResolvableType,
+  NodeSugar,
+  ResolvableSugar,
+> = T extends infer Item ? Item extends BaseResolvableType ?
+      | {
+        [K in keyof Item]: ExtendAST<
+          Item[K],
+          BaseNodeType,
+          BaseResolvableType,
+          NodeSugar,
+          ResolvableSugar
+        >;
+      }
+      | ResolvableSugar
+  : Item extends BaseNodeType ?
+      | {
+        [K in keyof Item]: ExtendAST<
+          Item[K],
+          BaseNodeType,
+          BaseResolvable,
+          NodeSugar,
+          ResolvableSugar
+        >;
+      }
+      | NodeSugar
+  : Item extends Array<infer Element> ? Array<
+      ExtendAST<
+        Element,
+        BaseNodeType,
+        BaseResolvableType,
+        NodeSugar,
+        ResolvableSugar
+      >
+    >
+  : Item extends Record<string, infer Element> ? Record<
+      string,
+      ExtendAST<
+        Element,
+        BaseNodeType,
+        BaseResolvableType,
+        NodeSugar,
+        ResolvableSugar
+      >
+    >
   : Item
   : never;
-
-export type SugaredResolvable = ExtendAST<
-  BaseResolvable,
-  Sugar,
-  ResolvableSugar
->;
-export type SugaredNode = ExtendAST<BaseNode, Sugar, ResolvableSugar>;
-
-export type Node = SugaredNode | SugaredResolvable;
 
 type Switch = NodeFactory<
   "Switch",
@@ -48,13 +77,21 @@ type Section = NodeFactory<
 
 type Get = NodeFactory<"Get", { query: string }>;
 
-export type Sugar = Switch | Level | Section;
+export type NodeSugar = Switch | Level | Section;
 export type ResolvableSugar = Get;
+
+export type Node = ExtendAST<
+  BaseNode,
+  Exclude<BaseNode, BaseResolvable>,
+  BaseResolvable,
+  NodeSugar,
+  ResolvableSugar
+>;
 
 const baseDesugarer = createTraversal<
   BaseNode,
   BaseNode,
-  { passthrough?: boolean }
+  Record<string, never>
 >({
   VALUE: (node, desugar) => ({
     ...node,
@@ -108,9 +145,9 @@ const baseDesugarer = createTraversal<
 });
 
 export const desugar = createTraversal<
-  Sugar | ResolvableSugar,
+  NodeSugar | ResolvableSugar,
   BaseNode,
-  { passthrough?: boolean }
+  Record<string, never>
 >(
   {
     SWITCH: (node, desugar) => ({

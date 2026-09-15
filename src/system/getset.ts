@@ -1,16 +1,20 @@
-import type { Node, Resolvable } from "@lucaengelhard/libttrpg";
+import type { Node } from "./sugar.ts";
 import { type AnyNode, createTraversal } from "./traverse.ts";
 
-export type SetCtx = {
-  nodeType: string;
+export type SetCtx<
+  AST extends Node | { type: string },
+  N extends Extract<AST, { name?: string }>,
+  Key extends Exclude<keyof N, "type" | "name">,
+> = {
+  nodeType: N["type"];
   name: string;
-  key: string;
-  value: any;
+  key: Key;
+  value: N[Key];
 };
-export function setOr<N extends AnyNode>(
-  fn: (node: N, traverse: (node: AnyNode) => AnyNode) => AnyNode,
+export function setOr<N extends Node>(
+  fn: (node: N, traverse: <C extends Node>(node: C) => C) => N,
 ) {
-  return (node: N, traverse: (node: AnyNode) => AnyNode, ctx: SetCtx) => {
+  return (node: N, traverse: (node: Node) => Node, ctx: SetCtx) => {
     if (
       node.type === ctx.nodeType && "name" in node && node.name === ctx.name
     ) {
@@ -20,12 +24,87 @@ export function setOr<N extends AnyNode>(
     return fn(node, traverse);
   };
 }
-export const setValue = createTraversal<Node, AnyNode, SetCtx>({
+
+function set<
+  AST extends Node | { type: string },
+  N extends Extract<AST, { name?: string }>,
+  Key extends Exclude<keyof N, "type" | "name">,
+>(type: N["type"], name: string, key: Key, value: N[Key]): AST {
+  const traverse = createTraversal<AST, AST, SetCtx<AST, N, Key>>({
+    VALUE: setOr((node, traverse) => ({
+      ...node,
+      value: typeof node.value === "number" ? node.value : traverse(node.value),
+    })),
+    SWITCH: setOr((node, traverse) => ({
+      ...node,
+      effect: traverse(node.effect),
+    })),
+    BINARYOPERATION: setOr((node, traverse) => ({
+      ...node,
+      left: traverse(node.left),
+      right: traverse(node.right),
+    })),
+    UNARYOPERATION: setOr((node, traverse) => ({
+      ...node,
+      value: traverse(node.value),
+    })),
+    QUERY: setOr((node) => ({ ...node })),
+    MULTIPLE: setOr((node, traverse) => ({
+      ...node,
+      values: node.values.map((v) => traverse(v)),
+    })),
+    MODIFIER: setOr((node, traverse) => ({
+      ...node,
+      value: traverse(node.value),
+    })),
+    OVERRIDE: setOr((node, traverse) => ({
+      ...node,
+      value: traverse(node.value),
+    })),
+    CONDITION: setOr((node, traverse) => ({
+      ...node,
+      reference: traverse(node.left),
+      value: traverse(node.right),
+      effect: traverse(node.effect),
+    })),
+    LEVEL: setOr((node, traverse) => {
+      const levels = Object.fromEntries(
+        Object.entries(node.levels)
+          .map(([levelStr, effect]) =>
+            [parseInt(levelStr), traverse(effect)] as const
+          ),
+      );
+      return {
+        ...node,
+        reference: traverse(node.reference),
+        levels,
+      };
+    }),
+    CHOICE: setOr((node, traverse) => {
+      const options = Object.fromEntries(
+        Object.entries(node.options).map(
+          ([key, effect]) => [key, traverse(effect)] as const,
+        ),
+      );
+
+      return { ...node, options };
+    }),
+    SECTION: setOr((node, traverse) => ({
+      ...node,
+      value: traverse(node.value),
+    })),
+    SELECTOR: setOr((node, traverse) => ({
+      ...node,
+      query: traverse(node.query),
+    })),
+    GET: setOr((node) => ({ ...node })),
+  });
+}
+
+export const setValue = createTraversal<Node, Node, SetCtx>({
   VALUE: setOr((node, traverse) => ({
     ...node,
-    value: typeof node.value === "number"
-      ? node.value
-      : traverse(node.value) as Resolvable,
+    value: typeof node.value === "number" ? node.value : traverse(node.value),
   })),
   SWITCH: setOr((node, traverse) => ({
     ...node,
@@ -33,12 +112,12 @@ export const setValue = createTraversal<Node, AnyNode, SetCtx>({
   })),
   BINARYOPERATION: setOr((node, traverse) => ({
     ...node,
-    left: traverse(node.left) as Resolvable,
-    right: traverse(node.right) as Resolvable,
+    left: traverse(node.left),
+    right: traverse(node.right),
   })),
   UNARYOPERATION: setOr((node, traverse) => ({
     ...node,
-    value: traverse(node.value) as Resolvable,
+    value: traverse(node.value),
   })),
   QUERY: setOr((node) => ({ ...node })),
   MULTIPLE: setOr((node, traverse) => ({
@@ -47,16 +126,16 @@ export const setValue = createTraversal<Node, AnyNode, SetCtx>({
   })),
   MODIFIER: setOr((node, traverse) => ({
     ...node,
-    value: traverse(node.value) as Resolvable,
+    value: traverse(node.value),
   })),
   OVERRIDE: setOr((node, traverse) => ({
     ...node,
-    value: traverse(node.value) as Resolvable,
+    value: traverse(node.value),
   })),
   CONDITION: setOr((node, traverse) => ({
     ...node,
-    reference: traverse(node.left) as Resolvable,
-    value: traverse(node.right) as Resolvable,
+    reference: traverse(node.left),
+    value: traverse(node.right),
     effect: traverse(node.effect),
   })),
   LEVEL: setOr((node, traverse) => {
@@ -68,7 +147,7 @@ export const setValue = createTraversal<Node, AnyNode, SetCtx>({
     );
     return {
       ...node,
-      reference: traverse(node.reference) as Resolvable,
+      reference: traverse(node.reference),
       levels,
     };
   }),
@@ -97,7 +176,7 @@ export type GetCtx = {
   name: string;
   key: string;
 };
-export function getOr<N extends AnyNode, T>(
+export function getOr<N extends Node, T>(
   fn: (node: N, traverse: (node: AnyNode) => T, ctx: GetCtx) => T,
 ) {
   return (node: N, traverse: (node: AnyNode) => T, ctx: GetCtx) => {
