@@ -40,7 +40,6 @@ export const setValue = createTraversal<Node, AnyNode, SetCtx>({
     ...node,
     value: traverse(node.value) as Resolvable,
   })),
-  AGGREGATOR: setOr((node) => ({ ...node })),
   QUERY: setOr((node) => ({ ...node })),
   MULTIPLE: setOr((node, traverse) => ({
     ...node,
@@ -56,8 +55,8 @@ export const setValue = createTraversal<Node, AnyNode, SetCtx>({
   })),
   CONDITION: setOr((node, traverse) => ({
     ...node,
-    reference: traverse(node.reference) as Resolvable,
-    value: traverse(node.value) as Resolvable,
+    reference: traverse(node.left) as Resolvable,
+    value: traverse(node.right) as Resolvable,
     effect: traverse(node.effect),
   })),
   LEVEL: setOr((node, traverse) => {
@@ -90,6 +89,7 @@ export const setValue = createTraversal<Node, AnyNode, SetCtx>({
     ...node,
     query: traverse(node.query),
   })),
+  GET: setOr((node) => ({ ...node })),
 });
 
 export type GetCtx = {
@@ -119,8 +119,8 @@ export const getValue = createTraversal<Node, unknown, GetCtx>({
     traverse(node.left) || traverse(node.right)
   ),
   UNARYOPERATION: getOr((node, traverse) => traverse(node.value)),
-  AGGREGATOR: () => undefined,
   QUERY: () => undefined,
+  GET: () => undefined,
   MULTIPLE: getOr((node, traverse) =>
     node.values
       .map((v) => traverse(v))
@@ -129,7 +129,7 @@ export const getValue = createTraversal<Node, unknown, GetCtx>({
   MODIFIER: getOr((node, traverse) => traverse(node.value)),
   OVERRIDE: getOr((node, traverse) => traverse(node.value)),
   CONDITION: getOr((node, traverse) =>
-    traverse(node.effect) || traverse(node.reference) || traverse(node.value)
+    traverse(node.effect) || traverse(node.left) || traverse(node.right)
   ),
   SWITCH: getOr((node, traverse) => traverse(node.effect)),
   LEVEL: getOr((node, traverse) => {
