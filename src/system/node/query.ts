@@ -1,15 +1,14 @@
 import { Tag } from "../../lib/tag.ts";
-import { type NodeFactory, NodeResolver } from "./index.ts";
 import {
   condition,
   CONDITION_OPERATORS,
   type ConditionKind,
 } from "./condition.ts";
-import type { Values } from "./index.ts";
+import type { Expression, Resolver, Values } from "./index.ts";
 
-export type Query = NodeFactory<"Query", { query: string }>;
+export type Query = Expression<"Query", { query: string }>;
 
-export const QUERY = NodeResolver("QUERY", (node, ctx) => {
+export const QUERY: Resolver<Query> = (node, ctx) => {
   const result = ctx.vertex<Values, Values>("values", (input) => {
     const values = input[0];
     if (values === undefined) return Tag("values", new Map());
@@ -22,7 +21,7 @@ export const QUERY = NodeResolver("QUERY", (node, ctx) => {
   ctx.edge(ctx.values, result);
 
   return result;
-});
+};
 
 function applyFilter([key, value]: [string, number], query: string): boolean {
   const [selector, params] = query.split("?");

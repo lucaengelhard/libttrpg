@@ -1,13 +1,12 @@
 import type { Vertex } from "../../lib/graph.ts";
 import { Tag } from "../../lib/tag.ts";
-import type { BaseExpression, Named, NodeFactory } from "./index.ts";
+import type { Expression, Named, Resolver, Statement } from "./index.ts";
 import type { Query } from "./query.ts";
 import {
   type Bool,
   filterBools,
   isFalse,
   type Modifier as ModifierTag,
-  NodeResolver,
   NOOP,
   type Num,
   type ResolveContext,
@@ -15,14 +14,20 @@ import {
 } from "./index.ts";
 import type { Selector } from "./selector.ts";
 
-export type Modifier = NodeFactory<
+export type Modifier = Statement<
   "Modifier",
-  { target: Query | Selector; value: BaseExpression }
+  {
+    target: Query | Selector;
+    value: Expression;
+  }
 >;
-export type Override = NodeFactory<"Override", Omit<Modifier, "type">>;
+export type Override = Statement<
+  "Override",
+  Modifier
+>;
 
-export const MODIFIER = NodeResolver("MODIFIER", applyModifier);
-export const OVERRIDE = NodeResolver("OVERRIDE", applyModifier);
+export const MODIFIER: Resolver<Modifier> = applyModifier;
+export const OVERRIDE: Resolver<Override> = applyModifier;
 
 function applyModifier(node: Modifier | Override, ctx: ResolveContext): Vertex {
   const valueVertex = ctx.resolve(node.value);
@@ -58,7 +63,10 @@ function applyModifier(node: Modifier | Override, ctx: ResolveContext): Vertex {
   ctx.edge(valueVertex, vertex);
   ctx.edge(targetVertex, vertex);
 
-  ctx.edge(vertex, node.type === "MODIFIER" ? ctx.modifiers : ctx.overrides);
+  ctx.edge(
+    vertex,
+    node.$type === "MODIFIER" ? ctx.modifiers : ctx.overrides,
+  );
 
   return NOOP;
 }

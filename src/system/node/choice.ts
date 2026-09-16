@@ -1,36 +1,38 @@
 import { Tag } from "../../lib/tag.ts";
-import type { BaseNode, NodeFactory } from "./index.ts";
-import { type Choice as ChoiceTag, NodeResolver, NOOP } from "./index.ts";
+import type { Resolver, Statement } from "./index.ts";
+import { type Choice as ChoiceTag, NOOP } from "./index.ts";
 
-export type Choice = NodeFactory<
+export type Choice = Statement<
   "Choice",
   {
     name: string;
     count: number;
     active: string[];
-    options: Record<string, BaseNode>;
+    options: Record<string, Statement>;
   }
 >;
 
-export const CHOICE = NodeResolver("CHOICE", (node, ctx) => {
+export const CHOICE: Resolver<Choice> = (node, ctx) => {
+  const { active, count, $type: type, options, name } = node;
+
   ctx.edge(
     ctx.source<ChoiceTag>(() =>
-      Tag("choice", [node.name, {
-        options: Object.keys(node.options),
-        active: node.active,
-        count: node.count,
-        type: node.type,
+      Tag("choice", [name, {
+        options: Object.keys(options),
+        active,
+        count,
+        type,
       }])
     ),
     ctx.choices,
   );
 
-  new Set(node.active)
+  new Set(active)
     .values()
-    .map((key) => node.options[key])
+    .map((key) => options[key])
     .filter((value) => value !== undefined)
-    .take(node.count)
+    .take(count)
     .forEach((value) => ctx.resolve(value));
 
   return NOOP;
-});
+};

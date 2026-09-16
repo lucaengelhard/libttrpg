@@ -21,11 +21,21 @@ export function nestedMap<T>(map: Map<string, T>): NestedMap<T> {
   return res;
 }
 
-export function recordMap<V extends string | number | symbol, K, T>(
-  record: Record<V, K>,
-  transform: (value: K) => T,
-) {
-  return Object.fromEntries(
-    Object.entries<K>(record).map(([key, value]) => [key, transform(value)]),
-  );
+type ExhaustiveTuple<Union, Tuple extends Union[]> = [Union] extends
+  [Tuple[number]] ? Tuple : never;
+
+export function createExhaustiveTuple<Union>() {
+  return <U extends [Union, ...Union[]]>(tuple: ExhaustiveTuple<Union, U>) =>
+    tuple;
 }
+
+export type OmitDistributive<T, K extends PropertyKey> = T extends any
+  ? (T extends object ? OmitRecursively<T, K>
+    : T extends Array<infer Value> ? OmitDistributive<Value, K>
+    : T)
+  : never;
+
+type OmitRecursively<T, K extends PropertyKey> = Omit<
+  { [P in keyof T]: OmitDistributive<T[P], K> },
+  K
+>;

@@ -1,10 +1,9 @@
 import { Tag } from "../../lib/tag.ts";
 import {
-  type BaseExpression,
-  type NodeFactory,
-  NodeResolver,
+  type Expression,
   type Num,
   reduce,
+  type Resolver,
   Undefined,
 } from "./index.ts";
 
@@ -16,9 +15,9 @@ export type BinopKind =
   | "MAX"
   | "MIN";
 
-export type BinaryOperation = NodeFactory<
+export type BinaryOperation = Expression<
   "BinaryOperation",
-  { kind: BinopKind; left: BaseExpression; right: BaseExpression }
+  { kind: BinopKind; left: Expression; right: Expression }
 >;
 
 export function binop(kind: BinopKind, left: number, right: number): number {
@@ -38,7 +37,7 @@ export function binop(kind: BinopKind, left: number, right: number): number {
   }
 }
 
-export const BINARYOPERATION = NodeResolver("BINARYOPERATION", (node, ctx) => {
+export const BINARYOPERATION: Resolver<BinaryOperation> = (node, ctx) => {
   const left = ctx.resolve(node.left);
   const right = ctx.resolve(node.right);
 
@@ -54,4 +53,4 @@ export const BINARYOPERATION = NodeResolver("BINARYOPERATION", (node, ctx) => {
   ctx.edge(right, result);
 
   return result;
-});
+};

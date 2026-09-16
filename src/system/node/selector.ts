@@ -1,9 +1,8 @@
 import { Tag } from "../../lib/tag.ts";
-import { type NodeFactory, NodeResolver } from "./index.ts";
 import type { Query } from "./query.ts";
-import type { Choice, Values } from "./index.ts";
+import type { Choice, Expression, Resolver, Values } from "./index.ts";
 
-export type Selector = NodeFactory<
+export type Selector = Expression<
   "Selector",
   {
     name: string;
@@ -13,7 +12,7 @@ export type Selector = NodeFactory<
   }
 >;
 
-export const SELECTOR = NodeResolver("SELECTOR", (node, ctx) => {
+export const SELECTOR: Resolver<Selector> = (node, ctx) => {
   const query = ctx.resolve(node.query);
 
   const result = ctx.vertex<Values, Values>("values", (input) => {
@@ -35,7 +34,7 @@ export const SELECTOR = NodeResolver("SELECTOR", (node, ctx) => {
         options: [],
         active: node.active,
         count: node.count,
-        type: node.type,
+        type: node.$type,
       }]);
     }
 
@@ -45,7 +44,7 @@ export const SELECTOR = NodeResolver("SELECTOR", (node, ctx) => {
       options,
       active: node.active,
       count: node.count,
-      type: node.type,
+      type: node.$type,
     }]);
   });
 
@@ -54,4 +53,4 @@ export const SELECTOR = NodeResolver("SELECTOR", (node, ctx) => {
   ctx.edge(choice, ctx.choices);
 
   return result;
-});
+};

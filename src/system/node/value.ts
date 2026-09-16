@@ -1,35 +1,44 @@
 import { Tag } from "../../lib/tag.ts";
 import type { BinopKind } from "./binop.ts";
 import {
-  type BaseExpression,
   type Bool,
+  type Expression,
   filterBools,
   isFalse,
   type Modifiers,
   type Named,
-  type NodeFactory,
-  NodeResolver,
   type Num,
   reduce,
+  type Resolver,
+  type Statement,
   Undefined,
 } from "./index.ts";
 
-export type Value = NodeFactory<
+export type ValueExpression = Expression<
   "Value",
   {
     name?: string;
-    value: number | BaseExpression;
+    value: Expression;
     reduceKind?: BinopKind;
     overrideReduceKind?: BinopKind;
   }
 >;
 
-export const VALUE = NodeResolver("VALUE", (node, ctx) => {
-  const value = typeof node.value === "number"
-    ? ctx.source(() => {
-      return Tag("number", node.value as number);
-    })
-    : ctx.resolve(node.value);
+export type ValueStatement = Statement<
+  "Value",
+  {
+    name?: string;
+    value: Expression;
+    reduceKind?: BinopKind;
+    overrideReduceKind?: BinopKind;
+  }
+>;
+
+export const VALUE: Resolver<ValueExpression | ValueStatement> = (
+  node,
+  ctx,
+) => {
+  const value = ctx.resolve(node.value);
 
   const result = ctx.vertex<Num | Bool, Num | Named | Undefined>(
     "number",
@@ -51,13 +60,21 @@ export const VALUE = NodeResolver("VALUE", (node, ctx) => {
   const modifier = ctx.vertex<Modifiers, Num | Undefined>(
     "modifiers",
     (values) =>
-      modifierReduce(values, node.name, node.overrideReduceKind ?? "ADD"),
+      modifierReduce(
+        values,
+        node.name,
+        node.overrideReduceKind ?? "ADD",
+      ),
   );
 
   const override = ctx.vertex<Modifiers, Num | Undefined>(
     "modifiers",
     (values) =>
-      modifierReduce(values, node.name, node.overrideReduceKind ?? "MAX"),
+      modifierReduce(
+        values,
+        node.name,
+        node.overrideReduceKind ?? "MAX",
+      ),
   );
 
   ctx.edge(value, result);
@@ -70,7 +87,7 @@ export const VALUE = NodeResolver("VALUE", (node, ctx) => {
   ctx.edge(ctx.overrides, override);
 
   return result;
-});
+};
 
 function modifierReduce(
   values: Map<string, number[]>[],

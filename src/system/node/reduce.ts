@@ -1,22 +1,19 @@
 import { Tag } from "../../lib/tag.ts";
-import type { NodeFactory } from "./index.ts";
+import type { Expression, Resolver } from "./index.ts";
 import type { BinopKind } from "./binop.ts";
 import type { Query } from "./query.ts";
-import {
-  NodeResolver,
-  type Num,
-  reduce,
-  Undefined,
-  type Values,
-} from "./index.ts";
+import { type Num, reduce, Undefined, type Values } from "./index.ts";
 import type { Selector } from "./selector.ts";
 
-export type Reduce = NodeFactory<
+export type Reduce = Expression<
   "Reduce",
-  { query: Query | Selector; kind: BinopKind }
+  {
+    query: Query | Selector;
+    kind: BinopKind;
+  }
 >;
 
-export const REDUCE = NodeResolver("REDUCE", (node, ctx) => {
+export const REDUCE: Resolver<Reduce> = (node, ctx) => {
   const query = ctx.resolve(node.query);
 
   const result = ctx.vertex<Values, Num | Undefined>("values", (input) => {
@@ -25,11 +22,14 @@ export const REDUCE = NodeResolver("REDUCE", (node, ctx) => {
 
     return Tag(
       "number",
-      reduce(node.kind, values.values().toArray() as [number, ...number[]]),
+      reduce(
+        node.kind,
+        values.values().toArray() as [number, ...number[]],
+      ),
     );
   });
 
   ctx.edge(query, result);
 
   return result;
-});
+};

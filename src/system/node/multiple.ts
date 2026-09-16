@@ -1,11 +1,14 @@
-import type { BaseNode, NodeFactory } from "./index.ts";
-import { NodeResolver, NOOP } from "./index.ts";
+import type { Resolver, Statement } from "./index.ts";
+import { NOOP } from "./index.ts";
 
-export type Multiple = NodeFactory<"Multiple", { values: BaseNode[] }>;
+export type Multiple = Statement<
+  "Multiple",
+  { values: Statement[] }
+>;
 
-export const MULTIPLE = NodeResolver("MULTIPLE", (node, ctx) => {
+export const MULTIPLE: Resolver<Multiple> = (node, ctx) => {
   for (const value of node.values) {
     ctx.resolve(value);
   }
   return NOOP;
-});
+};

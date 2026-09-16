@@ -1,12 +1,12 @@
 import { Tag } from "../../lib/tag.ts";
-import type { BaseExpression, NodeFactory } from "./index.ts";
-import { NodeResolver, type Num, Undefined } from "./index.ts";
+import type { Expression, Resolver } from "./index.ts";
+import { type Num, Undefined } from "./index.ts";
 
 export type UnaryOpKind = "CEIL" | "FLOOR";
 
-export type UnaryOperation = NodeFactory<
+export type UnaryOperation = Expression<
   "UnaryOperation",
-  { kind: UnaryOpKind; value: BaseExpression }
+  { kind: UnaryOpKind; value: Expression }
 >;
 
 export function unaryop(kind: UnaryOpKind, value: number): number {
@@ -18,7 +18,7 @@ export function unaryop(kind: UnaryOpKind, value: number): number {
   }
 }
 
-export const UNARYOPERATION = NodeResolver("UNARYOPERATION", (node, ctx) => {
+export const UNARYOPERATION: Resolver<UnaryOperation> = (node, ctx) => {
   const value = ctx.resolve(node.value);
   const result = ctx.vertex<Num, Num | Undefined>("number", (values) => {
     if (values.length === 0) return Undefined;
@@ -28,4 +28,4 @@ export const UNARYOPERATION = NodeResolver("UNARYOPERATION", (node, ctx) => {
   ctx.edge(value, result);
 
   return result;
-});
+};

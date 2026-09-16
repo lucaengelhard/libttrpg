@@ -1,18 +1,22 @@
-export { createTraversal } from "./system/traverse.ts";
-export type { AnyNode } from "./system/traverse.ts";
-
+// SYSTEM
 export type {
-  BaseExpression,
+  BASE_NODES,
   BaseNode,
-  BaseStatement,
-  NodeFactory,
+  Expression,
+  GetExpressions,
+  GetStatements,
+  Node,
+  NodeMap,
+  Statement,
+  Tree,
 } from "./system/node/index.ts";
-export { is, parse } from "./system/node/index.ts";
+export { isNode, parse, ResolverMap } from "./system/node/index.ts";
 
-export { desugar } from "./system/sugar.ts";
-export type { Expression, ExtendAST, Node, Statement } from "./system/sugar.ts";
+export { getValue, setValue } from "./system/getset.ts";
 
-export { getOr, getValue, setOr, setValue } from "./system/getset.ts";
-export type { GetCtx, SetCtx } from "./system/getset.ts";
+export type { Handlers, SUGAR_NODES, SugarNode } from "./system/sugar.ts";
+export { desugar, SUGAR_HANDLERS } from "./system/sugar.ts";
 
+// UTILS
+export type { OmitDistributive } from "./lib/utils.ts";
 export { nestedMap } from "./lib/utils.ts";

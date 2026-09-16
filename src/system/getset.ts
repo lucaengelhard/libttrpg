@@ -1,164 +1,62 @@
-import type { Node } from "./sugar.ts";
-import { type AnyNode, createTraversal } from "./traverse.ts";
+import { isNode, type Node, type Tree } from "./node/index.ts";
 
-type WithName<N extends AnyNode = AnyNode> = Extract<N, { name?: string }>;
-
-export type SetCtx = {
-  nodeType: string;
-  name: string;
-  key: string;
-  value: unknown;
-};
-export function setOr<N extends AnyNode>(
-  fn: (node: N, traverse: <C extends AnyNode>(node: C) => C) => N,
-) {
-  return (
-    node: N,
-    traverse: (node: AnyNode) => AnyNode,
-    ctx: SetCtx,
-  ) => {
-    if (
-      node.type === ctx.nodeType && "name" in node && node.name === ctx.name
-    ) {
-      return { ...node, [ctx.key]: ctx.value };
+export function getValue<
+  N extends Node,
+  T extends N["$type"],
+  K extends keyof Extract<N, { type: T }>,
+>(
+  node: Tree<N, N>,
+  type: T,
+  name: string,
+  key: K,
+): Extract<N, { type: T }>[K] | undefined {
+  if (!isNode(node)) {
+    if (Array.isArray(node)) {
+      return (node as N[])
+        .map((n) => getValue(n as Tree<N, N>, type, name, key))
+        .find((v) => v !== undefined);
     }
 
-    return fn(node, traverse as any);
-  };
+    return;
+  }
+
+  if (
+    node.$type === type &&
+    "name" in node &&
+    typeof node.name === "string" &&
+    node.name === name
+  ) {
+    return node[key as keyof typeof node] as Extract<N, { type: T }>[K];
+  }
+
+  return Object.values(node)
+    .map((n) => getValue(n as Node, type, name, key))
+    .find((v) => v !== undefined);
 }
 
-export const setValue = createTraversal<Node, Node, SetCtx>({
-  VALUE: setOr((node, traverse) => ({
-    ...node,
-    value: typeof node.value === "number" ? node.value : traverse(node.value),
-  })),
-  SWITCH: setOr((node, traverse) => ({
-    ...node,
-    effect: traverse(node.effect),
-  })),
-  BINARYOPERATION: setOr((node, traverse) => ({
-    ...node,
-    left: traverse(node.left),
-    right: traverse(node.right),
-  })),
-  UNARYOPERATION: setOr((node, traverse) => ({
-    ...node,
-    value: traverse(node.value),
-  })),
-  QUERY: setOr((node) => ({ ...node })),
-  MULTIPLE: setOr((node, traverse) => ({
-    ...node,
-    values: node.values.map((v) => traverse(v)),
-  })),
-  MODIFIER: setOr((node, traverse) => ({
-    ...node,
-    value: traverse(node.value),
-    target: traverse(node.target),
-  })),
-  OVERRIDE: setOr((node, traverse) => ({
-    ...node,
-    value: traverse(node.value),
-    target: traverse(node.target),
-  })),
-  CONDITION: setOr((node, traverse) => ({
-    ...node,
-    reference: traverse(node.left),
-    value: traverse(node.right),
-    effect: traverse(node.effect),
-  })),
-  LEVEL: setOr((node, traverse) => {
-    const levels = Object.fromEntries(
-      Object.entries(node.levels)
-        .map(([levelStr, effect]) =>
-          [parseInt(levelStr), traverse(effect)] as const
-        ),
-    );
-    return {
-      ...node,
-      reference: traverse(node.reference),
-      levels,
-    };
-  }),
-  CHOICE: setOr((node, traverse) => {
-    const options = Object.fromEntries(
-      Object.entries(node.options).map(
-        ([key, effect]) => [key, traverse(effect)] as const,
-      ),
-    );
+export function setValue<
+  N extends Node,
+  T extends N["type"],
+  K extends keyof Extract<N, { type: T }>,
+>(
+  node: Tree<N, N>,
+  type: T,
+  name: string,
+  key: K,
+  value: Extract<N, { type: T }>[K],
+): N {
+  if (!isNode(node)) return node as N;
 
-    return { ...node, options };
-  }),
-  SECTION: setOr((node, traverse) => ({
-    ...node,
-    value: traverse(node.value),
-  })),
-  SELECTOR: setOr((node, traverse) => ({
-    ...node,
-    query: traverse(node.query),
-  })),
-  GET: setOr((node) => ({ ...node })),
-  REDUCE: setOr((node) => ({ ...node })),
-});
+  if (
+    node.$type === type && "name" in node && typeof node.name === "string" &&
+    node.name === name && key in node
+  ) {
+    return { ...node, [key]: value } as N;
+  }
 
-export type GetCtx = {
-  nodeType: string;
-  name: string;
-  key: string;
-};
-export function getOr<N extends AnyNode, T>(
-  fn: (node: N, traverse: (node: AnyNode) => T, ctx: GetCtx) => T,
-) {
-  return (node: N, traverse: (node: AnyNode) => T, ctx: GetCtx) => {
-    if (
-      node.type === ctx.nodeType && "name" in node && node.name === ctx.name &&
-      ctx.key in node && typeof ctx.key === "string"
-    ) {
-      return (node as any)[ctx.key];
-    }
-
-    return fn(node, traverse, ctx);
-  };
+  return Object.fromEntries(
+    Object.entries(node).map((
+      [k, v],
+    ) => [k, setValue(v as Tree<N, N>, type, name, key, value)]),
+  ) as N;
 }
-export const getValue = createTraversal<Node, unknown, GetCtx>({
-  VALUE: getOr((node, traverse) => {
-    return typeof node.value === "number" ? undefined : traverse(node.value);
-  }),
-  BINARYOPERATION: getOr((node, traverse) =>
-    traverse(node.left) || traverse(node.right)
-  ),
-  UNARYOPERATION: getOr((node, traverse) => traverse(node.value)),
-  MULTIPLE: getOr((node, traverse) =>
-    node.values
-      .map((v) => traverse(v))
-      .find((v) => v !== undefined)
-  ),
-  MODIFIER: getOr((node, traverse) =>
-    traverse(node.value) || traverse(node.target)
-  ),
-  OVERRIDE: getOr((node, traverse) =>
-    traverse(node.value) || traverse(node.target)
-  ),
-  CONDITION: getOr((node, traverse) =>
-    traverse(node.effect) || traverse(node.left) || traverse(node.right)
-  ),
-  SWITCH: getOr((node, traverse) => traverse(node.effect)),
-  LEVEL: getOr((node, traverse) => {
-    const levelRes = Object.values(node.levels)
-      .map((v) => traverse(v))
-      .find((v) => v !== undefined && v !== null);
-
-    return levelRes || traverse(node.reference);
-  }),
-  CHOICE: getOr((node, traverse) => {
-    const optionRes = Object.values(node.options)
-      .map((v) => traverse(v))
-      .find((v) => v !== undefined && v !== null);
-
-    return optionRes;
-  }),
-  SECTION: getOr((node, traverse) => traverse(node.value)),
-  SELECTOR: getOr((node, traverse) => traverse(node.query)),
-  QUERY: () => undefined,
-  GET: () => undefined,
-  REDUCE: () => undefined,
-});

@@ -1,14 +1,6 @@
 import { Tag } from "../../lib/tag.ts";
-import type { BaseExpression, BaseNode, NodeFactory } from "./index.ts";
-import {
-  type Bool,
-  False,
-  filterBools,
-  isFalse,
-  NodeResolver,
-  NOOP,
-  type Num,
-} from "./index.ts";
+import type { Bool, Expression, Num, Resolver, Statement } from "./index.ts";
+import { False, filterBools, isFalse, NOOP } from "./index.ts";
 
 export const CONDITION_OPERATORS = [
   "<=",
@@ -21,13 +13,13 @@ export const CONDITION_OPERATORS = [
 
 export type ConditionKind = (typeof CONDITION_OPERATORS)[number];
 
-export type Condition = NodeFactory<
+export type Condition = Statement<
   "Condition",
   {
     kind: ConditionKind;
-    left: BaseExpression;
-    right: BaseExpression;
-    effect: BaseNode;
+    left: Expression;
+    right: Expression;
+    effect: Statement;
   }
 >;
 
@@ -52,7 +44,7 @@ export function condition(
   }
 }
 
-export const CONDITION = NodeResolver("CONDITION", (node, ctx) => {
+export const CONDITION: Resolver<Condition> = (node, ctx) => {
   const left = ctx.resolve(node.left);
   const right = ctx.resolve(node.right);
 
@@ -71,4 +63,4 @@ export const CONDITION = NodeResolver("CONDITION", (node, ctx) => {
   ctx.edge(right, cond);
 
   return NOOP;
-});
+};
