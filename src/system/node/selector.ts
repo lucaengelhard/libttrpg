@@ -51,6 +51,7 @@ export const SELECTOR = NodeResolver("SELECTOR", (node, ctx) => {
 
   ctx.edge(query, result);
   ctx.edge(query, choice);
+  ctx.edge(choice, ctx.choices);
 
   return result;
 });

@@ -1,10 +1,10 @@
 import { Tag } from "../../lib/tag.ts";
 import {
+  type BaseExpression,
   type NodeFactory,
   NodeResolver,
   type Num,
   reduce,
-  type Resolvable,
   Undefined,
 } from "./index.ts";
 
@@ -18,7 +18,7 @@ export type BinopKind =
 
 export type BinaryOperation = NodeFactory<
   "BinaryOperation",
-  { kind: BinopKind; left: Resolvable; right: Resolvable }
+  { kind: BinopKind; left: BaseExpression; right: BaseExpression }
 >;
 
 export function binop(kind: BinopKind, left: number, right: number): number {

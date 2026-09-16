@@ -1,5 +1,5 @@
 import { Tag } from "../../lib/tag.ts";
-import type { Node, NodeFactory } from "./index.ts";
+import type { BaseNode, NodeFactory } from "./index.ts";
 import { type Choice as ChoiceTag, NodeResolver, NOOP } from "./index.ts";
 
 export type Choice = NodeFactory<
@@ -8,7 +8,7 @@ export type Choice = NodeFactory<
     name: string;
     count: number;
     active: string[];
-    options: Record<string, Node>;
+    options: Record<string, BaseNode>;
   }
 >;
 

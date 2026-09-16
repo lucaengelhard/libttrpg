@@ -1,58 +1,72 @@
 // deno-lint-ignore no-explicit-any
 export type AnyNode = { type: string; [key: string]: any };
 
-type TraverseFunc<
-  From extends { type: string },
-  To,
-  CTX extends Record<string, unknown>,
+type Handler<
+  Input extends AnyNode,
+  ReturnType,
+  Context extends Record<string, unknown> | undefined,
 > = (
-  node: From,
-  topLevelTraverse: TraverseFunc<AnyNode, To, CTX> | undefined,
-  ctx: CTX,
-) => To;
+  node: Input,
+  traverse: (node: AnyNode) => ReturnType,
+  ctx: NonNullable<Context>,
+) => ReturnType;
 
-type TraverseHandlers<
-  Types extends AnyNode,
-  To,
-  CTX extends Record<string, unknown>,
+type Handlers<
+  Input extends AnyNode,
+  ReturnType,
+  Context extends undefined | Record<string, unknown>,
 > = {
-  [Type in Types["type"]]?: (
-    node: Extract<Types, { type: Type }>,
-    traverse: (node: AnyNode) => To,
-    ctx: CTX,
-  ) => To;
+  [Type in Input["type"]]: Handler<
+    Extract<Input, { type: Type }>,
+    ReturnType,
+    Context
+  >;
 };
 
+type Traverse<
+  Input extends AnyNode,
+  ReturnType,
+  Context extends undefined | Record<string, unknown>,
+> = (
+  node: Input,
+  higherLevelTraverse?: any,
+  ctx?: Context,
+) => ReturnType;
+
 export function createTraversal<
-  Types extends AnyNode,
-  To,
-  CTX extends Record<string, unknown>,
+  Input extends AnyNode,
+  ReturnType,
+  Context extends undefined | Record<string, unknown>,
 >(
-  handlers: TraverseHandlers<Types, To, CTX>,
-  fallback?: TraverseFunc<AnyNode, To, CTX>,
+  handlers: Handlers<Input, ReturnType, Context>,
+  fallback?: Traverse<any, ReturnType, Context>,
 ) {
   return function traverse(
-    node: AnyNode,
-    recursiveFn: TraverseFunc<AnyNode, To, CTX> | undefined,
-    ctx: CTX,
-  ): To {
-    const topLevelTraverse = recursiveFn ?? traverse;
+    node: Input,
+    higherLevelTraverse?: Traverse<AnyNode, ReturnType, Context>,
+    ctx?: Context,
+  ): ReturnType {
+    const traverseFunction = higherLevelTraverse ??
+      traverse as Traverse<AnyNode, ReturnType, Context>;
 
-    const handler =
-      handlers[node.type as keyof typeof handlers] as TraverseFunc<
-        AnyNode,
-        To,
-        CTX
-      >;
+    const handler = handlers[node.type as keyof typeof handlers] as
+      | Handler<Input, ReturnType, Context>
+      | undefined;
 
     if (handler) {
-      return handler(node, (n, t, c) => topLevelTraverse(n, t, c ?? ctx), ctx);
+      return handler(
+        node,
+        (node) => traverseFunction(node, traverseFunction, ctx),
+        ctx ?? {} as never,
+      );
     }
 
     if (fallback) {
-      return fallback(node, (n, t, c) => topLevelTraverse(n, t, c ?? ctx), ctx);
+      return fallback(node, traverseFunction, ctx);
     }
 
     throw `No traversal handler for ${node.type}`;
   };
 }
+
+// TODO do i really need this abstraction???

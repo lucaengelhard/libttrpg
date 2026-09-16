@@ -1,12 +1,12 @@
 import { Tag } from "../../lib/tag.ts";
-import type { NodeFactory, Resolvable } from "./index.ts";
+import type { BaseExpression, NodeFactory } from "./index.ts";
 import { NodeResolver, type Num, Undefined } from "./index.ts";
 
 export type UnaryOpKind = "CEIL" | "FLOOR";
 
 export type UnaryOperation = NodeFactory<
   "UnaryOperation",
-  { kind: UnaryOpKind; value: Resolvable }
+  { kind: UnaryOpKind; value: BaseExpression }
 >;
 
 export function unaryop(kind: UnaryOpKind, value: number): number {

@@ -36,12 +36,22 @@ function applyFilter([key, value]: [string, number], query: string): boolean {
   if (!isInSelection) return false;
   if (params === undefined) return true;
 
-  const [param] = params.split(";");
+  const paramEls = params.split(";");
 
-  const operator = getOperator(param);
-  if (operator === undefined) return false;
+  return paramEls.every((param) => {
+    if (!param.startsWith("value=")) return true;
 
-  return apply(value, operator, param);
+    const comparatorString = param
+      .replace("value=", "")
+      .trim()
+      .substring(1)
+      .replace(")", "");
+
+    const operator = getOperator(comparatorString);
+    if (operator === undefined) return false;
+
+    return apply(value, operator, comparatorString);
+  });
 }
 
 function getOperator(expression: string) {

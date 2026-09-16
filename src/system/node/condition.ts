@@ -1,5 +1,5 @@
 import { Tag } from "../../lib/tag.ts";
-import type { Node, NodeFactory, Resolvable } from "./index.ts";
+import type { BaseExpression, BaseNode, NodeFactory } from "./index.ts";
 import {
   type Bool,
   False,
@@ -25,9 +25,9 @@ export type Condition = NodeFactory<
   "Condition",
   {
     kind: ConditionKind;
-    left: Resolvable;
-    right: Resolvable;
-    effect: Node;
+    left: BaseExpression;
+    right: BaseExpression;
+    effect: BaseNode;
   }
 >;
 

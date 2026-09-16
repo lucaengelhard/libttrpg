@@ -1,57 +1,58 @@
 import type { Condition } from "./node/condition.ts";
 import type {
-  Node as BaseNode,
+  BaseExpression,
+  BaseNode,
+  BaseStatement,
   NodeFactory,
-  Resolvable as BaseResolvable,
 } from "./node/index.ts";
 import type { Query } from "./node/query.ts";
 import { createTraversal } from "./traverse.ts";
 
-export type ExtendAST<
+type ExtendAST<
   T,
-  BaseNodeType,
-  BaseResolvableType,
-  NodeSugar,
-  ResolvableSugar,
-> = T extends infer Item ? Item extends BaseResolvableType ?
+  BaseStatementType,
+  BaseExpressionType,
+  StatementSugar,
+  ExpressionSugar,
+> = T extends infer Item ? Item extends BaseExpressionType ?
       | {
         [K in keyof Item]: ExtendAST<
           Item[K],
-          BaseNodeType,
-          BaseResolvableType,
-          NodeSugar,
-          ResolvableSugar
+          BaseStatementType,
+          BaseExpressionType,
+          StatementSugar,
+          ExpressionSugar
         >;
       }
-      | ResolvableSugar
-  : Item extends BaseNodeType ?
+      | ExpressionSugar
+  : Item extends BaseStatementType ?
       | {
         [K in keyof Item]: ExtendAST<
           Item[K],
-          BaseNodeType,
-          BaseResolvable,
-          NodeSugar,
-          ResolvableSugar
+          BaseStatementType,
+          BaseExpression,
+          StatementSugar,
+          ExpressionSugar
         >;
       }
-      | NodeSugar
+      | StatementSugar
   : Item extends Array<infer Element> ? Array<
       ExtendAST<
         Element,
-        BaseNodeType,
-        BaseResolvableType,
-        NodeSugar,
-        ResolvableSugar
+        BaseStatementType,
+        BaseExpressionType,
+        StatementSugar,
+        ExpressionSugar
       >
     >
   : Item extends Record<string, infer Element> ? Record<
       string,
       ExtendAST<
         Element,
-        BaseNodeType,
-        BaseResolvableType,
-        NodeSugar,
-        ResolvableSugar
+        BaseStatementType,
+        BaseExpressionType,
+        StatementSugar,
+        ExpressionSugar
       >
     >
   : Item
@@ -65,7 +66,7 @@ type Switch = NodeFactory<
 type Level = NodeFactory<
   "Level",
   {
-    reference: BaseResolvable;
+    reference: BaseExpression;
     levels: Record<number, Node>;
   }
 >;
@@ -77,77 +78,78 @@ type Section = NodeFactory<
 
 type Get = NodeFactory<"Get", { query: string }>;
 
-export type NodeSugar = Switch | Level | Section;
-export type ResolvableSugar = Get;
+type StatementSugar = Switch | Level | Section;
+type ExpressionSugar = Get;
 
 export type Node = ExtendAST<
   BaseNode,
-  Exclude<BaseNode, BaseResolvable>,
-  BaseResolvable,
-  NodeSugar,
-  ResolvableSugar
+  BaseStatement,
+  BaseExpression,
+  StatementSugar,
+  ExpressionSugar
 >;
 
-const baseDesugarer = createTraversal<
-  BaseNode,
-  BaseNode,
-  Record<string, never>
->({
-  VALUE: (node, desugar) => ({
-    ...node,
-    value: typeof node.value === "number"
-      ? node.value
-      : desugar(node.value) as BaseResolvable,
-  }),
-  BINARYOPERATION: (node, desugar) => ({
-    ...node,
-    left: desugar(node.left) as BaseResolvable,
-    right: desugar(node.right) as BaseResolvable,
-  }),
-  UNARYOPERATION: (node, desugar) => ({
-    ...node,
-    value: desugar(node.value) as BaseResolvable,
-  }),
-  MULTIPLE: (node, desugar) => ({
-    ...node,
-    values: node.values.map((v) => desugar(v)),
-  }),
-  MODIFIER: (node, desugar) => ({
-    ...node,
-    value: desugar(node.value) as BaseResolvable,
-  }),
-  OVERRIDE: (node, desugar) => ({
-    ...node,
-    value: desugar(node.value) as BaseResolvable,
-  }),
-  CONDITION: (node, desugar) => ({
-    ...node,
-    left: desugar(node.left) as BaseResolvable,
-    right: desugar(node.right) as BaseResolvable,
-    effect: desugar(node.effect),
-  }),
+export type Statement = Extract<Node, { type: StatementSugar["type"] }>;
+export type Expression = Extract<Node, { type: ExpressionSugar["type"] }>;
 
-  REDUCE: (node) => node,
-  QUERY: (node) => node,
-  CHOICE: (node, desugar) => {
-    const options = Object.fromEntries(
-      Object
-        .entries(node.options)
-        .map(([key, value]) => [key, desugar(value)]),
-    );
+const baseDesugarer = createTraversal<BaseNode, BaseNode, undefined>(
+  {
+    VALUE: (node, desugar) => ({
+      ...node,
+      value: typeof node.value === "number"
+        ? node.value
+        : desugar(node.value) as BaseExpression,
+    }),
+    BINARYOPERATION: (node, desugar) => ({
+      ...node,
+      left: desugar(node.left) as BaseExpression,
+      right: desugar(node.right) as BaseExpression,
+    }),
+    UNARYOPERATION: (node, desugar) => ({
+      ...node,
+      value: desugar(node.value) as BaseExpression,
+    }),
+    MULTIPLE: (node, desugar) => ({
+      ...node,
+      values: node.values.map((v) => desugar(v)),
+    }),
+    MODIFIER: (node, desugar) => ({
+      ...node,
+      value: desugar(node.value) as BaseExpression,
+    }),
+    OVERRIDE: (node, desugar) => ({
+      ...node,
+      value: desugar(node.value) as BaseExpression,
+    }),
+    CONDITION: (node, desugar) => ({
+      ...node,
+      left: desugar(node.left) as BaseExpression,
+      right: desugar(node.right) as BaseExpression,
+      effect: desugar(node.effect),
+    }),
 
-    return { ...node, options };
+    REDUCE: (node) => node,
+    QUERY: (node) => node,
+    CHOICE: (node, desugar) => {
+      const options = Object.fromEntries(
+        Object
+          .entries(node.options)
+          .map(([key, value]) => [key, desugar(value)]),
+      );
+
+      return { ...node, options };
+    },
+    SELECTOR: (node, desugar) => ({
+      ...node,
+      query: desugar(node.query) as Query,
+    }),
   },
-  SELECTOR: (node, desugar) => ({
-    ...node,
-    query: desugar(node.query) as Query,
-  }),
-});
+);
 
 export const desugar = createTraversal<
-  NodeSugar | ResolvableSugar,
+  Statement | Expression,
   BaseNode,
-  Record<string, never>
+  undefined
 >(
   {
     SWITCH: (node, desugar) => ({
@@ -165,14 +167,14 @@ export const desugar = createTraversal<
             left: { type: "VALUE", value: parseInt(levelStr) },
             kind: "<=",
             right: node.reference,
-            effect: desugar(effect) as BaseNode,
+            effect: desugar(effect),
           };
         },
       );
 
       return { type: "MULTIPLE", values };
     },
-    SECTION: (node, desugar) => desugar(node.value),
+    SECTION: (node, desugar) => desugar(node.value as ExpressionSugar),
     GET: (node) => ({
       type: "REDUCE",
       kind: "MAX",

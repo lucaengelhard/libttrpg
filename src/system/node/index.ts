@@ -22,6 +22,8 @@ type Readable<R extends Record<string, unknown>> = {
   [K in keyof R]: R[K]; // TODO make recursive
 };
 
+// TODO make extensibility different by making Expression / Statement placeholders and then replacing them in one go?
+
 export type NodeFactory<
   Type extends string,
   Values extends Record<string, unknown>,
@@ -31,7 +33,7 @@ export type NodeFactory<
   } & Values
 >;
 
-export type Resolvable =
+export type BaseExpression =
   | Value
   | BinaryOperation
   | UnaryOperation
@@ -39,18 +41,19 @@ export type Resolvable =
   | Reduce
   | Selector;
 
-export type Node =
-  | Resolvable
+export type BaseStatement =
   | Multiple
   | ModifierType
   | Override
   | Condition
   | ChoiceType;
 
-export function is<T extends Node["type"]>(
+export type BaseNode = BaseExpression | BaseStatement;
+
+export function is<T extends BaseNode["type"]>(
   value: unknown,
   nodeType: T,
-): value is Extract<Node, { type: T }> {
+): value is Extract<BaseNode, { type: T }> {
   return value !== null && value !== undefined && typeof value === "object" &&
     "type" in value && typeof value.type === "string" &&
     value.type === nodeType;
@@ -102,7 +105,7 @@ export function reduce(kind: BinopKind, values: [number, ...number[]]): number {
 
 // RESOLVE
 export type ResolveContext = {
-  resolve: (node: Node, updatedCtx?: Partial<ResolveContext>) => Vertex;
+  resolve: (node: BaseNode, updatedCtx?: Partial<ResolveContext>) => Vertex;
   vertex: typeof Vertex;
   source: typeof Source;
   edge: (from: Vertex, to: Vertex, overwrite?: boolean) => void;
@@ -113,19 +116,19 @@ export type ResolveContext = {
   choices: Vertex<Choice, Choices>;
 };
 
-type ResolverFn<T extends Node["type"]> = (
-  node: Extract<Node, { type: T }>,
+type ResolverFn<T extends BaseNode["type"]> = (
+  node: Extract<BaseNode, { type: T }>,
   ctx: ResolveContext,
 ) => Vertex;
 
-export function NodeResolver<T extends Node["type"]>(
+export function NodeResolver<T extends BaseNode["type"]>(
   _type: T,
   resolver: ResolverFn<T>,
 ) {
   return resolver;
 }
 
-type RESOLVERS = { [T in Node["type"]]: ResolverFn<T> };
+type RESOLVERS = { [T in BaseNode["type"]]: ResolverFn<T> };
 const RESOLVERS: RESOLVERS = {
   BINARYOPERATION,
   MULTIPLE,
@@ -140,7 +143,7 @@ const RESOLVERS: RESOLVERS = {
   VALUE,
 };
 
-export function parse(tree: Node) {
+export function parse(tree: BaseNode) {
   const builder = GraphBuilder();
 
   const values = Vertex<Named, Values>(
@@ -193,9 +196,9 @@ export function parse(tree: Node) {
     choices: resolved.get(choices)?.$value,
   };
 
-  function traverse(node: Node, ctx: ResolveContext): Vertex {
+  function traverse(node: BaseNode, ctx: ResolveContext): Vertex {
     const handler = RESOLVERS[node.type] as
-      | ResolverFn<Node["type"]>
+      | ResolverFn<BaseNode["type"]>
       | undefined;
 
     if (handler === undefined) return NOOP;

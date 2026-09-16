@@ -1,6 +1,7 @@
 import { Tag } from "../../lib/tag.ts";
 import type { BinopKind } from "./binop.ts";
 import {
+  type BaseExpression,
   type Bool,
   filterBools,
   isFalse,
@@ -10,7 +11,6 @@ import {
   NodeResolver,
   type Num,
   reduce,
-  type Resolvable,
   Undefined,
 } from "./index.ts";
 
@@ -18,7 +18,7 @@ export type Value = NodeFactory<
   "Value",
   {
     name?: string;
-    value: number | Resolvable;
+    value: number | BaseExpression;
     reduceKind?: BinopKind;
     overrideReduceKind?: BinopKind;
   }
