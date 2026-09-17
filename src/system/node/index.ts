@@ -21,6 +21,7 @@ import { REDUCE, type Reduce } from "./reduce.ts";
 import { UNARYOPERATION, type UnaryOperation } from "./unaryop.ts";
 import { VALUE, type ValueExpression, type ValueStatement } from "./value.ts";
 import { LITERAL, type Literal } from "./literal.ts";
+import { NULL, type Null } from "./null.ts";
 
 const ExpressionSymbol = Symbol("Expression");
 export type Expression<
@@ -45,6 +46,7 @@ export type Node = Statement | Expression;
 type BaseExpression =
   | ValueExpression
   | Literal
+  | Null
   | BinaryOperation
   | UnaryOperation
   | Query
@@ -145,6 +147,7 @@ export const ResolverMap: ResolverMap<BaseNode> = {
   UNARYOPERATION,
   VALUE,
   LITERAL,
+  NULL,
 };
 
 export type GetStatements<N extends Node> = Extract<
@@ -159,29 +162,32 @@ export type GetExpressions<N extends Node> = Extract<
 export type Tree<
   Nodes extends Statement | Expression,
   Current,
-> = Current extends Nodes ? {
-    [K in keyof Omit<Current, "$kind">]: Current[K] extends Node
-      ? Current[K]["$type"] extends Nodes["$type"] ? Tree<Nodes, Current[K]>
-      : Current[K] extends Statement ? Tree<Nodes, GetStatements<Nodes>>
-      : Tree<Nodes, GetExpressions<Nodes>>
-      : Tree<Nodes, Current[K]>;
-  }
-  : Current extends Array<infer Value> ? Array<
-      Value extends Node
-        ? Value["$type"] extends Nodes["$type"] ? Tree<Nodes, Value>
-        : Value extends Statement ? Tree<Nodes, GetStatements<Nodes>>
+> = Exclude<
+  Current extends Nodes ? {
+      [K in keyof Omit<Current, "$kind">]: Current[K] extends Node
+        ? Current[K]["$type"] extends Nodes["$type"] ? Tree<Nodes, Current[K]>
+        : Current[K] extends Statement ? Tree<Nodes, GetStatements<Nodes>>
         : Tree<Nodes, GetExpressions<Nodes>>
-        : Tree<Nodes, Value>
-    >
-  : Current extends Record<string, infer Value> ? Record<
-      string,
-      Value extends Node
-        ? Value["$type"] extends Nodes["$type"] ? Tree<Nodes, Value>
-        : Value extends Statement ? Tree<Nodes, GetStatements<Nodes>>
-        : Tree<Nodes, GetExpressions<Nodes>>
-        : Tree<Nodes, Value>
-    >
-  : Current;
+        : Tree<Nodes, Current[K]>;
+    }
+    : Current extends Array<infer Value> ? Array<
+        Value extends Node
+          ? Value["$type"] extends Nodes["$type"] ? Tree<Nodes, Value>
+          : Value extends Statement ? Tree<Nodes, GetStatements<Nodes>>
+          : Tree<Nodes, GetExpressions<Nodes>>
+          : Tree<Nodes, Value>
+      >
+    : Current extends Record<string, infer Value> ? Record<
+        string,
+        Value extends Node
+          ? Value["$type"] extends Nodes["$type"] ? Tree<Nodes, Value>
+          : Value extends Statement ? Tree<Nodes, GetStatements<Nodes>>
+          : Tree<Nodes, GetExpressions<Nodes>>
+          : Tree<Nodes, Value>
+      >
+    : Current,
+  { [x: string]: never }
+>;
 
 export function parse<N extends Node>(
   tree: Tree<N, N>,
@@ -236,7 +242,7 @@ export function parse<N extends Node>(
   return {
     resolved,
     values: resolved.get(values)?.$value,
-    choices: resolved.get(choices)?.$value,
+    choices: resolved.get(choices)?.$value as Map<string, ChoiceObj>,
   };
 
   function traverse(node: Tree<N, N>, ctx: ResolveContext): Vertex {
