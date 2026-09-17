@@ -12,7 +12,7 @@ export type {
 } from "./system/node/index.ts";
 export { isNode, parse, ResolverMap } from "./system/node/index.ts";
 
-export { getValue, setValue } from "./system/getset.ts";
+export { getValue, hasValue, setValue } from "./system/getset.ts";
 
 export type { Handlers, SUGAR_NODES, SugarNode } from "./system/sugar.ts";
 export { desugar, SUGAR_HANDLERS } from "./system/sugar.ts";
