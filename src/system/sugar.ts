@@ -22,10 +22,16 @@ type Level = Statement<
   }
 >;
 
+type SectionStatement = Statement<
+  "Section",
+  { name: string; value: Statement }
+>;
+type SectionExpression = Expression<"Section", SectionStatement>;
+
 type Get = Expression<"Get", { query: string }>;
 
-type SugarStatement = Switch | Level;
-type SugarExpression = Get;
+type SugarStatement = Switch | Level | SectionStatement;
+type SugarExpression = Get | SectionExpression;
 export type SugarNode = SugarStatement | SugarExpression;
 export type SUGAR_NODES = NodeMap<SugarNode>;
 
@@ -71,6 +77,7 @@ export const SUGAR_HANDLERS: Handlers<SugarNode, BaseNode> = {
     kind: "MAX",
     query: { $type: "QUERY", query: node.query },
   }),
+  SECTION: (node) => node.value,
 };
 
 export function desugar<From extends Node, To extends Node>(

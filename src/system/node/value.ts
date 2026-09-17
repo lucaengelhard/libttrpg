@@ -26,12 +26,7 @@ export type ValueExpression = Expression<
 
 export type ValueStatement = Statement<
   "Value",
-  {
-    name?: string;
-    value: Expression;
-    reduceKind?: BinopKind;
-    overrideReduceKind?: BinopKind;
-  }
+  ValueExpression
 >;
 
 export const VALUE: Resolver<ValueExpression | ValueStatement> = (
