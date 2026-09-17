@@ -78,7 +78,7 @@ export const VALUE: Resolver<ValueExpression | ValueStatement> = (
 
   ctx.edge(value, result);
   ctx.edge(modifier, result);
-  ctx.edge(override, result, true);
+  ctx.edge(override, result, true); // TODO: override handling (currently causing loop)
 
   ctx.edge(result, ctx.values);
 

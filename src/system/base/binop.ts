@@ -1,5 +1,12 @@
 import { Tag } from "../../lib/tag.ts";
-import { type Num, reduce, type Resolver, Undefined } from "../parse.ts";
+import {
+  getNumber,
+  type Named,
+  type Num,
+  reduce,
+  type Resolver,
+  Undefined,
+} from "../parse.ts";
 import type { Expression } from "../node.ts";
 
 export type BinopKind =
@@ -36,11 +43,14 @@ export const BINARYOPERATION: Resolver<BinaryOperation> = (node, ctx) => {
   const left = ctx.resolve(node.left);
   const right = ctx.resolve(node.right);
 
-  const result = ctx.vertex<Num, Num | Undefined>(
-    "number",
+  const result = ctx.vertex<Num | Named, Num | Undefined>(
+    ["number", "named"],
     (values) => {
       if (values.length < 2) return Undefined;
-      return Tag("number", reduce(node.kind, [values[0], values[1]]));
+      return Tag(
+        "number",
+        reduce(node.kind, [getNumber(values[0]), getNumber(values[1])]),
+      );
     },
   );
 

@@ -19,6 +19,11 @@ export type Statement<
 
 export type Node = Statement | Expression;
 
+export type Filter<N extends Node, T extends N["$type"]> = Extract<
+  N,
+  { $type: T }
+>;
+
 export type NodeMap<N extends Node> = {
   [K in N["$type"]]: Extract<N, { $type: K }>;
 };
@@ -115,3 +120,5 @@ export function NodeFactory<N extends Node>(): GetStatementNames<N> {
     };
   };
 }
+
+// TODO Node clone function

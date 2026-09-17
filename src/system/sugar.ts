@@ -104,6 +104,13 @@ export function desugar<From extends Node, To extends Node>(
       ) as unknown as To;
     }
 
+    if (typeof node === "object") {
+      return Object.fromEntries(
+        Object.entries(node)
+          .map(([key, value]) => [key, desugar(value as From, handlers)]),
+      ) as To;
+    }
+
     return node as To;
   }
 

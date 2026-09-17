@@ -59,6 +59,12 @@ export function reduce(kind: BinopKind, values: [number, ...number[]]): number {
   return values.reduce((prev, curr) => binop(kind, prev, curr));
 }
 
+export function getNumber(value: (Num | Named)["$value"]): number {
+  if (Array.isArray(value)) return value[1];
+  return value;
+}
+
+// RESOLVE
 export type ResolveContext = {
   resolve: (node: Node, updatedCtx?: Partial<ResolveContext>) => Vertex;
   vertex: typeof Vertex;

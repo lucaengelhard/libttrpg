@@ -18,6 +18,12 @@ export function getValue<
         .find((v) => v !== undefined) as Value | undefined;
     }
 
+    if (typeof node === "object") {
+      return Object.values(node)
+        .map((n) => getValue(n as unknown as T, type, name, key))
+        .find((v) => v !== undefined) as Value | undefined;
+    }
+
     return;
   }
 
@@ -64,6 +70,14 @@ export function setValue<
         .map((n) => setValue(n, type, name, key, value)) as unknown as T;
     }
 
+    if (typeof node === "object") {
+      return Object.fromEntries(
+        Object.entries(node).map((
+          [k, v],
+        ) => [k, setValue(v as unknown as T, type, name, key, value)]),
+      ) as unknown as T;
+    }
+
     return node;
   }
 
@@ -95,6 +109,14 @@ export function deleteNode<
       return (node as T[])
         .map((n) => deleteNode(n, type, name, true))
         .flatMap((v) => v) as unknown as T;
+    }
+
+    if (typeof node === "object") {
+      return Object.fromEntries(
+        Object.entries(node).map((
+          [k, v],
+        ) => [k, deleteNode(v as unknown as T, type, name, false)]),
+      ) as unknown as T;
     }
 
     return node;
