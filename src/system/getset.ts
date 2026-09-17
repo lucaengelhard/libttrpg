@@ -38,14 +38,12 @@ export function getValue<
 export function hasValue<
   T extends { $type: string },
   Type extends Extract<T, { name?: string }>["$type"],
-  Key extends keyof Extract<T, { $type: Type }>,
 >(
   node: T,
   type: Type,
   name: string,
-  key: Key,
 ): boolean {
-  return getValue(node, type, name, key) !== undefined;
+  return getValue(node, type, name, "$type") !== undefined;
 }
 
 export function setValue<
