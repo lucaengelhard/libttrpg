@@ -29,6 +29,7 @@ export function createExhaustiveTuple<Union>() {
     tuple;
 }
 
+// deno-lint-ignore no-explicit-any
 export type OmitDistributive<T, K extends PropertyKey> = T extends any
   ? (T extends object ? OmitRecursively<T, K>
     : T extends Array<infer Value> ? OmitDistributive<Value, K>
