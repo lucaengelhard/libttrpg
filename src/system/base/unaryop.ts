@@ -1,6 +1,6 @@
 import { Tag } from "../../lib/tag.ts";
-import type { Expression, Resolver } from "./index.ts";
-import { type Num, Undefined } from "./index.ts";
+import { type Num, type Resolver, Undefined } from "../parse.ts";
+import type { Expression } from "../node.ts";
 
 export type UnaryOpKind = "CEIL" | "FLOOR";
 

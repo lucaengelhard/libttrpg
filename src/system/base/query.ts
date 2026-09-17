@@ -1,10 +1,11 @@
 import { Tag } from "../../lib/tag.ts";
+import type { Resolver, Values } from "../parse.ts";
 import {
   condition,
   CONDITION_OPERATORS,
   type ConditionKind,
 } from "./condition.ts";
-import type { Expression, Resolver, Values } from "./index.ts";
+import type { Expression } from "../node.ts";
 
 export type Query = Expression<"Query", { query: string }>;
 
@@ -38,7 +39,7 @@ function applyFilter([key, value]: [string, number], query: string): boolean {
   const paramEls = params.split(";");
 
   return paramEls.every((param) => {
-    if (!param.startsWith("value=")) return true;
+    if (!param.startsWith("value=")) return true; // TODO allow other filters (especially name filter)
 
     const comparatorString = param
       .replace("value=", "")

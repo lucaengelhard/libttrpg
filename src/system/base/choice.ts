@@ -1,6 +1,6 @@
 import { Tag } from "../../lib/tag.ts";
-import type { Resolver, Statement } from "./index.ts";
-import { type Choice as ChoiceTag, NOOP } from "./index.ts";
+import { type Choice as ChoiceTag, NOOP, type Resolver } from "../parse.ts";
+import type { Statement } from "../node.ts";
 
 export type Choice = Statement<
   "Choice",

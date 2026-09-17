@@ -1,8 +1,6 @@
 import { Tag } from "../../lib/tag.ts";
-import type { BinopKind } from "./binop.ts";
 import {
   type Bool,
-  type Expression,
   filterBools,
   isFalse,
   type Modifiers,
@@ -10,9 +8,10 @@ import {
   type Num,
   reduce,
   type Resolver,
-  type Statement,
   Undefined,
-} from "./index.ts";
+} from "../parse.ts";
+import type { BinopKind } from "./binop.ts";
+import type { Expression, Statement } from "../node.ts";
 
 export type ValueExpression = Expression<
   "Value",
@@ -26,7 +25,12 @@ export type ValueExpression = Expression<
 
 export type ValueStatement = Statement<
   "Value",
-  ValueExpression
+  {
+    name: string;
+    value: Expression;
+    reduceKind?: BinopKind;
+    overrideReduceKind?: BinopKind;
+  }
 >;
 
 export const VALUE: Resolver<ValueExpression | ValueStatement> = (

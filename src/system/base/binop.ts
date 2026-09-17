@@ -1,11 +1,6 @@
 import { Tag } from "../../lib/tag.ts";
-import {
-  type Expression,
-  type Num,
-  reduce,
-  type Resolver,
-  Undefined,
-} from "./index.ts";
+import { type Num, reduce, type Resolver, Undefined } from "../parse.ts";
+import type { Expression } from "../node.ts";
 
 export type BinopKind =
   | "DIVIDE"

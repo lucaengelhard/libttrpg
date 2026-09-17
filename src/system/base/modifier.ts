@@ -1,17 +1,19 @@
 import type { Vertex } from "../../lib/graph.ts";
 import { Tag } from "../../lib/tag.ts";
-import type { Expression, Named, Resolver, Statement } from "./index.ts";
-import type { Query } from "./query.ts";
 import {
   type Bool,
   filterBools,
   isFalse,
   type Modifier as ModifierTag,
+  type Named,
   NOOP,
   type Num,
   type ResolveContext,
+  type Resolver,
   type Values,
-} from "./index.ts";
+} from "../parse.ts";
+import type { Expression, Statement } from "../node.ts";
+import type { Query } from "./query.ts";
 import type { Selector } from "./selector.ts";
 
 export type Modifier = Statement<

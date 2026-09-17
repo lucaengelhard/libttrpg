@@ -1,5 +1,5 @@
-import type { Resolver, Statement } from "./index.ts";
-import { NOOP } from "./index.ts";
+import { NOOP, type Resolver } from "../parse.ts";
+import type { Statement } from "../node.ts";
 
 export type Multiple = Statement<
   "Multiple",

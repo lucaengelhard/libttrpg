@@ -1,6 +1,7 @@
 import { Tag } from "../../lib/tag.ts";
+import type { Choice, Resolver, Values } from "../parse.ts";
+import type { Expression } from "../node.ts";
 import type { Query } from "./query.ts";
-import type { Choice, Expression, Resolver, Values } from "./index.ts";
 
 export type Selector = Expression<
   "Selector",

@@ -1,6 +1,14 @@
 import { Tag } from "../../lib/tag.ts";
-import type { Bool, Expression, Num, Resolver, Statement } from "./index.ts";
-import { False, filterBools, isFalse, NOOP } from "./index.ts";
+import {
+  type Bool,
+  False,
+  filterBools,
+  isFalse,
+  NOOP,
+  type Num,
+  type Resolver,
+} from "../parse.ts";
+import type { Expression, Statement } from "../node.ts";
 
 export const CONDITION_OPERATORS = [
   "<=",

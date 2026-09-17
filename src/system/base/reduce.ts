@@ -1,8 +1,14 @@
 import { Tag } from "../../lib/tag.ts";
-import type { Expression, Resolver } from "./index.ts";
+import {
+  type Num,
+  reduce,
+  type Resolver,
+  Undefined,
+  type Values,
+} from "../parse.ts";
 import type { BinopKind } from "./binop.ts";
+import type { Expression } from "../node.ts";
 import type { Query } from "./query.ts";
-import { type Num, reduce, Undefined, type Values } from "./index.ts";
 import type { Selector } from "./selector.ts";
 
 export type Reduce = Expression<

@@ -1,4 +1,4 @@
-import { isNode } from "./node/index.ts";
+import { isNode } from "./node.ts";
 
 export function getValue<
   T extends { $type: string },
