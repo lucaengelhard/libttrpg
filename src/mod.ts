@@ -19,6 +19,7 @@ export { parse, ResolverMap } from "./system/parse.ts";
 export { deleteNode, getValue, hasValue, setValue } from "./system/getset.ts";
 
 export type {
+  Creators,
   Expression,
   Filter,
   Node,
