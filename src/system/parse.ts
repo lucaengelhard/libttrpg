@@ -14,6 +14,7 @@ import { REDUCE } from "./base/reduce.ts";
 import { UNARYOPERATION } from "./base/unaryop.ts";
 import { VALUE } from "./base/value.ts";
 import type { BaseNode } from "./base/index.ts";
+import { type NestedMap, nestedMap } from "../lib/utils.ts";
 
 // TYPES
 export type Bool = Tag<"boolean", boolean>;
@@ -104,7 +105,7 @@ export const ResolverMap: ResolverMap<BaseNode> = {
 
 type ParseResult = {
   resolved: Map<Vertex<Tag, Tag>, Tag>;
-  values: Map<string, number>;
+  values: NestedMap<number>;
   choices: Map<string, ChoiceObj>;
 };
 
@@ -160,7 +161,7 @@ export function parse<N extends Node>(
 
   return {
     resolved,
-    values: resolved.get(values)?.$value as Map<string, number>,
+    values: nestedMap(resolved.get(values)?.$value as Map<string, number>),
     choices: resolved.get(choices)?.$value as Map<string, ChoiceObj>,
   };
 

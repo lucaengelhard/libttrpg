@@ -1,4 +1,4 @@
-type NestedMap<T> = Map<string, T | NestedMap<T>>;
+export type NestedMap<T> = Map<string, T | NestedMap<T>>;
 
 export function nestedMap<T>(map: Map<string, T>): NestedMap<T> {
   const res = new Map();

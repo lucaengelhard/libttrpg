@@ -12,9 +12,11 @@ import {
 
 // ----------------------------- //
 
-export { createExhaustiveTuple, nestedMap } from "./lib/utils.ts";
+export { createExhaustiveTuple } from "./lib/utils.ts";
 
 export { deserialize, serialize } from "./store/serialize.ts";
+export type { Library } from "./store/library.ts";
+export { libraryLookup } from "./store/library.ts";
 
 export { parse, ResolverMap } from "./system/parse.ts";
 

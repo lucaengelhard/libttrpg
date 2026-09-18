@@ -5,7 +5,7 @@ export function serialize(node: Node): string {
   return JSON.parse(JSON.stringify(node));
 }
 
-type SerializedNode = { $type: string; [x: string]: unknown };
+export type SerializedNode = { $type: string; [x: string]: unknown };
 
 export function isSerializedNode(input: unknown): input is SerializedNode {
   return input !== null &&
