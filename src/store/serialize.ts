@@ -65,7 +65,7 @@ export function deserialize<N extends Node>(
     (isExpression ? expression_handler : statement_handler);
 
   if (handler === undefined) {
-    throw `No create hanlder for node with type ${current.$type}`;
+    throw `No create handler for node with type ${current.$type}`;
   }
 
   return handler(Object.fromEntries(
