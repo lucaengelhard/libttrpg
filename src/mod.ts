@@ -14,6 +14,8 @@ import {
 
 export { createExhaustiveTuple, nestedMap } from "./lib/utils.ts";
 
+export { deserialize, serialize } from "./store/serialize.ts";
+
 export { parse, ResolverMap } from "./system/parse.ts";
 
 export { deleteNode, getValue, hasValue, setValue } from "./system/getset.ts";

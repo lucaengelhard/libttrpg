@@ -33,7 +33,9 @@ export function isNode(input: unknown): input is Node {
     input !== undefined &&
     typeof input === "object" &&
     "$type" in input &&
-    typeof input.$type === "string";
+    typeof input.$type === "string" && "$kind" in input &&
+    (input.$kind === StatementSymbol || input.$kind === ExpressionSymbol);
+  // TODO test if this works
 }
 
 export type Creators<N extends Node> =
@@ -54,7 +56,9 @@ export type Creators<N extends Node> =
     ]: CreatorFn<T>;
   };
 
-type CreatorFn<T extends Node> = (value: Omit<T, "$type" | "$kind">) => T;
+export type CreatorFn<T extends Node> = (
+  value: Omit<T, "$type" | "$kind">,
+) => T;
 
 type NodeFactory<N extends Node> = () => GetStatementNames<N>;
 
