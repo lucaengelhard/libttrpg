@@ -1,51 +1,57 @@
-import { createExhaustiveTuple } from "../lib/utils.ts";
+import * as z from "zod";
 import { type BaseNode, BaseNodeFactory } from "./base/index.ts";
+import {
+  createNode,
+  Expression,
+  isNode,
+  type Node,
+  Statement,
+} from "./schema.ts";
 
-type Switch = Statement<
-  "Switch",
-  { name: string; effect: Statement; active: boolean }
->;
+type Switch = z.infer<typeof Switch>;
+const Switch = createNode("Statement", "Switch", {
+  name: z.string(),
+  effect: Statement(),
+  active: z.boolean(),
+});
 
-type Level = Statement<
-  "Level",
-  {
-    reference: Expression;
-    levels: Record<number, Statement>;
-  }
->;
+type Level = z.infer<typeof Level>;
+const Level = createNode("Statement", "Level", {
+  reference: Expression(),
+  levels: z.record(z.number().int().gte(0), Statement()),
+});
 
-type SectionStatement = Statement<
-  "Section",
-  { name: string; value: Statement }
->;
-type SectionExpression = Expression<
-  "Section",
-  { name: string; value: Expression }
->;
+type SectionStatement = z.infer<typeof SectionStatement>;
+const SectionStatement = createNode("Statement", "Section", {
+  name: z.string(),
+  value: Statement(),
+});
 
-type Get = Expression<"Get", { query: string }>;
+type SectionExpression = z.infer<typeof SectionExpression>;
+const SectionExpression = createNode("Expression", "Section", {
+  name: z.string(),
+  value: Expression(),
+});
 
-type SugarStatement = Switch | Level | SectionStatement;
-type SugarExpression = Get | SectionExpression;
-export type SugarNode = SugarStatement | SugarExpression;
+type Get = z.infer<typeof Get>;
+const Get = createNode("Expression", "Get", { query: z.string() });
 
-export type SUGAR_NODES = NodeMap<SugarNode>;
-export const SUGAR_STATEMENT_NAMES = createExhaustiveTuple<
-  SugarStatement["$type"]
->()(["LEVEL", "SECTION", "SWITCH"]);
-export const SUGAR_EXPRESSION_NAMES = createExhaustiveTuple<
-  SugarExpression["$type"]
->()(["GET", "SECTION"]);
-export const SugarNodeFactory = NodeFactory<SugarNode>()(SUGAR_STATEMENT_NAMES)(
-  SUGAR_EXPRESSION_NAMES,
-);
+export const SugarNodes = z.union([
+  Switch,
+  Level,
+  SectionStatement,
+  SectionExpression,
+  Get,
+]);
 
-type Handler<From extends Node, To extends Node, T extends string> = (
-  node: Extract<From | To, { $type: T }>,
+export type SugarNode = z.infer<typeof SugarNodes>;
+
+type Handler<From extends Node, To extends Node, T extends Node> = (
+  node: T,
 ) => From | To;
 
 export type Handlers<From extends Node, To extends Node> = {
-  [T in From["$type"]]: Handler<From, To, T>;
+  [T in From as T["$type"]]: Handler<From, To, T>;
 };
 
 const { CONDITION, VALUE_EXPRESSION, LITERAL, MULTIPLE, REDUCE, QUERY } =
@@ -99,28 +105,29 @@ export function desugar<From extends Node, To extends Node>(
     if (typeof node === "object") {
       return Object.fromEntries(
         Object.entries(node)
-          .map(([key, value]) => [key, desugar(value as From, handlers)]),
-      ) as To;
+          .map((
+            [key, value],
+          ) => [key, desugar(value as (From | To), handlers)]),
+      ) as unknown as To;
     }
 
     return node as To;
   }
 
   const handler = handlers[node.$type as keyof typeof handlers] as unknown as
-    | Handler<From, To, string>
+    | Handler<From, To, From | To>
     | undefined;
 
-  const transformed =
-    (handler
-      ? handler(node as Extract<From, { $type: string }>)
-      : node) as Node;
+  const transformed = handler ? handler(node) : node;
 
-  if (transformed.$type in handlers) {
+  if (transformed.$type as string in handlers) {
     return desugar(transformed as From, handlers);
   }
 
   return Object.fromEntries(
     Object.entries(transformed)
-      .map(([key, value]) => [key, desugar(value as From, handlers)]),
-  ) as To;
+      .map((
+        [key, value],
+      ) => [key, desugar(value as unknown as From, handlers)]),
+  ) as unknown as To;
 }

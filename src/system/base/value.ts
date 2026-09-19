@@ -24,8 +24,10 @@ export const ValueExpression = createNode("Expression", "Value", {
 
 export type ValueStatement = z.infer<typeof ValueStatement>;
 export const ValueStatement = createNode("Statement", "Value", {
-  ...ValueExpression.shape,
   name: z.string(),
+  value: Expression(),
+  reduceKind: BinopKind.optional(),
+  overrideReduceKind: BinopKind.optional(),
 });
 
 export const VALUE: Resolver<ValueExpression | ValueStatement> = (

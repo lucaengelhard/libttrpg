@@ -9,7 +9,7 @@ import {
   Undefined,
 } from "../parse.ts";
 
-import { createNode, Expression, ZodNode } from "../schema.ts";
+import { createNode, Expression } from "../schema.ts";
 
 export type BinopKind = z.infer<typeof BinopKind>;
 export const BinopKind = z.union([
@@ -45,7 +45,10 @@ export function binop(kind: BinopKind, left: number, right: number): number {
   }
 }
 
-export const BINARYOPERATION: Resolver<BinaryOperation> = (node, ctx) => {
+export const BINARYOPERATION: Resolver<BinaryOperation> = (
+  node,
+  ctx,
+) => {
   const left = ctx.resolve(node.left);
   const right = ctx.resolve(node.right);
 

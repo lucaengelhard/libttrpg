@@ -1,21 +1,11 @@
-import type * as z from "zod";
 import { Tag } from "../lib/tag.ts";
-import { SELECTOR, type Selector } from "./base/selector.ts";
-import { CHOICE, type Choice as ChoiceType } from "./base/choice.ts";
+import type { Selector } from "./base/selector.ts";
+import type { Choice as ChoiceType } from "./base/choice.ts";
 import { Edge, GraphBuilder, Vertex } from "../lib/graph.ts";
-import { BINARYOPERATION, binop, type BinopKind } from "./base/binop.ts";
-import { CONDITION } from "./base/condition.ts";
-import { LITERAL } from "./base/literal.ts";
-import { MODIFIER, OVERRIDE } from "./base/modifier.ts";
-import { MULTIPLE } from "./base/multiple.ts";
-import { NULL } from "./base/null.ts";
-import { QUERY } from "./base/query.ts";
-import { REDUCE } from "./base/reduce.ts";
-import { UNARYOPERATION } from "./base/unaryop.ts";
-import { VALUE } from "./base/value.ts";
-import type { BaseNode } from "./base/index.ts";
+import { binop, type BinopKind } from "./base/binop.ts";
+
 import { type NestedMap, nestedMap } from "../lib/utils.ts";
-import { ZodNode } from "./schema.ts";
+import type { Node } from "./schema.ts";
 
 // TYPES
 export type Bool = Tag<"boolean", boolean>;
@@ -69,7 +59,7 @@ export function getNumber(value: (Num | Named)["$value"]): number {
 // RESOLVE
 export type ResolveContext = {
   resolve: (
-    node: z.output<ZodNode>,
+    node: Node,
     updatedCtx?: Partial<ResolveContext>,
   ) => Vertex;
   vertex: typeof Vertex;
@@ -82,31 +72,13 @@ export type ResolveContext = {
   choices: Vertex<Choice, Choices>;
 };
 
-export type Resolver<N extends ZodNode> = (
-  node: z.output<N>,
+export type Resolver<N extends Node> = (
+  node: N,
   ctx: ResolveContext,
 ) => Vertex;
 
-type ResolverMap<N extends ZodNode> = {
-  [T in N as T["shape"]["$type"]["value"]]: Resolver<T>;
-};
-
-type t = ResolverMap<BaseNode>;
-
-export const ResolverMap: ResolverMap<BaseNode> = {
-  BINARYOPERATION,
-  MULTIPLE,
-  CHOICE,
-  CONDITION,
-  MODIFIER,
-  OVERRIDE,
-  QUERY,
-  REDUCE,
-  SELECTOR,
-  UNARYOPERATION,
-  VALUE,
-  LITERAL,
-  NULL,
+export type ResolverMap<N extends Node> = {
+  [T in N as T["$type"]]: Resolver<T>;
 };
 
 type ParseResult = {

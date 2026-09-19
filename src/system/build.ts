@@ -1,40 +1,35 @@
 import type * as z from "zod";
-import type { ZodNode } from "./schema.ts";
+import type { Node, ZodNode } from "./schema.ts";
 
-type GetStatements<N extends ZodNode> = Extract<
+type GetStatements<N extends Node> = Extract<
   N,
-  { shape: { $kind: { value: "STATEMENT" } } }
+  { $kind: "STATEMENT" }
 >;
-type GetExpressions<N extends ZodNode> = Extract<
+type GetExpressions<N extends Node> = Extract<
   N,
-  { shape: { $kind: { value: "EXPRESSION" } } }
+  { $kind: "EXPRESSION" }
 >;
 
-type NodeKind<N extends ZodNode> = N["shape"]["$kind"]["value"];
-type NodeType<N extends ZodNode> = N["shape"]["$type"]["value"];
+type FactoryIdentifer<N extends Node, C extends Node> = C["$kind"] extends
+  "STATEMENT"
+  ? C["$type"] extends GetExpressions<N>["$type"] ? `${C["$type"]}_STATEMENT`
+  : C["$type"]
+  : C["$type"] extends GetStatements<N>["$type"] ? `${C["$type"]}_EXPRESSION`
+  : C["$type"];
 
-type FactoryIdentifer<N extends ZodNode, C extends ZodNode> =
-  NodeKind<C> extends "STATEMENT"
-    ? NodeType<C> extends NodeType<GetExpressions<N>>
-      ? `${NodeType<C>}_STATEMENT`
-    : NodeType<C>
-    : NodeType<C> extends NodeType<GetStatements<N>>
-      ? `${NodeType<C>}_EXPRESSION`
-    : NodeType<C>;
+type FactoryFn<T extends Node> = (
+  value: Omit<z.infer<T>, "$kind" | "$type">,
+) => z.infer<T>;
 
-type FactoryFn<T extends ZodNode> = (
-  value: Omit<z.output<T>, "$kind" | "$type">,
-) => z.output<T>;
-
-export type FactoryMap<N extends ZodNode> = {
+export type Factory<N extends Node> = {
   [Type in N as FactoryIdentifer<N, Type>]: (
-    value: Omit<z.output<Type>, "$kind" | "$type">,
-  ) => z.output<Type>;
+    value: Omit<Type, "$kind" | "$type">,
+  ) => Type;
 };
 
 export function createFactory<
   T extends ZodNode[],
->(...types: T): FactoryMap<T[number]> {
+>(...types: T): Factory<z.infer<T[number]>> {
   const entries = types.map((t) =>
     [
       t.shape.$type.value,
@@ -43,8 +38,10 @@ export function createFactory<
         $type: t.shape.$type.value,
         $kind: t.shape.$kind.value,
       }),
-    ] as [string, FactoryFn<T[number]>]
+    ] as [string, FactoryFn<z.infer<T[number]>>]
   );
 
-  return Object.fromEntries(entries) as FactoryMap<T[number]>;
+  return Object.fromEntries(entries) as unknown as Factory<
+    z.infer<T[number]>
+  >;
 }

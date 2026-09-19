@@ -7,9 +7,6 @@ import {
   Undefined,
   type Values,
 } from "../parse.ts";
-
-import type { Query } from "./query.ts";
-import type { Selector } from "./selector.ts";
 import { createNode, Expression } from "../schema.ts";
 import { BinopKind } from "./binop.ts";
 

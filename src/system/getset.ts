@@ -1,3 +1,5 @@
+import { isNode } from "./schema.ts";
+
 export function getValue<
   T extends { $type: string },
   Type extends Extract<T, { name?: string }>["$type"],
@@ -35,7 +37,7 @@ export function getValue<
   }
 
   return Object.values(node)
-    .map((n) => getValue(n as T, type, name, key))
+    .map((n) => getValue(n, type, name, key))
     .find((v) => v !== undefined) as Value | undefined;
 }
 
@@ -89,7 +91,7 @@ export function setValue<
   return Object.fromEntries(
     Object.entries(node).map((
       [k, v],
-    ) => [k, setValue(v as T, type, name, key, value)]),
+    ) => [k, setValue(v, type, name, key, value)]),
   ) as unknown as T;
 }
 
@@ -130,6 +132,6 @@ export function deleteNode<
   return Object.fromEntries(
     Object.entries(node).map((
       [k, v],
-    ) => [k, deleteNode(v as T, type, name, false)]),
+    ) => [k, deleteNode(v, type, name, false)]),
   ) as unknown as T;
 }

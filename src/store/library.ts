@@ -1,5 +1,3 @@
-import type { SerializedNode } from "./serialize.ts";
-
 export type Library = Record<string, SerializedNode>;
 
 export function libraryLookup(

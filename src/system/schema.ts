@@ -1,9 +1,19 @@
 import * as z from "zod";
 
+const NodeSchema = z.looseObject({
+  $kind: z.union([z.literal("STATEMENT"), z.literal("EXPRESSION")]),
+  $type: z.string().uppercase(),
+}).and(z.record(z.string(), z.any()));
+
+export function isNode(input: unknown): input is z.infer<typeof NodeSchema> {
+  return NodeSchema.validate(input);
+}
+
 export type ZodNode<
   K extends "Statement" | "Expression" = "Statement" | "Expression",
   T extends string = string,
-  V extends Record<string, z.ZodType> = Record<string, z.ZodType>,
+  // deno-lint-ignore ban-types
+  V extends Record<string, z.ZodType> = {},
 > = z.ZodObject<
   V & {
     $kind: z.ZodLiteral<Uppercase<K>>;
@@ -11,14 +21,12 @@ export type ZodNode<
   }
 >;
 
-type ZodPlaceHolder<
+export type Node<
   K extends "Statement" | "Expression" = "Statement" | "Expression",
   T extends string = string,
-> = z.ZodObject<{
-  $kind: z.ZodLiteral<Uppercase<K>>;
-  $type: z.ZodUnion<z.ZodLiteral<Uppercase<T>>[]>;
-  $isPlaceholder: z.ZodLiteral<true>;
-}>;
+  // deno-lint-ignore ban-types
+  V extends Record<string, z.ZodType> = {},
+> = z.infer<ZodNode<K, T, V>>;
 
 export function createNode<
   K extends "Statement" | "Expression",
@@ -36,16 +44,20 @@ export function createNode<
   });
 }
 
+type ZodPlaceHolder<K extends "Statement" | "Expression", T extends string> =
+  z.ZodObject<{
+    $kind: z.ZodLiteral<Uppercase<K>>;
+    $type: z.ZodUnion<z.ZodLiteral<Uppercase<T>>[]>;
+  }, z.core.$loose>;
 function Placeholder<
   K extends "Statement" | "Expression",
   T extends string,
->(kind: K, types: T[]): ZodPlaceHolder<K, T> {
-  return z.object({
+>(kind: K, types: T[]) {
+  return z.looseObject({
     $kind: z.literal(kind.toUpperCase() as Uppercase<K>),
     $type: z.union(
       types.map((t) => z.literal(t.toUpperCase() as Uppercase<T>)),
     ),
-    $isPlaceholder: z.literal(true),
   });
 }
 
@@ -61,9 +73,7 @@ export function Expression<T extends string>(
   return Placeholder("Expression", types);
 }
 
-export function toJSONSchema<
-  T extends ZodNode[],
->(...types: T) {
+export function createRegistry(...types: ZodNode[]) {
   const registry = z.registry<{ id: string; kind: string }>();
 
   const STATEMENT_NAMES: string[] = [];
@@ -81,6 +91,16 @@ export function toJSONSchema<
       EXPRESSION_NAMES.push(type);
     }
   }
+
+  return { registry, STATEMENT_NAMES, EXPRESSION_NAMES };
+}
+
+export function toJSONSchema<
+  T extends ZodNode[],
+>(...types: T) {
+  const { registry, STATEMENT_NAMES, EXPRESSION_NAMES } = createRegistry(
+    ...types,
+  );
 
   return z.toJSONSchema(registry, {
     override: (ctx) => {
