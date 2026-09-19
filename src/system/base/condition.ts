@@ -1,3 +1,4 @@
+import * as z from "zod";
 import { Tag } from "../../lib/tag.ts";
 import {
   type Bool,
@@ -8,7 +9,7 @@ import {
   type Num,
   type Resolver,
 } from "../parse.ts";
-import type { Expression, Statement } from "../node.ts";
+import { createNode, Expression, Statement } from "../schema.ts";
 
 export const CONDITION_OPERATORS = [
   "<=",
@@ -19,17 +20,18 @@ export const CONDITION_OPERATORS = [
   ">",
 ] as const;
 
-export type ConditionKind = (typeof CONDITION_OPERATORS)[number];
+export type ConditionKind = z.infer<typeof ConditionKind>;
+export const ConditionKind = z.union(
+  CONDITION_OPERATORS.map((o) => z.literal(o)),
+);
 
-export type Condition = Statement<
-  "Condition",
-  {
-    kind: ConditionKind;
-    left: Expression;
-    right: Expression;
-    effect: Statement;
-  }
->;
+export type Condition = z.infer<typeof Condition>;
+export const Condition = createNode("Statement", "Condition", {
+  kind: ConditionKind,
+  left: Expression(),
+  right: Expression(),
+  effect: Statement(),
+});
 
 export function condition(
   left: number,

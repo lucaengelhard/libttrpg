@@ -1,3 +1,4 @@
+import * as z from "zod";
 import { Tag } from "../../lib/tag.ts";
 import type { Resolver, Values } from "../parse.ts";
 import {
@@ -5,9 +6,10 @@ import {
   CONDITION_OPERATORS,
   type ConditionKind,
 } from "./condition.ts";
-import type { Expression } from "../node.ts";
+import { createNode } from "../schema.ts";
 
-export type Query = Expression<"Query", { query: string }>;
+export type Query = z.infer<typeof Query>;
+export const Query = createNode("Expression", "Query", { query: z.string() });
 
 export const QUERY: Resolver<Query> = (node, ctx) => {
   const result = ctx.vertex<Values, Values>("values", (input) => {

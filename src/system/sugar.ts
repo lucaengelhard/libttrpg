@@ -1,13 +1,5 @@
 import { createExhaustiveTuple } from "../lib/utils.ts";
 import { type BaseNode, BaseNodeFactory } from "./base/index.ts";
-import {
-  type Expression,
-  isNode,
-  type Node,
-  NodeFactory,
-  type NodeMap,
-  type Statement,
-} from "./node.ts";
 
 type Switch = Statement<
   "Switch",

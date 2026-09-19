@@ -1,5 +1,4 @@
 import type { Creators, Node } from "@lucaengelhard/libttrpg";
-import type { CreatorFn } from "../system/node.ts";
 
 export function serialize(node: Node): string {
   return JSON.parse(JSON.stringify(node));

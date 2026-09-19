@@ -1,3 +1,4 @@
+import * as z from "zod";
 import { Tag } from "../../lib/tag.ts";
 import {
   type Bool,
@@ -10,28 +11,22 @@ import {
   type Resolver,
   Undefined,
 } from "../parse.ts";
-import type { BinopKind } from "./binop.ts";
-import type { Expression, Statement } from "../node.ts";
+import { BinopKind } from "./binop.ts";
+import { createNode, Expression } from "../schema.ts";
 
-export type ValueExpression = Expression<
-  "Value",
-  {
-    name?: string;
-    value: Expression;
-    reduceKind?: BinopKind;
-    overrideReduceKind?: BinopKind;
-  }
->;
+export type ValueExpression = z.infer<typeof ValueExpression>;
+export const ValueExpression = createNode("Expression", "Value", {
+  name: z.string().optional(),
+  value: Expression(),
+  reduceKind: BinopKind.optional(),
+  overrideReduceKind: BinopKind.optional(),
+});
 
-export type ValueStatement = Statement<
-  "Value",
-  {
-    name: string;
-    value: Expression;
-    reduceKind?: BinopKind;
-    overrideReduceKind?: BinopKind;
-  }
->;
+export type ValueStatement = z.infer<typeof ValueStatement>;
+export const ValueStatement = createNode("Statement", "Value", {
+  ...ValueExpression.shape,
+  name: z.string(),
+});
 
 export const VALUE: Resolver<ValueExpression | ValueStatement> = (
   node,

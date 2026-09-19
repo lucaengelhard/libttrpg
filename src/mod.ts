@@ -3,7 +3,7 @@ import {
   BASE_NODE_STATEMENT_NAMES,
   type BaseNode,
 } from "./system/base/index.ts";
-import { type Creators, NodeFactory } from "./system/node.ts";
+
 import {
   SUGAR_EXPRESSION_NAMES,
   SUGAR_STATEMENT_NAMES,
@@ -21,16 +21,6 @@ export { libraryLookup } from "./store/library.ts";
 export { parse, ResolverMap } from "./system/parse.ts";
 
 export { deleteNode, getValue, hasValue, setValue } from "./system/getset.ts";
-
-export type {
-  Creators,
-  Expression,
-  Filter,
-  Node,
-  NodeMap,
-  Statement,
-} from "./system/node.ts";
-export { isNode, NodeFactory } from "./system/node.ts";
 
 export type { BASE_NODES, BaseNode } from "./system/base/index.ts";
 

@@ -1,16 +1,15 @@
+import * as z from "zod";
 import { Tag } from "../../lib/tag.ts";
 import { type Choice as ChoiceTag, NOOP, type Resolver } from "../parse.ts";
-import type { Statement } from "../node.ts";
+import { createNode, Statement } from "../schema.ts";
 
-export type Choice = Statement<
-  "Choice",
-  {
-    name: string;
-    count: number;
-    active: string[];
-    options: Record<string, Statement>;
-  }
->;
+export type Choice = z.infer<typeof Choice>;
+export const Choice = createNode("Statement", "Choice", {
+  name: z.string(),
+  count: z.number(),
+  active: z.array(z.string()),
+  options: z.record(z.string(), Statement()),
+});
 
 export const CHOICE: Resolver<Choice> = (node, ctx) => {
   const { active, count, $type: type, options, name } = node;

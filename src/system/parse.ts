@@ -1,5 +1,5 @@
+import type * as z from "zod";
 import { Tag } from "../lib/tag.ts";
-import type { Node } from "./node.ts";
 import { SELECTOR, type Selector } from "./base/selector.ts";
 import { CHOICE, type Choice as ChoiceType } from "./base/choice.ts";
 import { Edge, GraphBuilder, Vertex } from "../lib/graph.ts";
@@ -15,6 +15,7 @@ import { UNARYOPERATION } from "./base/unaryop.ts";
 import { VALUE } from "./base/value.ts";
 import type { BaseNode } from "./base/index.ts";
 import { type NestedMap, nestedMap } from "../lib/utils.ts";
+import { ZodNode } from "./schema.ts";
 
 // TYPES
 export type Bool = Tag<"boolean", boolean>;
@@ -67,7 +68,10 @@ export function getNumber(value: (Num | Named)["$value"]): number {
 
 // RESOLVE
 export type ResolveContext = {
-  resolve: (node: Node, updatedCtx?: Partial<ResolveContext>) => Vertex;
+  resolve: (
+    node: z.output<ZodNode>,
+    updatedCtx?: Partial<ResolveContext>,
+  ) => Vertex;
   vertex: typeof Vertex;
   source: typeof Source;
   edge: (from: Vertex, to: Vertex, overwrite?: boolean) => void;
@@ -78,14 +82,16 @@ export type ResolveContext = {
   choices: Vertex<Choice, Choices>;
 };
 
-export type Resolver<N extends Node> = (
-  node: N,
+export type Resolver<N extends ZodNode> = (
+  node: z.output<N>,
   ctx: ResolveContext,
 ) => Vertex;
 
-type ResolverMap<N extends Node> = {
-  [T in N["$type"]]: Resolver<Extract<N, { $type: T }>>;
+type ResolverMap<N extends ZodNode> = {
+  [T in N as T["shape"]["$type"]["value"]]: Resolver<T>;
 };
+
+type t = ResolverMap<BaseNode>;
 
 export const ResolverMap: ResolverMap<BaseNode> = {
   BINARYOPERATION,

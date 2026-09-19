@@ -1,3 +1,4 @@
+import type * as z from "zod";
 import { Tag } from "../../lib/tag.ts";
 import {
   type Num,
@@ -6,18 +7,17 @@ import {
   Undefined,
   type Values,
 } from "../parse.ts";
-import type { BinopKind } from "./binop.ts";
-import type { Expression } from "../node.ts";
+
 import type { Query } from "./query.ts";
 import type { Selector } from "./selector.ts";
+import { createNode, Expression } from "../schema.ts";
+import { BinopKind } from "./binop.ts";
 
-export type Reduce = Expression<
-  "Reduce",
-  {
-    query: Query | Selector;
-    kind: BinopKind;
-  }
->;
+export type Reduce = z.infer<typeof Reduce>;
+export const Reduce = createNode("Expression", "Reduce", {
+  query: Expression("QUERY", "SELECTOR"),
+  kind: BinopKind,
+});
 
 export const REDUCE: Resolver<Reduce> = (node, ctx) => {
   const query = ctx.resolve(node.query);

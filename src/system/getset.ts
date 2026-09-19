@@ -1,5 +1,3 @@
-import { isNode } from "./node.ts";
-
 export function getValue<
   T extends { $type: string },
   Type extends Extract<T, { name?: string }>["$type"],

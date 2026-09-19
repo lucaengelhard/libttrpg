@@ -1,3 +1,4 @@
+import type * as z from "zod";
 import type { Vertex } from "../../lib/graph.ts";
 import { Tag } from "../../lib/tag.ts";
 import {
@@ -12,21 +13,20 @@ import {
   type Resolver,
   type Values,
 } from "../parse.ts";
-import type { Expression, Statement } from "../node.ts";
-import type { Query } from "./query.ts";
-import type { Selector } from "./selector.ts";
 
-export type Modifier = Statement<
-  "Modifier",
-  {
-    target: Query | Selector;
-    value: Expression;
-  }
->;
-export type Override = Statement<
-  "Override",
-  Modifier
->;
+import { createNode, Expression } from "../schema.ts";
+
+export type Modifier = z.infer<typeof Modifier>;
+export const Modifier = createNode("Statement", "Modifier", {
+  target: Expression("Query", "Selector"),
+  value: Expression(),
+});
+
+export type Override = z.infer<typeof Override>;
+export const Override = createNode("Statement", "Override", {
+  target: Expression("Query", "Selector"),
+  value: Expression(),
+});
 
 export const MODIFIER: Resolver<Modifier> = applyModifier;
 export const OVERRIDE: Resolver<Override> = applyModifier;

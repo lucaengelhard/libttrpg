@@ -1,3 +1,4 @@
+import * as z from "zod";
 import { Tag } from "../../lib/tag.ts";
 import {
   getNumber,
@@ -7,20 +8,25 @@ import {
   type Resolver,
   Undefined,
 } from "../parse.ts";
-import type { Expression } from "../node.ts";
 
-export type BinopKind =
-  | "DIVIDE"
-  | "SUBTRACT"
-  | "ADD"
-  | "MULTIPLY"
-  | "MAX"
-  | "MIN";
+import { createNode, Expression, ZodNode } from "../schema.ts";
 
-export type BinaryOperation = Expression<
-  "BinaryOperation",
-  { kind: BinopKind; left: Expression; right: Expression }
->;
+export type BinopKind = z.infer<typeof BinopKind>;
+export const BinopKind = z.union([
+  z.literal("DIVIDE"),
+  z.literal("SUBTRACT"),
+  z.literal("ADD"),
+  z.literal("MULTIPLY"),
+  z.literal("MAX"),
+  z.literal("MIN"),
+]);
+
+export type BinaryOperation = z.infer<typeof BinaryOperation>;
+export const BinaryOperation = createNode("Expression", "BinaryOperation", {
+  kind: BinopKind,
+  left: Expression(),
+  right: Expression(),
+});
 
 export function binop(kind: BinopKind, left: number, right: number): number {
   switch (kind) {
