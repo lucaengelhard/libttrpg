@@ -12,7 +12,7 @@ import { QUERY, Query } from "./query.ts";
 import { REDUCE, Reduce } from "./reduce.ts";
 import { SELECTOR, Selector } from "./selector.ts";
 import { UNARYOPERATION, UnaryOperation } from "./unaryop.ts";
-import { VALUE, ValueExpression, ValueStatement } from "./value.ts";
+import { VALUE, Value } from "./value.ts";
 
 export const BASE_NODES = [
   BinaryOperation,
@@ -27,12 +27,11 @@ export const BASE_NODES = [
   Reduce,
   Selector,
   UnaryOperation,
-  ValueExpression,
-  ValueStatement,
+  Value,
 ] as const;
 
 export type BaseNode = z.infer<typeof BaseNode>;
-export const BaseNode = z.union(BASE_NODES);
+export const BaseNode: z.ZodUnion<typeof BASE_NODES> = z.union(BASE_NODES);
 
 export const BaseNodeFactory = createFactory(...BASE_NODES);
 

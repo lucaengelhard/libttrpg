@@ -7,12 +7,18 @@ import {
   Undefined,
   type Values,
 } from "../parse.ts";
-import { createNode, Expression } from "../schema.ts";
+import { Child, NodeSchema, type ZodNode } from "../schema.ts";
 import { BinopKind } from "./binop.ts";
 
 export type Reduce = z.infer<typeof Reduce>;
-export const Reduce = createNode("Expression", "Reduce", {
-  query: Expression("QUERY", "SELECTOR"),
+export const Reduce: ZodNode<
+  "Reduce",
+  {
+    query: ZodNode<"QUERY" | "SELECTOR">;
+    kind: typeof BinopKind;
+  }
+> = NodeSchema("Reduce", {
+  query: Child("QUERY", "SELECTOR"),
   kind: BinopKind,
 });
 

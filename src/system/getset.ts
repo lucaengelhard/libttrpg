@@ -1,7 +1,7 @@
-import { isNode } from "./schema.ts";
+import { isNode, type Node } from "./schema.ts";
 
 export function getValue<
-  T extends { $type: string },
+  T extends Node,
   Type extends Extract<T, { name?: string }>["$type"],
   Key extends keyof Extract<T, { $type: Type }>,
   Value extends Extract<T, { $type: Type }>[Key],
@@ -20,7 +20,7 @@ export function getValue<
 
     if (typeof node === "object") {
       return Object.values(node)
-        .map((n) => getValue(n as unknown as T, type, name, key))
+        .map((n) => getValue(n as T, type, name, key))
         .find((v) => v !== undefined) as Value | undefined;
     }
 
@@ -37,12 +37,12 @@ export function getValue<
   }
 
   return Object.values(node)
-    .map((n) => getValue(n, type, name, key))
+    .map((n) => getValue(n as unknown as T, type, name, key))
     .find((v) => v !== undefined) as Value | undefined;
 }
 
 export function hasValue<
-  T extends { $type: string },
+  T extends Node,
   Type extends Extract<T, { name?: string }>["$type"],
 >(
   node: T,
@@ -53,7 +53,7 @@ export function hasValue<
 }
 
 export function setValue<
-  T extends { $type: string },
+  T extends Node,
   Type extends Extract<T, { name?: string }>["$type"],
   Key extends Exclude<keyof Extract<T, { $type: Type }>, "$type" | "name">,
   Value extends Extract<T, { $type: Type }>[Key],
@@ -74,7 +74,7 @@ export function setValue<
       return Object.fromEntries(
         Object.entries(node).map((
           [k, v],
-        ) => [k, setValue(v as unknown as T, type, name, key, value)]),
+        ) => [k, setValue(v as T, type, name, key, value)]),
       ) as unknown as T;
     }
 
@@ -91,7 +91,7 @@ export function setValue<
   return Object.fromEntries(
     Object.entries(node).map((
       [k, v],
-    ) => [k, setValue(v, type, name, key, value)]),
+    ) => [k, setValue(v as unknown as T, type, name, key, value)]),
   ) as unknown as T;
 }
 
@@ -132,6 +132,6 @@ export function deleteNode<
   return Object.fromEntries(
     Object.entries(node).map((
       [k, v],
-    ) => [k, deleteNode(v, type, name, false)]),
+    ) => [k, deleteNode(v as unknown as T, type, name, false)]),
   ) as unknown as T;
 }

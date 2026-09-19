@@ -33,7 +33,7 @@ type ChoiceObj = {
 export type Choice = Tag<"choice", [string, ChoiceObj]>;
 export type Choices = Tag<"choices", Map<string, ChoiceObj>>;
 
-export const NOOP = Vertex<Undefined, Undefined>("undefined", () => Undefined);
+export const VOID = Vertex<Undefined, Undefined>("undefined", () => Undefined);
 export function Source<T extends Tag>(resolve: () => T): Vertex<Tag, T> {
   return Vertex("__SOURCE__", resolve);
 }
@@ -115,7 +115,7 @@ export function parse<N extends Node>(
   builder.addVertex(condition);
 
   traverse(tree, {
-    resolve: () => NOOP,
+    resolve: () => VOID,
     vertex: (...args) => {
       const v = Vertex(...args);
       builder.addVertex(v as unknown as Vertex);
@@ -148,7 +148,7 @@ export function parse<N extends Node>(
       | Resolver<N>
       | undefined;
 
-    if (handler === undefined) return NOOP;
+    if (handler === undefined) return VOID;
 
     return handler(node, {
       ...ctx,

@@ -12,25 +12,25 @@ import {
   Undefined,
 } from "../parse.ts";
 import { BinopKind } from "./binop.ts";
-import { createNode, Expression } from "../schema.ts";
+import { Child, NodeSchema, type ZodNode } from "../schema.ts";
 
-export type ValueExpression = z.infer<typeof ValueExpression>;
-export const ValueExpression = createNode("Expression", "Value", {
+export type Value = z.infer<typeof Value>;
+export const Value: ZodNode<
+  "Value",
+  {
+    name: z.ZodOptional<z.ZodString>;
+    value: ZodNode;
+    reduceKind: z.ZodOptional<typeof BinopKind>;
+    overrideReduceKind: z.ZodOptional<typeof BinopKind>;
+  }
+> = NodeSchema("Value", {
   name: z.string().optional(),
-  value: Expression(),
+  value: Child(),
   reduceKind: BinopKind.optional(),
   overrideReduceKind: BinopKind.optional(),
 });
 
-export type ValueStatement = z.infer<typeof ValueStatement>;
-export const ValueStatement = createNode("Statement", "Value", {
-  name: z.string(),
-  value: Expression(),
-  reduceKind: BinopKind.optional(),
-  overrideReduceKind: BinopKind.optional(),
-});
-
-export const VALUE: Resolver<ValueExpression | ValueStatement> = (
+export const VALUE: Resolver<Value> = (
   node,
   ctx,
 ) => {

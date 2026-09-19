@@ -8,25 +8,38 @@ import {
   type Resolver,
   Undefined,
 } from "../parse.ts";
+import { Child, NodeSchema, type ZodNode } from "../schema.ts";
 
-import { createNode, Expression } from "../schema.ts";
+const BINOP_KINDS = [
+  "DIVIDE",
+  "SUBTRACT",
+  "ADD",
+  "MULTIPLY",
+  "MAX",
+  "MIN",
+] as const;
 
-export type BinopKind = z.infer<typeof BinopKind>;
-export const BinopKind = z.union([
-  z.literal("DIVIDE"),
-  z.literal("SUBTRACT"),
-  z.literal("ADD"),
-  z.literal("MULTIPLY"),
-  z.literal("MAX"),
-  z.literal("MIN"),
-]);
+export type BinopKind = typeof BINOP_KINDS[number];
+export const BinopKind: z.ZodUnion<z.ZodLiteral<BinopKind>[]> = z.union(
+  BINOP_KINDS.map((o) => z.literal(o)),
+);
 
 export type BinaryOperation = z.infer<typeof BinaryOperation>;
-export const BinaryOperation = createNode("Expression", "BinaryOperation", {
-  kind: BinopKind,
-  left: Expression(),
-  right: Expression(),
-});
+export const BinaryOperation: ZodNode<
+  "BinaryOperation",
+  {
+    kind: typeof BinopKind;
+    left: ZodNode;
+    right: ZodNode;
+  }
+> = NodeSchema(
+  "BinaryOperation",
+  {
+    kind: BinopKind,
+    left: Child(),
+    right: Child(),
+  },
+);
 
 export function binop(kind: BinopKind, left: number, right: number): number {
   switch (kind) {

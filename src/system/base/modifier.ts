@@ -7,26 +7,36 @@ import {
   isFalse,
   type Modifier as ModifierTag,
   type Named,
-  NOOP,
   type Num,
   type ResolveContext,
   type Resolver,
   type Values,
+  VOID,
 } from "../parse.ts";
+import { Child, NodeSchema, type ZodNode } from "../schema.ts";
 
-import { createNode, Expression } from "../schema.ts";
+type ModifierSchema = {
+  target: ZodNode<"Query" | "Selector">;
+  value: ZodNode;
+};
 
 export type Modifier = z.infer<typeof Modifier>;
-export const Modifier = createNode("Statement", "Modifier", {
-  target: Expression("Query", "Selector"),
-  value: Expression(),
-});
+export const Modifier: ZodNode<"Modifier", ModifierSchema> = NodeSchema(
+  "Modifier",
+  {
+    target: Child("Query", "Selector"),
+    value: Child(),
+  },
+);
 
 export type Override = z.infer<typeof Override>;
-export const Override = createNode("Statement", "Override", {
-  target: Expression("Query", "Selector"),
-  value: Expression(),
-});
+export const Override: ZodNode<"Override", ModifierSchema> = NodeSchema(
+  "Override",
+  {
+    target: Child("Query", "Selector"),
+    value: Child(),
+  },
+);
 
 export const MODIFIER: Resolver<Modifier> = applyModifier;
 export const OVERRIDE: Resolver<Override> = applyModifier;
@@ -70,5 +80,5 @@ function applyModifier(node: Modifier | Override, ctx: ResolveContext): Vertex {
     node.$type === "MODIFIER" ? ctx.modifiers : ctx.overrides,
   );
 
-  return NOOP;
+  return VOID;
 }

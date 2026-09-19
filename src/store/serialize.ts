@@ -1,4 +1,4 @@
-import { Node } from "../system/schema.ts";
+import { Child } from "../system/schema.ts";
 
 export function serialize(node: Node): string {
   return JSON.parse(JSON.stringify(node));

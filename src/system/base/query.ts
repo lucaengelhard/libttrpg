@@ -6,10 +6,13 @@ import {
   CONDITION_OPERATORS,
   type ConditionKind,
 } from "./condition.ts";
-import { createNode } from "../schema.ts";
+import { NodeSchema, type ZodNode } from "../schema.ts";
 
 export type Query = z.infer<typeof Query>;
-export const Query = createNode("Expression", "Query", { query: z.string() });
+export const Query: ZodNode<"Query", { query: z.ZodString }> = NodeSchema(
+  "Query",
+  { query: z.string() }, // TODO make query string schema
+);
 
 export const QUERY: Resolver<Query> = (node, ctx) => {
   const result = ctx.vertex<Values, Values>("values", (input) => {

@@ -1,50 +1,66 @@
 import * as z from "zod";
 import { type BaseNode, BaseNodeFactory } from "./base/index.ts";
 import {
-  createNode,
-  Expression,
+  Child,
   isNode,
   type Node,
-  Statement,
+  NodeSchema,
+  type ZodNode,
 } from "./schema.ts";
 
 type Switch = z.infer<typeof Switch>;
-const Switch = createNode("Statement", "Switch", {
+const Switch: ZodNode<"Switch", {
+  name: z.ZodString;
+  effect: ZodNode;
+  active: z.ZodBoolean;
+}> = NodeSchema("Switch", {
   name: z.string(),
-  effect: Statement(),
+  effect: Child(),
   active: z.boolean(),
 });
 
 type Level = z.infer<typeof Level>;
-const Level = createNode("Statement", "Level", {
-  reference: Expression(),
-  levels: z.record(z.number().int().gte(0), Statement()),
+const Level: ZodNode<"Level", {
+  reference: ZodNode;
+  levels: z.ZodRecord<z.ZodNumber, ZodNode>;
+}> = NodeSchema("Level", {
+  reference: Child(),
+  levels: z.record(z.number().int().gte(0), Child()),
 });
 
 type SectionStatement = z.infer<typeof SectionStatement>;
-const SectionStatement = createNode("Statement", "Section", {
+const SectionStatement: ZodNode<"Section", {
+  name: z.ZodString;
+  value: ZodNode;
+}> = NodeSchema("Section", {
   name: z.string(),
-  value: Statement(),
+  value: Child(),
 });
 
 type SectionExpression = z.infer<typeof SectionExpression>;
-const SectionExpression = createNode("Expression", "Section", {
+const SectionExpression: ZodNode<"Section", {
+  name: z.ZodString;
+  value: ZodNode;
+}> = NodeSchema("Section", {
   name: z.string(),
-  value: Expression(),
+  value: Child(),
 });
 
 type Get = z.infer<typeof Get>;
-const Get = createNode("Expression", "Get", { query: z.string() });
+const Get: ZodNode<"Get", {
+  query: z.ZodString;
+}> = NodeSchema("Get", { query: z.string() });
 
-export const SugarNodes = z.union([
+export const SUGAR_NODES = [
   Switch,
   Level,
   SectionStatement,
   SectionExpression,
   Get,
-]);
+] as const;
 
-export type SugarNode = z.infer<typeof SugarNodes>;
+export type SugarNode = z.infer<typeof SugarNode>;
+export const SugarNode: z.ZodUnion<typeof SUGAR_NODES> = z.union(SUGAR_NODES);
 
 type Handler<From extends Node, To extends Node, T extends Node> = (
   node: T,
@@ -54,15 +70,14 @@ export type Handlers<From extends Node, To extends Node> = {
   [T in From as T["$type"]]: Handler<From, To, T>;
 };
 
-const { CONDITION, VALUE_EXPRESSION, LITERAL, MULTIPLE, REDUCE, QUERY } =
-  BaseNodeFactory;
+const { CONDITION, VALUE, LITERAL, MULTIPLE, REDUCE, QUERY } = BaseNodeFactory;
 
 export const SUGAR_HANDLERS: Handlers<SugarNode, BaseNode> = {
   SWITCH: (node) =>
     CONDITION({
       kind: "==",
-      left: VALUE_EXPRESSION({ value: LITERAL({ value: 1 }) }),
-      right: VALUE_EXPRESSION({
+      left: VALUE({ value: LITERAL({ value: 1 }) }),
+      right: VALUE({
         value: LITERAL({ value: node.active ? 1 : 0 }),
       }),
       effect: node.effect,
@@ -71,7 +86,7 @@ export const SUGAR_HANDLERS: Handlers<SugarNode, BaseNode> = {
     const values = Object.entries(node.levels).map(
       ([levelStr, effect]) => {
         return CONDITION({
-          left: VALUE_EXPRESSION({
+          left: VALUE({
             value: LITERAL({ value: parseInt(levelStr) }),
           }),
           kind: "<=",

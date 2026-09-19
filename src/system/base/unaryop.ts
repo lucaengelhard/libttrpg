@@ -7,15 +7,25 @@ import {
   type Resolver,
   Undefined,
 } from "../parse.ts";
-import { createNode, Expression } from "../schema.ts";
+import { Child, NodeSchema, type ZodNode } from "../schema.ts";
 
-export type UnaryOpKind = z.infer<typeof UnaryOpKind>;
-export const UnaryOpKind = z.union([z.literal("CEIL"), z.literal("FLOOR")]);
+const UNARYOP_KINDS = ["CEIL", "FLOOR"] as const;
+
+export type UnaryOpKind = typeof UNARYOP_KINDS[number];
+export const UnaryOpKind: z.ZodUnion<z.ZodLiteral<UnaryOpKind>[]> = z.union(
+  UNARYOP_KINDS.map((o) => z.literal(o)),
+);
 
 export type UnaryOperation = z.infer<typeof UnaryOperation>;
-export const UnaryOperation = createNode("Expression", "UnaryOperation", {
+export const UnaryOperation: ZodNode<
+  "UnaryOperation",
+  {
+    kind: typeof UnaryOpKind;
+    value: ZodNode;
+  }
+> = NodeSchema("UnaryOperation", {
   kind: UnaryOpKind,
-  value: Expression(),
+  value: Child(),
 });
 
 export function unaryop(kind: UnaryOpKind, value: number): number {

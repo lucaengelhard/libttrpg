@@ -5,11 +5,11 @@ import {
   False,
   filterBools,
   isFalse,
-  NOOP,
   type Num,
   type Resolver,
+  VOID,
 } from "../parse.ts";
-import { createNode, Expression, Statement } from "../schema.ts";
+import { Child, NodeSchema, type ZodNode } from "../schema.ts";
 
 export const CONDITION_OPERATORS = [
   "<=",
@@ -20,17 +20,25 @@ export const CONDITION_OPERATORS = [
   ">",
 ] as const;
 
-export type ConditionKind = z.infer<typeof ConditionKind>;
-export const ConditionKind = z.union(
+export type ConditionKind = typeof CONDITION_OPERATORS[number];
+export const ConditionKind: z.ZodUnion<z.ZodLiteral<ConditionKind>[]> = z.union(
   CONDITION_OPERATORS.map((o) => z.literal(o)),
 );
 
 export type Condition = z.infer<typeof Condition>;
-export const Condition = createNode("Statement", "Condition", {
+export const Condition: ZodNode<
+  "Condition",
+  {
+    kind: typeof ConditionKind;
+    left: ZodNode;
+    right: ZodNode;
+    effect: ZodNode;
+  }
+> = NodeSchema("Condition", {
   kind: ConditionKind,
-  left: Expression(),
-  right: Expression(),
-  effect: Statement(),
+  left: Child(),
+  right: Child(),
+  effect: Child(),
 });
 
 export function condition(
@@ -72,5 +80,5 @@ export const CONDITION: Resolver<Condition> = (node, ctx) => {
   ctx.edge(left, cond);
   ctx.edge(right, cond);
 
-  return NOOP;
+  return VOID;
 };
