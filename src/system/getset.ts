@@ -83,7 +83,7 @@ export function setValue<
 
   if (
     node.$type === type && "name" in node && typeof node.name === "string" &&
-    node.name === name && key in node
+    node.name === name
   ) {
     return { ...node, [key]: value };
   }
