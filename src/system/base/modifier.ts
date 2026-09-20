@@ -1,4 +1,4 @@
-import type * as z from "zod";
+import * as z from "zod";
 import type { Vertex } from "../../lib/graph.ts";
 import { Tag } from "../../lib/tag.ts";
 import {
@@ -13,29 +13,35 @@ import {
   type Values,
   VOID,
 } from "../parse.ts";
-import { Child, NodeSchema, type ZodNode } from "../schema.ts";
+import {
+  type Infer,
+  Schema,
+  type SchemaNode,
+  type ZodNode,
+} from "../schema.ts";
+import { Query } from "./query.ts";
+import { Selector } from "./selector.ts";
 
 type ModifierSchema = {
-  target: ZodNode<"Query" | "Selector">;
-  value: ZodNode;
+  target: z.ZodUnion<ZodNode<"Query" | "Selector">[]>;
+  value: SchemaNode;
 };
 
-export type Modifier = z.infer<typeof Modifier>;
-export const Modifier: ZodNode<"Modifier", ModifierSchema> = NodeSchema(
+export type Modifier = Infer<typeof Modifier>;
+export const Modifier: Schema<"Modifier", ModifierSchema> = Schema(
   "Modifier",
-  {
-    target: Child("Query", "Selector"),
-    value: Child(),
-  },
+  (node) => ({
+    target: z.union([Query.apply(node), Selector.apply(node)]),
+    value: node,
+  }),
 );
-
-export type Override = z.infer<typeof Override>;
-export const Override: ZodNode<"Override", ModifierSchema> = NodeSchema(
+export type Override = Infer<typeof Override>;
+export const Override: Schema<"Override", ModifierSchema> = Schema(
   "Override",
-  {
-    target: Child("Query", "Selector"),
-    value: Child(),
-  },
+  (node) => ({
+    target: z.union([Query.apply(node), Selector.apply(node)]),
+    value: node,
+  }),
 );
 
 export const MODIFIER: Resolver<Modifier> = applyModifier;

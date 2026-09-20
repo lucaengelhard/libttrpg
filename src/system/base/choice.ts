@@ -1,25 +1,24 @@
 import * as z from "zod";
 import { Tag } from "../../lib/tag.ts";
 import { type Choice as ChoiceTag, type Resolver, VOID } from "../parse.ts";
-import { Child, NodeSchema, type ZodNode } from "../schema.ts";
+import { type Infer, Schema, type SchemaNode } from "../schema.ts";
 
-export type Choice = z.infer<typeof Choice>;
-export const Choice: ZodNode<
+type ChoiceSchema = {
+  name: z.ZodString;
+  count: z.ZodNumber;
+  active: z.ZodArray<z.ZodString>;
+  options: z.ZodRecord<z.ZodString, SchemaNode>;
+};
+
+export type Choice = Infer<typeof Choice>;
+export const Choice: Schema<"Choice", ChoiceSchema> = Schema(
   "Choice",
-  {
-    name: z.ZodString;
-    count: z.ZodNumber;
-    active: z.ZodArray<z.ZodString>;
-    options: z.ZodRecord<z.ZodString, ZodNode>;
-  }
-> = NodeSchema(
-  "Choice",
-  {
+  (node) => ({
     name: z.string(),
     count: z.number(),
     active: z.array(z.string()),
-    options: z.record(z.string(), Child()),
-  },
+    options: z.record(z.string(), node),
+  }),
 );
 
 export const CHOICE: Resolver<Choice> = (node, ctx) => {

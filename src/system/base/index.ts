@@ -1,4 +1,3 @@
-import * as z from "zod";
 import { createFactory } from "../build.ts";
 import type { ResolverMap } from "../parse.ts";
 import { BINARYOPERATION, BinaryOperation } from "./binop.ts";
@@ -13,8 +12,9 @@ import { REDUCE, Reduce } from "./reduce.ts";
 import { SELECTOR, Selector } from "./selector.ts";
 import { UNARYOPERATION, UnaryOperation } from "./unaryop.ts";
 import { VALUE, Value } from "./value.ts";
+import type { Infer } from "../schema.ts";
 
-export const BASE_NODES = [
+export const BASE_SCHEMATA = [
   BinaryOperation,
   Choice,
   Condition,
@@ -30,10 +30,8 @@ export const BASE_NODES = [
   Value,
 ] as const;
 
-export type BaseNode = z.infer<typeof BaseNode>;
-export const BaseNode: z.ZodUnion<typeof BASE_NODES> = z.union(BASE_NODES);
-
-export const BaseNodeFactory = createFactory(...BASE_NODES);
+export type BaseNode = Infer<typeof BASE_SCHEMATA[number]>;
+export const BaseNodeFactory = createFactory(...BASE_SCHEMATA);
 
 export const BaseResolverMap: ResolverMap<BaseNode> = {
   BINARYOPERATION,

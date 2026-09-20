@@ -3,7 +3,6 @@ import type { Selector } from "./base/selector.ts";
 import type { Choice as ChoiceType } from "./base/choice.ts";
 import { Edge, GraphBuilder, Vertex } from "../lib/graph.ts";
 import { binop, type BinopKind } from "./base/binop.ts";
-
 import { type NestedMap, nestedMap } from "../lib/utils.ts";
 import type { Node } from "./schema.ts";
 

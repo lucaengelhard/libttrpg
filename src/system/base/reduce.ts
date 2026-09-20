@@ -1,4 +1,4 @@
-import type * as z from "zod";
+import * as z from "zod";
 import { Tag } from "../../lib/tag.ts";
 import {
   type Num,
@@ -7,20 +7,24 @@ import {
   Undefined,
   type Values,
 } from "../parse.ts";
-import { Child, NodeSchema, type ZodNode } from "../schema.ts";
+import { type Infer, Schema, type ZodNode } from "../schema.ts";
 import { BinopKind } from "./binop.ts";
+import { Query } from "./query.ts";
+import { Selector } from "./selector.ts";
 
-export type Reduce = z.infer<typeof Reduce>;
-export const Reduce: ZodNode<
+type ReduceSchema = {
+  query: z.ZodUnion<ZodNode<"Query" | "Selector">[]>;
+  kind: typeof BinopKind;
+};
+
+export type Reduce = Infer<typeof Reduce>;
+export const Reduce: Schema<"Reduce", ReduceSchema> = Schema(
   "Reduce",
-  {
-    query: ZodNode<"QUERY" | "SELECTOR">;
-    kind: typeof BinopKind;
-  }
-> = NodeSchema("Reduce", {
-  query: Child("QUERY", "SELECTOR"),
-  kind: BinopKind,
-});
+  (node) => ({
+    query: z.union([Query.apply(node), Selector.apply(node)]),
+    kind: BinopKind,
+  }),
+);
 
 export const REDUCE: Resolver<Reduce> = (node, ctx) => {
   const query = ctx.resolve(node.query);

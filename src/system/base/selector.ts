@@ -2,25 +2,24 @@ import * as z from "zod";
 import { Tag } from "../../lib/tag.ts";
 import type { Choice, Resolver, Values } from "../parse.ts";
 import { Query } from "./query.ts";
-import { NodeSchema, type ZodNode } from "../schema.ts";
+import { type Infer, Schema } from "../schema.ts";
 
-export type Selector = z.infer<typeof Selector>;
-export const Selector: ZodNode<
+type SelectorSchema = {
+  name: z.ZodString;
+  count: z.ZodNumber;
+  active: z.ZodArray<z.ZodString>;
+  query: ReturnType<typeof Query["apply"]>;
+};
+
+export type Selector = Infer<typeof Selector>;
+export const Selector: Schema<"Selector", SelectorSchema> = Schema(
   "Selector",
-  {
-    name: z.ZodString;
-    count: z.ZodNumber;
-    active: z.ZodArray<z.ZodString>;
-    query: typeof Query;
-  }
-> = NodeSchema(
-  "Selector",
-  {
+  (node) => ({
     name: z.string(),
     count: z.number().int().gte(0),
     active: z.array(z.string()),
-    query: Query,
-  },
+    query: Query.apply(node),
+  }),
 );
 
 export const SELECTOR: Resolver<Selector> = (node, ctx) => {

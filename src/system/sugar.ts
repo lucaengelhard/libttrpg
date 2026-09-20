@@ -1,66 +1,55 @@
 import * as z from "zod";
 import { type BaseNode, BaseNodeFactory } from "./base/index.ts";
 import {
-  Child,
+  type Infer,
   isNode,
   type Node,
-  NodeSchema,
-  type ZodNode,
+  Schema,
+  type SchemaNode,
 } from "./schema.ts";
 
-type Switch = z.infer<typeof Switch>;
-const Switch: ZodNode<"Switch", {
+type Switch = Infer<typeof Switch>;
+const Switch: Schema<"Switch", {
   name: z.ZodString;
-  effect: ZodNode;
+  effect: SchemaNode;
   active: z.ZodBoolean;
-}> = NodeSchema("Switch", {
+}> = Schema("Switch", (node) => ({
   name: z.string(),
-  effect: Child(),
+  effect: node,
   active: z.boolean(),
-});
+}));
 
-type Level = z.infer<typeof Level>;
-const Level: ZodNode<"Level", {
-  reference: ZodNode;
-  levels: z.ZodRecord<z.ZodNumber, ZodNode>;
-}> = NodeSchema("Level", {
-  reference: Child(),
-  levels: z.record(z.number().int().gte(0), Child()),
-});
+type Level = Infer<typeof Level>;
+const Level: Schema<"Level", {
+  reference: SchemaNode;
+  levels: z.ZodRecord<z.ZodNumber, SchemaNode>;
+}> = Schema("Level", (node) => ({
+  reference: node,
+  levels: z.record(z.number().int().gte(0), node),
+}));
 
-type SectionStatement = z.infer<typeof SectionStatement>;
-const SectionStatement: ZodNode<"Section", {
+type Section = Infer<typeof Section>;
+const Section: Schema<"Section", {
   name: z.ZodString;
-  value: ZodNode;
-}> = NodeSchema("Section", {
+  value: SchemaNode;
+}> = Schema("Section", (node) => ({
   name: z.string(),
-  value: Child(),
-});
+  value: node,
+}));
 
-type SectionExpression = z.infer<typeof SectionExpression>;
-const SectionExpression: ZodNode<"Section", {
-  name: z.ZodString;
-  value: ZodNode;
-}> = NodeSchema("Section", {
-  name: z.string(),
-  value: Child(),
-});
+type Get = Infer<typeof Get>;
+const Get: Schema<"Get", { query: z.ZodString }> = Schema("Get", () => ({
+  query: z.string(),
+}));
 
-type Get = z.infer<typeof Get>;
-const Get: ZodNode<"Get", {
-  query: z.ZodString;
-}> = NodeSchema("Get", { query: z.string() });
-
-export const SUGAR_NODES = [
+export const SUGAR_SCHEMATA = [
   Switch,
   Level,
-  SectionStatement,
-  SectionExpression,
+  Section,
   Get,
 ] as const;
 
-export type SugarNode = z.infer<typeof SugarNode>;
-export const SugarNode: z.ZodUnion<typeof SUGAR_NODES> = z.union(SUGAR_NODES);
+export type SugarNode = Infer<typeof SUGAR_SCHEMATA[number]>;
 
 type Handler<From extends Node, To extends Node, T extends Node> = (
   node: T,

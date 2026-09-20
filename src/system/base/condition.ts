@@ -9,7 +9,7 @@ import {
   type Resolver,
   VOID,
 } from "../parse.ts";
-import { Child, NodeSchema, type ZodNode } from "../schema.ts";
+import { type Infer, Schema, type SchemaNode } from "../schema.ts";
 
 export const CONDITION_OPERATORS = [
   "<=",
@@ -25,21 +25,22 @@ export const ConditionKind: z.ZodUnion<z.ZodLiteral<ConditionKind>[]> = z.union(
   CONDITION_OPERATORS.map((o) => z.literal(o)),
 );
 
-export type Condition = z.infer<typeof Condition>;
-export const Condition: ZodNode<
+type ConditionSchema = {
+  kind: typeof ConditionKind;
+  left: SchemaNode;
+  right: SchemaNode;
+  effect: SchemaNode;
+};
+export type Condition = Infer<typeof Condition>;
+export const Condition: Schema<"Condition", ConditionSchema> = Schema(
   "Condition",
-  {
-    kind: typeof ConditionKind;
-    left: ZodNode;
-    right: ZodNode;
-    effect: ZodNode;
-  }
-> = NodeSchema("Condition", {
-  kind: ConditionKind,
-  left: Child(),
-  right: Child(),
-  effect: Child(),
-});
+  (node) => ({
+    kind: ConditionKind,
+    left: node,
+    right: node,
+    effect: node,
+  }),
+);
 
 export function condition(
   left: number,

@@ -7,7 +7,7 @@ import {
   type Resolver,
   Undefined,
 } from "../parse.ts";
-import { Child, NodeSchema, type ZodNode } from "../schema.ts";
+import { type Infer, Schema, type SchemaNode } from "../schema.ts";
 
 const UNARYOP_KINDS = ["CEIL", "FLOOR"] as const;
 
@@ -16,17 +16,17 @@ export const UnaryOpKind: z.ZodUnion<z.ZodLiteral<UnaryOpKind>[]> = z.union(
   UNARYOP_KINDS.map((o) => z.literal(o)),
 );
 
-export type UnaryOperation = z.infer<typeof UnaryOperation>;
-export const UnaryOperation: ZodNode<
-  "UnaryOperation",
-  {
-    kind: typeof UnaryOpKind;
-    value: ZodNode;
-  }
-> = NodeSchema("UnaryOperation", {
-  kind: UnaryOpKind,
-  value: Child(),
-});
+type UnaryOperationSchema = {
+  kind: typeof UnaryOpKind;
+  value: SchemaNode;
+};
+
+export type UnaryOperation = Infer<typeof UnaryOperation>;
+export const UnaryOperation: Schema<"UnaryOperation", UnaryOperationSchema> =
+  Schema("UnaryOperation", (node) => ({
+    kind: UnaryOpKind,
+    value: node,
+  }));
 
 export function unaryop(kind: UnaryOpKind, value: number): number {
   switch (kind) {

@@ -1,14 +1,18 @@
 import * as z from "zod";
 import { Tag } from "../../lib/tag.ts";
 import type { Resolver } from "../parse.ts";
-import { NodeSchema, type ZodNode } from "../schema.ts";
+import { type Infer, Schema } from "../schema.ts";
 
-export type Literal = z.infer<typeof Literal>;
-export const Literal: ZodNode<"Literal", { value: z.ZodNumber }> = NodeSchema(
+type LiteralSchema = {
+  value: z.ZodNumber;
+};
+
+export type Literal = Infer<typeof Literal>;
+export const Literal: Schema<"Literal", LiteralSchema> = Schema(
   "Literal",
-  {
+  () => ({
     value: z.number(),
-  },
+  }),
 );
 
 export const LITERAL: Resolver<Literal> = (node, ctx) => {
