@@ -24,7 +24,7 @@ export function hashTree(value: unknown): string {
   return `o:{${
     Object.keys(safe)
       .sort()
-      .map((key) => `${hashTree(key)}:${hashTree(safe[key])}`)
+      .map((key) => `${JSON.stringify(key)}:${hashTree(safe[key])}`)
       .join(",")
   }}`;
 }
