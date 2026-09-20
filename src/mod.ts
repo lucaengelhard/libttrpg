@@ -4,7 +4,11 @@ import { createFactory, type Factory } from "./system/build.ts";
 import { SchemaMap } from "./system/schema.ts";
 
 export type { Library } from "./system/library.ts";
-export { importLibrary, lookup } from "./system/library.ts";
+export {
+  createLibrarySchema,
+  importLibrary,
+  lookup,
+} from "./system/library.ts";
 
 export type { Infer, Node, SchemaNode, ZodNode } from "./system/schema.ts";
 export { createSchema, isNode, Schema } from "./system/schema.ts";
