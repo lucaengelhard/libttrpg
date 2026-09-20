@@ -16,7 +16,15 @@ export { createSchema, isNode, Schema } from "./system/schema.ts";
 export type { Factory } from "./system/build.ts";
 export { createFactory } from "./system/build.ts";
 
-export { deleteNode, getValue, hasValue, setValue } from "./system/getset.ts";
+export {
+  deleteNode,
+  getAll,
+  getValue,
+  hasValue,
+  setValue,
+} from "./system/getset.ts";
+
+export { hashTree, memoize } from "./system/hash.ts";
 
 export type { ResolverMap } from "./system/parse.ts";
 export { parse } from "./system/parse.ts";
@@ -32,6 +40,4 @@ export const CORE_SCHEMATA = [...BASE_SCHEMATA, ...SUGAR_SCHEMATA] as const;
 export const CORE: SchemaMap<typeof CORE_SCHEMATA[number]> = SchemaMap(
   ...CORE_SCHEMATA,
 );
-export const CoreNodeFactory: Factory<CoreNode> = createFactory(
-  ...CORE_SCHEMATA,
-);
+export const CoreNodeFactory: Factory<CoreNode> = createFactory<CoreNode>();

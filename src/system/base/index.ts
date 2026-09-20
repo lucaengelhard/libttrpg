@@ -31,7 +31,7 @@ export const BASE_SCHEMATA = [
 ] as const;
 
 export type BaseNode = Infer<typeof BASE_SCHEMATA[number]>;
-export const BaseNodeFactory = createFactory(...BASE_SCHEMATA);
+export const BaseNodeFactory = createFactory<BaseNode>();
 
 export const BaseResolverMap: ResolverMap<BaseNode> = {
   BINARYOPERATION,

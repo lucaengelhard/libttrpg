@@ -58,7 +58,7 @@ export const VALUE: Resolver<Value> = (
       modifierReduce(
         values,
         node.name,
-        node.overrideReduceKind ?? "ADD",
+        node.reduceKind ?? "ADD",
       ),
   );
 

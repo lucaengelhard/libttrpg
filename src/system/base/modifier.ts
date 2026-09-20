@@ -23,7 +23,7 @@ import { Query } from "./query.ts";
 import { Selector } from "./selector.ts";
 
 type ModifierSchema = {
-  target: z.ZodUnion<ZodNode<"Query" | "Selector">[]>;
+  target: z.ZodUnion<(ZodNode<"Query"> | ZodNode<"Selector">)[]>;
   value: SchemaNode;
 };
 

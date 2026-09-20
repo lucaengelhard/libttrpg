@@ -52,6 +52,38 @@ export function hasValue<
   return getValue(node, type, name, "$type") !== undefined;
 }
 
+export function getAll<
+  T extends Node,
+  Type extends Extract<T, { name?: string }>["$type"],
+>(
+  node: T,
+  type: Type,
+  name?: string,
+): Extract<T, { $type: Type }>[] {
+  if (!isNode(node)) {
+    if (Array.isArray(node)) {
+      return (node as T[]).flatMap((n) => getAll(n, type, name));
+    }
+
+    if (typeof node === "object") {
+      return Object.values(node).flatMap((n) => getAll(n as T, type));
+    }
+
+    return [];
+  }
+
+  const isMatched = node.$type === type &&
+    (name !== undefined && "name" in node && typeof node.name === "string"
+      ? node.name === name
+      : true);
+
+  if (isMatched) {
+    return [node as Extract<T, { $type: Type }>];
+  }
+
+  return Object.values(node).flatMap((n) => getAll(n as unknown as T, type));
+}
+
 export function setValue<
   T extends Node,
   Type extends Extract<T, { name?: string }>["$type"],

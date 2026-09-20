@@ -23,7 +23,7 @@ export const Choice: Schema<"Choice", ChoiceSchema> = Schema(
 
 export const CHOICE: Resolver<Choice> = (node, ctx) => {
   const { active, count, $type: type, options, name } = node;
-
+  // TODO: should this respect a conditional??
   ctx.edge(
     ctx.source<ChoiceTag>(() =>
       Tag("choice", [name, {

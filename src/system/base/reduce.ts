@@ -13,7 +13,7 @@ import { Query } from "./query.ts";
 import { Selector } from "./selector.ts";
 
 type ReduceSchema = {
-  query: z.ZodUnion<ZodNode<"Query" | "Selector">[]>;
+  query: z.ZodUnion<(ZodNode<"Query"> | ZodNode<"Selector">)[]>;
   kind: typeof BinopKind;
 };
 
