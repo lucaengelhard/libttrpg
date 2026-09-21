@@ -89,6 +89,7 @@ export const VALUE: Resolver<Value> = (
       ),
   );
 
+  ctx.edge(ctx.condition, result);
   ctx.edge(value, result);
   ctx.edge(modifier, result);
 

@@ -72,7 +72,10 @@ export const SUGAR_HANDLERS: Handlers<SugarNode, BaseNode> = {
   IF: (node) =>
     CONDITION({
       kind: ">",
-      left: QUERY({ query: node.flag }),
+      left: REDUCE({
+        kind: "MAX",
+        query: QUERY({ query: node.flag }),
+      }),
       right: LITERAL({ value: 0 }),
       effect: node.effect,
     }),

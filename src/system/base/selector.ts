@@ -1,6 +1,14 @@
 import * as z from "zod";
 import { Tag } from "../../lib/tag.ts";
-import type { Choice, Resolver, Values } from "../parse.ts";
+import {
+  type Bool,
+  type Choice,
+  filterBools,
+  isFalse,
+  type Resolver,
+  Undefined,
+  type Values,
+} from "../parse.ts";
 import { Query } from "./query.ts";
 import { type Infer, Schema } from "../schema.ts";
 
@@ -37,27 +45,33 @@ export const SELECTOR: Resolver<Selector> = (node, ctx) => {
     return Tag("values", new Map(active));
   });
 
-  const choice = ctx.vertex<Values, Choice>("values", (input) => {
-    const values = input[0];
-    if (values === undefined) {
+  const choice = ctx.vertex<Values | Bool, Choice | Undefined>(
+    "values",
+    (input) => {
+      if (isFalse(input)) return Undefined;
+
+      const values = filterBools(input)[0];
+      if (values === undefined) {
+        return Tag("choice", [node.name, {
+          options: [],
+          active: node.active,
+          count: node.count,
+          type: node.$type,
+        }]);
+      }
+
+      const options = values.keys().toArray();
+
       return Tag("choice", [node.name, {
-        options: [],
+        options,
         active: node.active,
         count: node.count,
         type: node.$type,
       }]);
-    }
+    },
+  );
 
-    const options = values.keys().toArray();
-
-    return Tag("choice", [node.name, {
-      options,
-      active: node.active,
-      count: node.count,
-      type: node.$type,
-    }]);
-  });
-
+  ctx.edge(ctx.condition, choice);
   ctx.edge(query, result);
   ctx.edge(query, choice);
   ctx.edge(choice, ctx.choices);
