@@ -24,7 +24,7 @@ export {
   setValue,
 } from "./system/getset.ts";
 
-export { hashTree, memoize } from "./system/hash.ts";
+export { hashObj, memoize } from "./lib/hash.ts";
 
 export type { ResolverMap } from "./system/parse.ts";
 export { parse } from "./system/parse.ts";
