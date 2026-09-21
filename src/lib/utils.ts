@@ -20,11 +20,3 @@ export function nestedMap<T>(map: Map<string, T>): NestedMap<T> {
 
   return res;
 }
-
-export type ExhaustiveTuple<Union, Tuple extends Union[]> = [Union] extends
-  [Tuple[number]] ? Tuple : never;
-
-export function createExhaustiveTuple<Union>() {
-  return <U extends [Union, ...Union[]]>(tuple: ExhaustiveTuple<Union, U>) =>
-    tuple;
-}
