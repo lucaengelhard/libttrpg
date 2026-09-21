@@ -8,16 +8,20 @@ import {
   type SchemaNode,
 } from "./schema.ts";
 
-type Switch = Infer<typeof Switch>;
-const Switch: Schema<"Switch", {
-  name: z.ZodString;
-  effect: SchemaNode;
-  active: z.ZodBoolean;
-}> = Schema("Switch", (node) => ({
-  name: z.string(),
-  effect: node,
-  active: z.boolean(),
-}));
+type Flag = Infer<typeof Flag>;
+const Flag: Schema<
+  "Flag",
+  { name: z.ZodString; true: z.ZodOptional<z.ZodBoolean> }
+> = Schema(
+  "Flag",
+  () => ({ name: z.string(), true: z.boolean().optional() }),
+);
+
+type If = Infer<typeof If>;
+const If: Schema<"If", { flag: z.ZodString; effect: SchemaNode }> = Schema(
+  "If",
+  (node) => ({ flag: z.string(), effect: node }),
+);
 
 type Level = Infer<typeof Level>;
 const Level: Schema<"Level", {
@@ -43,7 +47,8 @@ const Get: Schema<"Get", { query: z.ZodString }> = Schema("Get", () => ({
 }));
 
 export const SUGAR_SCHEMATA = [
-  Switch,
+  Flag,
+  If,
   Level,
   Section,
   Get,
@@ -62,13 +67,13 @@ export type Handlers<From extends Node, To extends Node> = {
 const { CONDITION, VALUE, LITERAL, MULTIPLE, REDUCE, QUERY } = BaseNodeFactory;
 
 export const SUGAR_HANDLERS: Handlers<SugarNode, BaseNode> = {
-  SWITCH: (node) =>
+  FLAG: (node) =>
+    VALUE({ name: node.name, value: LITERAL({ value: node.true ? 1 : 0 }) }),
+  IF: (node) =>
     CONDITION({
-      kind: "==",
-      left: VALUE({ value: LITERAL({ value: 1 }) }),
-      right: VALUE({
-        value: LITERAL({ value: node.active ? 1 : 0 }),
-      }),
+      kind: ">",
+      left: QUERY({ query: node.flag }),
+      right: LITERAL({ value: 0 }),
       effect: node.effect,
     }),
   LEVEL: (node) => {

@@ -11,7 +11,10 @@ export type ZodNode<
   // deno-lint-ignore ban-types
   V extends Record<string, z.ZodType> = {},
 > = z.ZodObject<
-  V & { $type: z.ZodLiteral<Uppercase<T>> }
+  V & {
+    $type: z.ZodLiteral<Uppercase<T>>;
+    $meta: z.ZodOptional<z.ZodJSONSchema>;
+  }
 >;
 
 export type SchemaNode<N extends ZodNode = ZodNode> = z.ZodLazy<
@@ -36,6 +39,7 @@ export function Schema<
       z.looseObject({
         ...factory(node),
         $type: z.literal(type.toUpperCase() as Uppercase<T>),
+        $meta: z.json().optional(),
       }),
   };
 }
@@ -65,7 +69,8 @@ export function createSchema<Schemata extends Schema[]>(
         ReturnType<Schemata[number]["apply"]>,
         ...ReturnType<Schemata[number]["apply"]>[],
       ],
-    )
+      // deno-lint-ignore no-explicit-any
+    ).catch({ $type: "NULL" } as any) as any
   );
   return Node;
 }

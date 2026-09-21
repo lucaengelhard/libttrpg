@@ -46,18 +46,26 @@ function applyFilter([key, value]: [string, number], query: string): boolean {
   const paramEls = params.split(";");
 
   return paramEls.every((param) => {
-    if (!param.startsWith("value=")) return true; // TODO allow other filters (especially name filter)
+    const [category, ...rest] = param.split("=");
+    const args = rest.join("=").trim();
 
-    const comparatorString = param
-      .replace("value=", "")
-      .trim()
-      .substring(1)
-      .replace(")", "");
+    switch (category) {
+      case "value": {
+        const comparatorString = args.substring(1).replace(")", "");
+        const operator = getOperator(comparatorString);
+        if (operator === undefined) return false;
 
-    const operator = getOperator(comparatorString);
-    if (operator === undefined) return false;
+        return applyComparator(value, operator, comparatorString);
+      }
+      case "name": {
+        const options = args.split("|");
+        const name = nameSegments[nameSegments.length - 1];
 
-    return apply(value, operator, comparatorString);
+        return options.includes(name);
+      }
+    }
+
+    return false;
   });
 }
 
@@ -65,7 +73,7 @@ function getOperator(expression: string) {
   return CONDITION_OPERATORS.find((o) => expression.includes(o));
 }
 
-function apply(
+function applyComparator(
   value: number,
   operator: ConditionKind,
   expression: string,
