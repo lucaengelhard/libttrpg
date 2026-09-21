@@ -29,15 +29,13 @@ export function Vertex<Input extends Tag, Output extends Tag>(
 export type Edge<Value extends Tag = Tag> = {
   from: Vertex<Tag, Value>;
   to: Vertex<Value, Tag>;
-  override?: boolean;
 };
 
 export function Edge<Value extends Tag = Tag>(
   from: Vertex<Tag, Value>,
   to: Vertex<Value, Tag>,
-  override?: boolean,
 ) {
-  return { from, to, override };
+  return { from, to };
 }
 
 type Graph = {
@@ -270,19 +268,7 @@ function resolve(graph: Graph, config?: { maxIterations?: number }) {
       if (vertex.value) inputs.push(vertex.value.$value);
       inputs.push(...parentValues.values());
 
-      const overrideValues = parentEdges.values()
-        .filter((e) => e.override)
-        .map((e) => parentValues.get(e.from))
-        .filter((v) => v !== undefined && v !== null)
-        .toArray();
-
-      const override = overrideValues.length > 0
-        ? overrideValues[0]
-        : undefined;
-
-      const calculatedValue = vertex.reduce(inputs);
-
-      const value = override !== undefined ? override : calculatedValue;
+      const value = vertex.reduce(inputs);
 
       if (value !== undefined) {
         vertexValues.set(vertex, value);

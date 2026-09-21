@@ -5,14 +5,17 @@ import {
   filterBools,
   isFalse,
   type Modifiers,
+  type ModifierValue,
   type Named,
   type Num,
   reduce,
   type Resolver,
+  type Tagged,
   Undefined,
 } from "../parse.ts";
 import { BinopKind } from "./binop.ts";
 import { type Infer, Schema, type SchemaNode } from "../schema.ts";
+import type { Modifier, Override } from "./modifier.ts";
 
 type ValueSchema = {
   name: z.ZodOptional<z.ZodString>;
@@ -35,11 +38,34 @@ export const VALUE: Resolver<Value> = (
 ) => {
   const value = ctx.resolve(node.value);
 
-  const result = ctx.vertex<Num | Bool, Num | Named | Undefined>(
-    "number",
+  const result = ctx.vertex<
+    Num | Bool | Tagged<(Modifier | Override)["$type"]>,
+    Num | Named | Undefined
+  >(
+    ["number", "tagged", "boolean"],
     (values) => {
       if (isFalse(values)) return Undefined;
-      const filtered = filterBools(values);
+
+      const override = values.find((v) =>
+        typeof v === "object" && v.$tag === "OVERRIDE"
+      ) as Tag<string, number> | undefined;
+
+      if (override) {
+        return node.name !== undefined
+          ? Tag("named", [node.name, override.$value] as [string, number])
+          : Tag("number", override.$value);
+      }
+
+      const modifier = values.find((v) =>
+        typeof v === "object" && v.$tag === "MODIFIER"
+      ) as Tag<string, number> | undefined;
+
+      const filtered = filterBools(values).filter((v) => typeof v !== "object");
+
+      if (modifier) {
+        filtered.push(modifier.$value);
+      }
+
       if (filtered.length === 0) return Undefined;
       const reduced = reduce(
         node.reduceKind ?? "ADD",
@@ -52,43 +78,33 @@ export const VALUE: Resolver<Value> = (
     },
   );
 
-  const modifier = ctx.vertex<Modifiers, Num | Undefined>(
+  const modifier = ctx.vertex<Modifiers, Tagged | Undefined>(
     "modifiers",
     (values) =>
       modifierReduce(
         values,
         node.name,
-        node.reduceKind ?? "ADD",
-      ),
-  );
-
-  const override = ctx.vertex<Modifiers, Num | Undefined>(
-    "modifiers",
-    (values) =>
-      modifierReduce(
-        values,
-        node.name,
-        node.overrideReduceKind ?? "MAX",
+        node.reduceKind,
+        node.overrideReduceKind,
       ),
   );
 
   ctx.edge(value, result);
   ctx.edge(modifier, result);
-  ctx.edge(override, result, true); // TODO: override handling (currently causing loop)
 
   ctx.edge(result, ctx.values);
 
   ctx.edge(ctx.modifiers, modifier);
-  ctx.edge(ctx.overrides, override);
 
   return result;
 };
 
 function modifierReduce(
-  values: Map<string, number[]>[],
+  values: Map<string, ModifierValue[]>[],
   name: string | undefined,
-  reduceKind: BinopKind,
-): Tag {
+  reduceKind: BinopKind = "ADD",
+  overrideReduceKind: BinopKind = "MAX",
+): Tagged<(Modifier | Override)["$type"]> | Undefined {
   const modifiers = values[0];
   if (modifiers === undefined || name === undefined) return Undefined;
 
@@ -96,5 +112,24 @@ function modifierReduce(
 
   if (toAdd.length === 0) return Undefined;
 
-  return Tag("number", reduce(reduceKind, toAdd as [number, ...number[]]));
+  const overrides = toAdd
+    .filter((m) => m.kind === "OVERRIDE").map((o) => o.value);
+
+  if (overrides.length > 0) {
+    return Tag(
+      "tagged",
+      Tag(
+        "OVERRIDE",
+        reduce(overrideReduceKind, overrides as [number, ...number[]]),
+      ),
+    );
+  }
+
+  const mods = toAdd
+    .filter((m) => m.kind === "MODIFIER").map((o) => o.value);
+
+  return Tag(
+    "tagged",
+    Tag("MODIFIER", reduce(reduceKind, mods as [number, ...number[]])),
+  );
 }

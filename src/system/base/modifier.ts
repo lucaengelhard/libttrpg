@@ -6,6 +6,7 @@ import {
   filterBools,
   isFalse,
   type Modifier as ModifierTag,
+  type ModifierValue,
   type Named,
   type Num,
   type ResolveContext,
@@ -70,7 +71,7 @@ function applyModifier(node: Modifier | Override, ctx: ResolveContext): Vertex {
 
       const modifier = targets
         .keys()
-        .map((k) => [k, value] as [string, number])
+        .map((k) => [k, { value, kind: node.$type }] as [string, ModifierValue])
         .toArray();
 
       return Tag("modifier", modifier);
@@ -81,10 +82,7 @@ function applyModifier(node: Modifier | Override, ctx: ResolveContext): Vertex {
   ctx.edge(valueVertex, vertex);
   ctx.edge(targetVertex, vertex);
 
-  ctx.edge(
-    vertex,
-    node.$type === "MODIFIER" ? ctx.modifiers : ctx.overrides,
-  );
+  ctx.edge(vertex, ctx.modifiers);
 
   return VOID;
 }

@@ -5,6 +5,7 @@ import { Edge, GraphBuilder, Vertex } from "../lib/graph.ts";
 import { binop, type BinopKind } from "./base/binop.ts";
 import { type NestedMap, nestedMap } from "../lib/utils.ts";
 import type { Node } from "./schema.ts";
+import type { Modifier as ModifierType, Override } from "./base/modifier.ts";
 
 // TYPES
 export type Bool = Tag<"boolean", boolean>;
@@ -13,6 +14,7 @@ export const True = Tag("boolean", true);
 export const False: Bool = Tag("boolean", false);
 
 export type Num = Tag<"number", number>;
+export type Tagged<T extends string = string> = Tag<"tagged", Tag<T, number>>;
 
 export type Undefined = Tag<"undefined", undefined>;
 export const Undefined: Undefined = Tag("undefined", undefined);
@@ -20,8 +22,12 @@ export const Undefined: Undefined = Tag("undefined", undefined);
 export type Named = Tag<"named", [string, number]>;
 export type Values = Tag<"values", Map<string, number>>;
 
-export type Modifier = Tag<"modifier", [string, number][]>;
-export type Modifiers = Tag<"modifiers", Map<string, number[]>>;
+export type ModifierValue = {
+  value: number;
+  kind: (Override | ModifierType)["$type"];
+};
+export type Modifier = Tag<"modifier", [string, ModifierValue][]>;
+export type Modifiers = Tag<"modifiers", Map<string, ModifierValue[]>>;
 
 type ChoiceObj = {
   options: string[];
@@ -67,7 +73,6 @@ export type ResolveContext = {
   condition: Vertex<Tag, Bool>;
   values: Vertex<Named, Values>;
   modifiers: Vertex<Modifier, Modifiers>;
-  overrides: Vertex<Modifier, Modifiers>;
   choices: Vertex<Choice, Choices>;
 };
 
@@ -98,7 +103,6 @@ export function parse<N extends Node>(
   );
 
   const modifiers = Vertex<Modifier, Modifiers>("modifier", deriveModifiers);
-  const overrides = Vertex<Modifier, Modifiers>("modifier", deriveModifiers);
 
   const choices = Vertex<Choice, Choices>(
     "choice",
@@ -107,7 +111,6 @@ export function parse<N extends Node>(
 
   builder.addVertex(values);
   builder.addVertex(modifiers);
-  builder.addVertex(overrides);
   builder.addVertex(choices);
 
   const condition = Source(() => Tag("boolean", true));
@@ -125,12 +128,10 @@ export function parse<N extends Node>(
       builder.addVertex(v);
       return v;
     },
-    edge: (from: Vertex, to: Vertex, override?: boolean) =>
-      builder.addEdge(Edge(from, to, override)),
+    edge: (from: Vertex, to: Vertex) => builder.addEdge(Edge(from, to)),
     condition,
     values,
     modifiers,
-    overrides,
     choices,
   });
 
@@ -157,7 +158,7 @@ export function parse<N extends Node>(
   }
 }
 
-function deriveModifiers(input: [string, number][][]): Modifiers {
+function deriveModifiers(input: [string, ModifierValue][][]): Modifiers {
   const res: Modifiers["$value"] = new Map();
 
   for (const modifier of input) {

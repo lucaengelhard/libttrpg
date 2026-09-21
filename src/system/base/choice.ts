@@ -1,6 +1,13 @@
 import * as z from "zod";
 import { Tag } from "../../lib/tag.ts";
-import { type Choice as ChoiceTag, type Resolver, VOID } from "../parse.ts";
+import {
+  type Bool,
+  type Choice as ChoiceTag,
+  isFalse,
+  type Resolver,
+  Undefined,
+  VOID,
+} from "../parse.ts";
 import { type Infer, Schema, type SchemaNode } from "../schema.ts";
 
 type ChoiceSchema = {
@@ -23,25 +30,29 @@ export const Choice: Schema<"Choice", ChoiceSchema> = Schema(
 
 export const CHOICE: Resolver<Choice> = (node, ctx) => {
   const { active, count, $type: type, options, name } = node;
-  // TODO: should this respect a conditional??
-  ctx.edge(
-    ctx.source<ChoiceTag>(() =>
-      Tag("choice", [name, {
+
+  const vertex = ctx.vertex<Bool, ChoiceTag | Undefined>(
+    "boolean",
+    (conditions) => {
+      if (isFalse(conditions)) return Undefined;
+      return Tag("choice", [name, {
         options: Object.keys(options),
         active,
         count,
         type,
-      }])
-    ),
-    ctx.choices,
+      }]);
+    },
   );
+
+  ctx.edge(ctx.condition, vertex);
+  ctx.edge(vertex, ctx.choices);
 
   new Set(active)
     .values()
     .map((key) => options[key])
     .filter((value) => value !== undefined)
     .take(count)
-    .forEach((value) => ctx.resolve(value));
+    .forEach((value) => ctx.edge(ctx.condition, ctx.resolve(value)));
 
   return VOID;
 };
