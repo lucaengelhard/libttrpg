@@ -1,6 +1,6 @@
 import type { Node } from "./schema.ts";
 
-export type Factory<N extends Node> = {
+type Factory<N extends Node> = {
   [Type in N as Type["$type"]]: (value: Omit<Type, "$type">) => Type;
 };
 

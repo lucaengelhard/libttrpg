@@ -4,7 +4,7 @@ export type Node<
   T extends string = string,
   // deno-lint-ignore ban-types
   V extends Record<string, z.ZodType> = {},
-> = z.infer<ZodNode<T, V>>;
+> = Infer<Schema<T, V>>;
 
 export type ZodNode<
   T extends string = string,
@@ -25,14 +25,14 @@ export type Schema<
   T extends string = string,
   // deno-lint-ignore ban-types
   V extends Record<string, z.ZodType> = {},
-> = { type: Uppercase<T>; apply: (node?: SchemaNode) => ZodNode<T, V> };
+> = ReturnType<typeof Schema<T, V>>;
 export function Schema<
   T extends string,
   V extends Record<string, z.ZodType>,
 >(
   type: T,
   factory: (node: SchemaNode) => V,
-): Schema<T, V> {
+) {
   return {
     type: type.toUpperCase() as Uppercase<T>,
     apply: (node?: SchemaNode) =>
@@ -61,7 +61,7 @@ export function isNode(
 
 export function createSchema<Schemata extends Schema[]>(
   ...schemata: Schemata
-): SchemaNode<ReturnType<Schemata[number]["apply"]>> {
+) {
   const Node: SchemaNode<ReturnType<Schemata[number]["apply"]>> = z.lazy(() =>
     z.discriminatedUnion(
       "$type",
@@ -78,10 +78,9 @@ export function createSchema<Schemata extends Schema[]>(
 export type SchemaMap<S extends Schema> = {
   [V in S as V["type"]]: V["apply"];
 };
-
 export function SchemaMap<S extends Schema[]>(
   ...schemata: S
-): SchemaMap<S[number]> {
+) {
   return Object.fromEntries(
     schemata.map((s) => [s.type, s.apply]),
   ) as SchemaMap<S[number]>;

@@ -7,24 +7,16 @@ import {
   Undefined,
   type Values,
 } from "../parse.ts";
-import { type Infer, Schema, type ZodNode } from "../schema.ts";
+import { type Infer, Schema } from "../schema.ts";
 import { BinopKind } from "./binop.ts";
 import { Query } from "./query.ts";
 import { Selector } from "./selector.ts";
 
-type ReduceSchema = {
-  query: z.ZodUnion<(ZodNode<"Query"> | ZodNode<"Selector">)[]>;
-  kind: typeof BinopKind;
-};
-
 export type Reduce = Infer<typeof Reduce>;
-export const Reduce: Schema<"Reduce", ReduceSchema> = Schema(
-  "Reduce",
-  (node) => ({
-    query: z.union([Query.apply(node), Selector.apply(node)]),
-    kind: BinopKind,
-  }),
-);
+export const Reduce = Schema("Reduce", (node) => ({
+  query: z.union([Query.apply(node), Selector.apply(node)]),
+  kind: BinopKind,
+}));
 
 export const REDUCE: Resolver<Reduce> = (node, ctx) => {
   const query = ctx.resolve(node.query);

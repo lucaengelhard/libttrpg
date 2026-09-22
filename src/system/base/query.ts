@@ -8,12 +8,8 @@ import {
 } from "./condition.ts";
 import { type Infer, Schema } from "../schema.ts";
 
-type QuerySchema = { query: z.ZodString };
-
 export type Query = Infer<typeof Query>;
-export const Query: Schema<"Query", QuerySchema> = Schema(
-  "Query",
-  () => ({ query: z.string() }), // TODO make query string schema
+export const Query = Schema("Query", () => ({ query: z.string() }) // TODO make query string schema
 );
 
 export const QUERY: Resolver<Query> = (node, ctx) => {

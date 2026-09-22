@@ -14,36 +14,21 @@ import {
   type Values,
   VOID,
 } from "../parse.ts";
-import {
-  type Infer,
-  Schema,
-  type SchemaNode,
-  type ZodNode,
-} from "../schema.ts";
+import { type Infer, Schema } from "../schema.ts";
 import { Query } from "./query.ts";
 import { Selector } from "./selector.ts";
 
-type ModifierSchema = {
-  target: z.ZodUnion<(ZodNode<"Query"> | ZodNode<"Selector">)[]>;
-  value: SchemaNode;
-};
-
 export type Modifier = Infer<typeof Modifier>;
-export const Modifier: Schema<"Modifier", ModifierSchema> = Schema(
-  "Modifier",
-  (node) => ({
-    target: z.union([Query.apply(node), Selector.apply(node)]),
-    value: node,
-  }),
-);
+export const Modifier = Schema("Modifier", (node) => ({
+  target: z.union([Query.apply(node), Selector.apply(node)]),
+  value: node,
+}));
+
 export type Override = Infer<typeof Override>;
-export const Override: Schema<"Override", ModifierSchema> = Schema(
-  "Override",
-  (node) => ({
-    target: z.union([Query.apply(node), Selector.apply(node)]),
-    value: node,
-  }),
-);
+export const Override = Schema("Override", (node) => ({
+  target: z.union([Query.apply(node), Selector.apply(node)]),
+  value: node,
+}));
 
 export const MODIFIER: Resolver<Modifier> = applyModifier;
 export const OVERRIDE: Resolver<Override> = applyModifier;

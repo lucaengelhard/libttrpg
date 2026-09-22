@@ -1,11 +1,5 @@
 import * as z from "@zod/zod";
-import {
-  createSchema,
-  type Infer,
-  type Node,
-  Schema,
-  type SchemaNode,
-} from "./schema.ts";
+import { createSchema, type Infer, type Node, Schema } from "./schema.ts";
 import { Ref } from "../lib/bundle.ts";
 
 type LibraryNode<N extends Node> = Extract<N, { name?: string }> & {
@@ -13,20 +7,8 @@ type LibraryNode<N extends Node> = Extract<N, { name?: string }> & {
 };
 export type Library<N extends Node> = Record<string, LibraryNode<N>>;
 
-type LibrarySchema = z.ZodObject<{
-  $schema: z.ZodOptional<z.ZodString>;
-  defs: z.ZodArray<
-    z.ZodCatch<
-      z.ZodDiscriminatedUnion<
-        [ReturnType<Schema["apply"]>, ...ReturnType<Schema["apply"]>[]],
-        "$type"
-      >
-    >
-  >;
-}>;
-
 type Entry = Infer<typeof Entry>;
-const Entry: Schema<"Entry", { name: z.ZodString; value: SchemaNode }> = Schema(
+const Entry = Schema(
   "Entry",
   (node) => ({ name: z.string(), value: node }),
 );
@@ -47,11 +29,11 @@ function getLibraryTopLevel(types: Schema[]) {
 
 export function createLibrarySchema(
   types: Schema[],
-): LibrarySchema {
+) {
   return z.object({
     $schema: z.string().optional(),
     defs: z.array(getLibraryTopLevel(types)),
-  }) as unknown as LibrarySchema;
+  });
 }
 
 export function importLibrary<Schemata extends Schema[]>(

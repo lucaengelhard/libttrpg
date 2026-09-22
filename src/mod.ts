@@ -1,6 +1,6 @@
 import { BASE_SCHEMATA, type BaseNode } from "./system/base/index.ts";
 import { SUGAR_SCHEMATA, type SugarNode } from "./system/sugar.ts";
-import { createFactory, type Factory } from "./system/build.ts";
+import { createFactory } from "./system/build.ts";
 import { SchemaMap } from "./system/schema.ts";
 
 export type { Library } from "./system/library.ts";
@@ -13,7 +13,6 @@ export {
 export type { Infer, Node, SchemaNode, ZodNode } from "./system/schema.ts";
 export { createSchema, isNode, Schema } from "./system/schema.ts";
 
-export type { Factory } from "./system/build.ts";
 export { createFactory } from "./system/build.ts";
 
 export {
@@ -37,7 +36,5 @@ export { BaseResolverMap } from "./system/base/index.ts";
 
 export type CoreNode = BaseNode | SugarNode;
 export const CORE_SCHEMATA = [...BASE_SCHEMATA, ...SUGAR_SCHEMATA] as const;
-export const CORE: SchemaMap<typeof CORE_SCHEMATA[number]> = SchemaMap(
-  ...CORE_SCHEMATA,
-);
-export const CoreNodeFactory: Factory<CoreNode> = createFactory<CoreNode>();
+export const CORE = SchemaMap(...CORE_SCHEMATA);
+export const CoreNodeFactory = createFactory<CoreNode>();

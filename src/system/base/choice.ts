@@ -8,17 +8,10 @@ import {
   Undefined,
   VOID,
 } from "../parse.ts";
-import { type Infer, Schema, type SchemaNode } from "../schema.ts";
-
-type ChoiceSchema = {
-  name: z.ZodString;
-  count: z.ZodNumber;
-  active: z.ZodArray<z.ZodString>;
-  options: z.ZodRecord<z.ZodString, SchemaNode>;
-};
+import { type Infer, Schema } from "../schema.ts";
 
 export type Choice = Infer<typeof Choice>;
-export const Choice: Schema<"Choice", ChoiceSchema> = Schema(
+export const Choice = Schema(
   "Choice",
   (node) => ({
     name: z.string(),

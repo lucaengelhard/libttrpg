@@ -14,18 +14,11 @@ import {
   Undefined,
 } from "../parse.ts";
 import { BinopKind } from "./binop.ts";
-import { type Infer, Schema, type SchemaNode } from "../schema.ts";
+import { type Infer, Schema } from "../schema.ts";
 import type { Modifier, Override } from "./modifier.ts";
 
-type ValueSchema = {
-  name: z.ZodOptional<z.ZodString>;
-  value: SchemaNode;
-  reduceKind: z.ZodOptional<typeof BinopKind>;
-  overrideReduceKind: z.ZodOptional<typeof BinopKind>;
-};
-
 export type Value = Infer<typeof Value>;
-export const Value: Schema<"Value", ValueSchema> = Schema("Value", (node) => ({
+export const Value = Schema("Value", (node) => ({
   name: z.string().optional(),
   value: node,
   reduceKind: BinopKind.optional(),

@@ -14,5 +14,8 @@
     "@std/path": "jsr:@std/path@^1.1.6",
     "@zod/zod": "jsr:@zod/zod@^4.6.5",
     "deep-equal": "npm:deep-equal@^2.2.3"
+  },
+  "lint": {
+    "rules": { "exclude": ["no-slow-types"] }
   }
 }

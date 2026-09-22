@@ -12,23 +12,13 @@ import {
 import { Query } from "./query.ts";
 import { type Infer, Schema } from "../schema.ts";
 
-type SelectorSchema = {
-  name: z.ZodString;
-  count: z.ZodNumber;
-  active: z.ZodArray<z.ZodString>;
-  query: ReturnType<typeof Query["apply"]>;
-};
-
 export type Selector = Infer<typeof Selector>;
-export const Selector: Schema<"Selector", SelectorSchema> = Schema(
-  "Selector",
-  (node) => ({
-    name: z.string(),
-    count: z.number().int().gte(0),
-    active: z.array(z.string()),
-    query: Query.apply(node),
-  }),
-);
+export const Selector = Schema("Selector", (node) => ({
+  name: z.string(),
+  count: z.number().int().gte(0),
+  active: z.array(z.string()),
+  query: Query.apply(node),
+}));
 
 export const SELECTOR: Resolver<Selector> = (node, ctx) => {
   const query = ctx.resolve(node.query);

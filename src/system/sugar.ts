@@ -1,42 +1,27 @@
 import * as z from "@zod/zod";
 import { type BaseNode, BaseNodeFactory } from "./base/index.ts";
-import {
-  type Infer,
-  isNode,
-  type Node,
-  Schema,
-  type SchemaNode,
-} from "./schema.ts";
+import { type Infer, isNode, type Node, Schema } from "./schema.ts";
 
 type Flag = Infer<typeof Flag>;
-const Flag: Schema<
-  "Flag",
-  { name: z.ZodString; true: z.ZodOptional<z.ZodBoolean> }
-> = Schema(
+const Flag = Schema(
   "Flag",
   () => ({ name: z.string(), true: z.boolean().optional() }),
 );
 
 type If = Infer<typeof If>;
-const If: Schema<"If", { flag: z.ZodString; effect: SchemaNode }> = Schema(
+const If = Schema(
   "If",
   (node) => ({ flag: z.string(), effect: node }),
 );
 
 type Level = Infer<typeof Level>;
-const Level: Schema<"Level", {
-  reference: SchemaNode;
-  levels: z.ZodRecord<z.ZodNumber, SchemaNode>;
-}> = Schema("Level", (node) => ({
+const Level = Schema("Level", (node) => ({
   reference: node,
   levels: z.record(z.number().int().gte(0), node),
 }));
 
 type Section = Infer<typeof Section>;
-const Section: Schema<"Section", {
-  name: z.ZodString;
-  value: SchemaNode;
-}> = Schema("Section", (node) => ({
+const Section = Schema("Section", (node) => ({
   name: z.string(),
   value: node,
 }));
