@@ -1,4 +1,4 @@
-import * as z from "zod";
+import * as z from "@zod/zod";
 import { walk } from "@std/fs/walk";
 import { dirname } from "@std/path/dirname";
 import { resolve } from "@std/path/resolve";

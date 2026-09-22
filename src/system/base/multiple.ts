@@ -1,4 +1,4 @@
-import * as z from "zod";
+import * as z from "@zod/zod";
 import { type Resolver, VOID } from "../parse.ts";
 import { type Infer, Schema, type SchemaNode } from "../schema.ts";
 

@@ -1,4 +1,4 @@
-import * as z from "zod";
+import * as z from "@zod/zod";
 import { Tag } from "../../lib/tag.ts";
 import type { Resolver } from "../parse.ts";
 import { type Infer, Schema } from "../schema.ts";

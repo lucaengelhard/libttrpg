@@ -1,4 +1,4 @@
-import * as z from "zod";
+import * as z from "@zod/zod";
 
 export type Node<
   T extends string = string,

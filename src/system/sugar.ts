@@ -1,4 +1,4 @@
-import * as z from "zod";
+import * as z from "@zod/zod";
 import { type BaseNode, BaseNodeFactory } from "./base/index.ts";
 import {
   type Infer,

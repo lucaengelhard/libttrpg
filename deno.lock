@@ -7,6 +7,7 @@
     "jsr:@std/internal@^1.0.14": "1.0.14",
     "jsr:@std/path@^1.1.5": "1.1.6",
     "jsr:@std/path@^1.1.6": "1.1.6",
+    "jsr:@zod/zod@^4.6.5": "4.6.5",
     "npm:deep-equal@^2.2.3": "2.2.3",
     "npm:zod@^4.6.5": "4.6.5"
   },
@@ -32,6 +33,9 @@
       "dependencies": [
         "jsr:@std/internal@^1.0.14"
       ]
+    },
+    "@zod/zod@4.6.5": {
+      "integrity": "de9ee54513b84efecbdf2988f5a01eca0e2883be4b5625cf320bc0d6dbbade3e"
     }
   },
   "npm": {
@@ -459,6 +463,7 @@
       "jsr:@std/assert@1",
       "jsr:@std/fs@^1.0.24",
       "jsr:@std/path@^1.1.6",
+      "jsr:@zod/zod@^4.6.5",
       "npm:deep-equal@^2.2.3",
       "npm:zod@^4.6.5"
     ]
