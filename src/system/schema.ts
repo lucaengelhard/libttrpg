@@ -25,7 +25,7 @@ export type Schema<
   T extends string = string,
   // deno-lint-ignore ban-types
   V extends Record<string, z.ZodType> = {},
-> = { type: Uppercase<T>; apply: (node: SchemaNode) => ZodNode<T, V> };
+> = { type: Uppercase<T>; apply: (node?: SchemaNode) => ZodNode<T, V> };
 export function Schema<
   T extends string,
   V extends Record<string, z.ZodType>,
@@ -35,9 +35,9 @@ export function Schema<
 ): Schema<T, V> {
   return {
     type: type.toUpperCase() as Uppercase<T>,
-    apply: (node: SchemaNode) =>
+    apply: (node?: SchemaNode) =>
       z.looseObject({
-        ...factory(node),
+        ...(node ? factory(node) : {} as V),
         $type: z.literal(type.toUpperCase() as Uppercase<T>),
         $meta: z.json().optional(),
       }),

@@ -3,43 +3,88 @@ import {
   createSchema,
   type Infer,
   type Node,
-  type Schema,
+  Schema,
   type SchemaNode,
 } from "./schema.ts";
+import { Ref } from "../lib/bundle.ts";
 
-export type Library<N extends Node> = Record<string, N>;
+type LibraryNode<N extends Node> = Extract<N, { name?: string }> & {
+  name: string;
+};
+export type Library<N extends Node> = Record<string, LibraryNode<N>>;
 
-type LibrarySchema<S extends Schema> = z.ZodObject<{
+type LibrarySchema = z.ZodObject<{
   $schema: z.ZodOptional<z.ZodString>;
-  library: z.ZodRecord<
-    z.ZodString,
-    SchemaNode<ReturnType<S["apply"]>>
+  defs: z.ZodArray<
+    z.ZodCatch<
+      z.ZodDiscriminatedUnion<
+        [ReturnType<Schema["apply"]>, ...ReturnType<Schema["apply"]>[]],
+        "$type"
+      >
+    >
   >;
 }>;
 
-export function createLibrarySchema<Schemata extends Schema[]>(
-  ...types: Schemata
-): LibrarySchema<Schemata[number]> {
-  const schema = createSchema(...types);
+type Entry = Infer<typeof Entry>;
+const Entry: Schema<"Entry", { name: z.ZodString; value: SchemaNode }> = Schema(
+  "Entry",
+  (node) => ({ name: z.string(), value: node }),
+);
+
+function getLibraryTopLevel(types: Schema[]) {
+  const topLevelSchemata = [...types, Entry];
+  const nodeSchema = createSchema(...types, Ref);
+
+  const withName = z.discriminatedUnion(
+    "$type",
+    topLevelSchemata
+      .map((t) => t.apply(nodeSchema))
+      .filter((t) => "name" in t.def.shape) as [ReturnType<Schema["apply"]>],
+  ).catch({ $type: "NULL" });
+
+  return withName;
+}
+
+export function createLibrarySchema(
+  types: Schema[],
+): LibrarySchema {
   return z.object({
     $schema: z.string().optional(),
-    library: z.record(z.string(), schema),
-  });
+    defs: z.array(getLibraryTopLevel(types)),
+  }) as unknown as LibrarySchema;
 }
 
 export function importLibrary<Schemata extends Schema[]>(
-  input: unknown,
+  file: unknown,
   ...types: Schemata
-): { library?: Record<string, Infer<Schemata[number]>>; error?: z.ZodError } {
-  const parsed = typeof input === "string" ? JSON.parse(input) : input;
-  const schema = createLibrarySchema(...types);
+): {
+  library?: Library<Infer<Schemata[number]>>;
+  error?: z.ZodError;
+} {
+  const withName = getLibraryTopLevel(types);
 
-  // TODO: query string validation
-  const { data, error } = schema.safeParse(
-    parsed,
-  );
+  const schema = z.record(z.string(), withName).and(z.object({
+    $schema: z.string().optional(),
+  }));
 
-  return { library: data?.library, error };
+  const { error, data } = schema.safeParse(file);
+
+  const cleaned = data
+    ? Object.fromEntries(
+      Object.entries(data).map(([key, value]) => {
+        if (
+          typeof value === "object" && value.$type === "ENTRY" &&
+          "name" in value && "value" in value
+        ) {
+          return [value.name, value.value];
+        }
+
+        return [key, value];
+      }),
+    )
+    : undefined;
+
+  return { library: cleaned as Library<Infer<Schemata[number]>>, error };
 }
 
 export function lookup<N extends Node>(
